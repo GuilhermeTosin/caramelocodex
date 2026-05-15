@@ -1,0 +1,246 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Input } from "./ui/input";
+import { Search, MapPin, X } from "lucide-react";
+import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
+
+interface SearchInputWithSuggestionsProps {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder: string;
+  icon: "search" | "location";
+  onSubmit?: (
+    value?: string,
+    meta?: {
+      lat?: number;
+      lng?: number;
+      city?: string;
+      stateCode?: string;
+      countryCode?: string;
+      placeId?: string;
+    }
+  ) => void;
+  className?: string;
+  inputClassName?: string;
+  useGooglePlaces?: boolean;
+  locationBias?: { lat: number; lng: number } | null;
+}
+
+function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
+  const components = place.address_components || [];
+
+  const byType = (type: string) =>
+    components.find((c) => c.types.includes(type))?.long_name || "";
+
+  return (
+    byType("locality") ||
+    byType("postal_town") ||
+    byType("administrative_area_level_2") ||
+    byType("sublocality") ||
+    byType("sublocality_level_1") ||
+    place.name ||
+    ""
+  ).trim();
+}
+
+export default function SearchInputWithSuggestions({
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+  icon,
+  onSubmit,
+  className = "",
+  inputClassName = "",
+  useGooglePlaces = false,
+  locationBias = null,
+}: SearchInputWithSuggestionsProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const canUseGooglePlaces = useGooglePlaces && icon === "location" && isMapsApiAvailable();
+
+  const filteredSuggestions = useMemo(() => {
+    if (canUseGooglePlaces) return [];
+    if (value.length < 2) return [];
+    return suggestions
+      .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+      .slice(0, 6);
+  }, [suggestions, value, canUseGooglePlaces]);
+
+  const showSuggestions = isOpen && filteredSuggestions.length > 0;
+
+  useEffect(() => {
+    if (!canUseGooglePlaces || !inputRef.current) return;
+
+    let mounted = true;
+    const inputEl = inputRef.current;
+
+    const syncFromNativeInput = () => {
+      const currentValue = inputEl.value || "";
+      if (currentValue !== value) {
+        onChange(currentValue);
+      }
+    };
+
+    inputEl.addEventListener("input", syncFromNativeInput);
+
+    loadGoogleMapsApi()
+      .then(() => {
+        if (!mounted || !inputRef.current) return;
+
+        if (autocompleteRef.current) {
+          google.maps.event.clearInstanceListeners(autocompleteRef.current);
+          autocompleteRef.current = null;
+        }
+
+        const ac = new google.maps.places.Autocomplete(inputRef.current, {
+          fields: ["formatted_address", "name", "address_components", "geometry", "place_id"],
+          types: ["geocode"],
+        });
+
+        if (locationBias) {
+          const bounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng(locationBias.lat - 2, locationBias.lng - 2),
+            new google.maps.LatLng(locationBias.lat + 2, locationBias.lng + 2)
+          );
+          ac.setBounds(bounds);
+          ac.setOptions({ strictBounds: false });
+        }
+
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          const selected = place.formatted_address || inputRef.current?.value || "";
+          const extractedCity = extractCityFromPlace(place);
+          const components = place.address_components || [];
+          const stateCode = components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name || "";
+          const countryCode = components.find((c) => c.types.includes("country"))?.short_name || "";
+          const lat = place.geometry?.location?.lat?.();
+          const lng = place.geometry?.location?.lng?.();
+          onChange(selected);
+          setIsOpen(false);
+          if (onSubmit) {
+            onSubmit(selected, {
+              lat,
+              lng,
+              city: extractedCity,
+              stateCode: stateCode.toLowerCase(),
+              countryCode: countryCode.toLowerCase(),
+              placeId: place.place_id,
+            });
+          }
+        });
+
+        autocompleteRef.current = ac;
+      })
+      .catch(() => {
+        // fallback silencioso para sugestões locais
+      });
+
+    return () => {
+      mounted = false;
+      inputEl.removeEventListener("input", syncFromNativeInput);
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
+  }, [canUseGooglePlaces, onChange, onSubmit, locationBias, value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelect = (suggestion: string) => {
+    onChange(suggestion);
+    setIsOpen(false);
+    if (onSubmit) onSubmit(suggestion);
+  };
+
+  return (
+    <div ref={containerRef} className={`relative flex-1 ${className}`}>
+      {icon === "search" ? (
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
+      ) : (
+        <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/60" />
+      )}
+      
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (!canUseGooglePlaces) {
+            setIsOpen(e.target.value.length >= 2);
+          }
+        }}
+        onBlur={() => {
+          if (canUseGooglePlaces && inputRef.current) {
+            const currentValue = inputRef.current.value || "";
+            if (currentValue !== value) {
+              onChange(currentValue);
+            }
+          }
+        }}
+        onFocus={() => !canUseGooglePlaces && value.length >= 2 && filteredSuggestions.length > 0 && setIsOpen(true)}
+        placeholder={placeholder}
+        className={`h-full pl-14 pr-12 text-lg border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50 w-full ${inputClassName}`}
+      />
+
+      {value && (
+        <button
+          type="button"
+          onClick={() => {
+            onChange("");
+            setIsOpen(false);
+          }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-secondary text-muted-foreground"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+
+      {showSuggestions && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border shadow-2xl rounded-2xl overflow-hidden z-[10000] animate-in fade-in slide-in-from-top-2 duration-200">
+          <ul
+            className="py-2"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && filteredSuggestions.length === 1) {
+                e.preventDefault();
+                handleSelect(filteredSuggestions[0]);
+              }
+            }}
+          >
+            {filteredSuggestions.map((suggestion, index) => (
+              <li key={index} onMouseDown={(e) => e.preventDefault()}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(suggestion);
+                  }}
+                  onClick={() => handleSelect(suggestion)}
+                  className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors"
+                >
+                  {icon === "search" ? (
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="text-foreground font-medium">{suggestion}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

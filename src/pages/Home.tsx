@@ -1,0 +1,522 @@
+﻿import { useState, useEffect, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { siteContent, MASCOT_PHRASES } from "@/data/siteContent";
+import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
+import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
+import type { BusinessFrontend } from "@/types/database";
+import { useAuth } from "@/contexts/AuthContext";
+import { calculateDistance, getCurrentPosition } from "@/lib/utils/geo";
+import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
+import SiteFooter from "@/components/SiteFooter";
+import { setSeoMeta } from "@/lib/seo";
+
+const CATEGORIES = [
+  { name: "Alimentação", icon: Utensils, aliases: ["Alimentação", "Alimentacao"] },
+  { name: "Saúde & Beleza", icon: HeartPulse, aliases: ["Saúde & Beleza", "Saude e Beleza"] },
+  { name: "Automotivo", icon: Car, aliases: ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"] },
+  { name: "Construção", icon: Hammer, aliases: ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"] },
+  { name: "Advocacia & Traduções", icon: Scale, aliases: ["Advocacia", "Advocacia & Consultoria"] },
+  { name: "Educação", icon: GraduationCap, aliases: ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"] },
+  { name: "Contabilidade", icon: Landmark, aliases: ["Contabilidade & Finanças", "Contabilidade", "Finanças", "Financas"] },
+  { name: "Comércio", icon: ShoppingBag, aliases: ["Comércio & Varejo", "Comercio & Varejo", "Comércio", "Comercio"] },
+  { name: "Transporte & Mudança", icon: Truck, aliases: ["Transporte & Mudança", "Transporte & Mudancas", "Transporte & Mudanças", "Transporte"] },
+  { name: "Imobiliária", icon: Building2, aliases: ["Imobiliária", "Imobiliaria"] },
+  { name: "Artistas", icon: Music, aliases: ["Artistas", "Arte", "Música", "Musica"] },
+  { name: "Serviços para Pets", icon: PawPrint, aliases: ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"] },
+  { name: "Cuidados Infantis e de Idosos", icon: User, aliases: ["Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "Babá", "Baba", "Acompanhante", "Cuidadora", "Cuidador"] },
+  { name: "Diaristas", icon: SprayCan, aliases: ["Diaristas", "Diarista", "Faxina", "Limpeza"] },
+  { name: "Outros", icon: MoreHorizontal, aliases: ["Outros"] },
+];
+
+const countryCodeToFlag = (countryCode: string) => {
+  const normalized = (countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return String.fromCodePoint(0x1F30E);
+
+  const A = 65;
+  const REGIONAL_INDICATOR_A = 0x1F1E6;
+  return String.fromCodePoint(...normalized.split("").map((char) => REGIONAL_INDICATOR_A + char.charCodeAt(0) - A));
+};
+
+export default function Home() {
+  const navigate = useNavigate();
+  const { session, unreadMessages } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
+  const [featuredBusinesses, setFeaturedBusinesses] = useState<BusinessFrontend[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    setSeoMeta(
+      "Caramelinho.com | Encontre negócios brasileiros no exterior",
+      "Encontre negócios brasileiros no mundo todo: alimentação, saúde, advocacia, educação e muito mais perto de você."
+    );
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const businesses = await getAllBusinesses();
+      const coords = await getCurrentPosition();
+      let regionalBusinesses = [...businesses];
+      let region: FeaturedRegion | null = null;
+      
+      if (coords) {
+        setUserCoords(coords);
+        // Ordenar por distância
+        regionalBusinesses = [...businesses].sort((a, b) => {
+          const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
+          const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
+          return distA - distB;
+        });
+        const nearest = regionalBusinesses[0];
+        if (nearest) {
+          region = {
+            countryCode: nearest.address.countryCode,
+            stateCode: nearest.address.stateCode,
+            city: nearest.address.city,
+          };
+        }
+      }
+
+      const regionalFeatured = await getFeaturedBusinessesForRegion(region, 6);
+      
+      setAllBusinesses(regionalBusinesses);
+      setFeaturedBusinesses(regionalFeatured.length > 0 ? regionalFeatured : regionalBusinesses);
+    };
+
+    loadData();
+    getAvailableLocations().then(locations => {
+      const cities = new Set<string>();
+      locations.forEach(l => {
+        l.states.forEach((s) => {
+          s.cities.forEach((c: string) => cities.add(c));
+        });
+      });
+      setCitySuggestions(Array.from(cities));
+    });
+    getSearchSuggestions().then(setSearchSuggestions);
+  }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    if (locationQuery.trim()) params.set("cidade", locationQuery.trim());
+    
+    // Se o usuário selecionou uma cidade que sabemos o país/estado, podemos ser mais específicos
+    // Mas por simplicidade no momento, passamos apenas como query de cidade
+    navigate(`/buscar?${params.toString()}`);
+  };
+
+  const [mascotPhrase] = useState(() => MASCOT_PHRASES[Math.floor(Math.random() * MASCOT_PHRASES.length)]);
+  const categories = useMemo(() => {
+    return CATEGORIES.map((cat) => ({
+      ...cat,
+      count: allBusinesses.filter((biz) => {
+        const category = normalizeText(biz.category);
+        return cat.aliases.some((alias) => category.includes(normalizeText(alias)));
+      }).length,
+    }));
+  }, [allBusinesses]);
+
+  const popularCities = useMemo(() => {
+    const cityCounts = new Map<string, { name: string; countryCode: string; count: number }>();
+
+    allBusinesses.forEach((biz) => {
+      const city = biz.address.city?.trim();
+      if (!city) return;
+
+      const countryCode = biz.address.countryCode?.toLowerCase() || "";
+      const key = `${normalizeText(city)}-${countryCode}`;
+      const current = cityCounts.get(key);
+
+      cityCounts.set(key, {
+        name: current?.name || city,
+        countryCode,
+        count: (current?.count || 0) + 1,
+      });
+    });
+
+    return Array.from(cityCounts.values())
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 6)
+      .map((city) => ({
+        ...city,
+        flag: countryCodeToFlag(city.countryCode),
+      }));
+  }, [allBusinesses]);
+
+  return (
+    <div className="min-h-screen">
+      {/* Header/Nav */}
+      <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20 sm:h-24">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="leading-tight">
+                <div className="font-extrabold text-lg sm:text-xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-[11px] sm:text-xs font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+              </div>
+            </Link>
+            
+            <div className="flex items-center gap-3 sm:gap-4">
+              {session ? (
+                <div className="flex items-center gap-2">
+                  <Link to="/perfil?tab=mensagens" className="relative group">
+                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary">
+                      <MessageCircle className="w-5 h-5" />
+                      {unreadMessages > 0 && (
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                          {unreadMessages > 9 ? "9+" : unreadMessages}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                  <Link to="/perfil">
+                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-2 px-4">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-3 h-3 text-primary" />
+                      </div>
+                      <span className="font-medium">{session.name.split(" ")[0]}</span>
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link to="/entrar">
+                    <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground hover:text-foreground">Entrar</Button>
+                  </Link>
+                  <Link to="/cadastro">
+                    <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
+                      Cadastrar negócio
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 caramelo-gradient opacity-5" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-200/20 via-transparent to-transparent" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-28 relative">
+          <div className="max-w-3xl mx-auto text-center">
+            <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
+              <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
+              {mascotPhrase}
+            </Badge>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground">
+              <span>Encontre </span>
+              <span
+                className="bg-clip-text text-transparent"
+                style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
+              >
+                negócios brasileiros
+              </span>
+              <span> no mundo todo</span>
+            </h1>
+            <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed whitespace-pre-line">
+              {siteContent.heroSubtitle}
+            </p>
+
+            {/* Dual Search Bar */}
+            <form onSubmit={handleSearch} className="mt-10 max-w-4xl mx-auto">
+              <div className="flex flex-col sm:flex-row gap-0 rounded-3xl border border-border bg-white shadow-xl focus-within:ring-2 ring-primary/20 transition-all h-auto sm:h-24">
+                <SearchInputWithSuggestions
+                  className="sm:flex-[1.6]"
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  suggestions={searchSuggestions}
+                  placeholder="O que vocAª procura? (ex: Padaria)"
+                  icon="search"
+                  inputClassName="text-xl sm:text-2xl placeholder:text-xs sm:placeholder:text-sm"
+                />
+                <div className="hidden sm:block w-px h-10 bg-border/50 self-center" />
+                <SearchInputWithSuggestions
+                  className="sm:flex-[0.9]"
+                  value={locationQuery}
+                  onChange={setLocationQuery}
+                  suggestions={citySuggestions}
+                  placeholder="Em qual cidade?"
+                  icon="location"
+                  inputClassName="text-xl sm:text-2xl placeholder:text-xs sm:placeholder:text-sm"
+                />
+                <div className="p-3 flex items-center">
+                  <Button type="submit" size="lg" className="h-12 sm:h-14 px-10 caramelo-gradient hover:opacity-90 text-white border-0 font-bold text-base" style={{ borderRadius: "12px" }}>
+                    Farejar
+                  </Button>
+                </div>
+              </div>
+            </form>
+
+            {/* Quick tags */}
+            <div className="mt-6 flex flex-wrap gap-2 justify-center">
+              {["Padaria", "MecA¢nico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    setSearchQuery(tag);
+                    navigate(`/buscar?q=${encodeURIComponent(tag)}`);
+                  }}
+                  className="px-3 py-1.5 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-amber-100 transition-colors"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Bar */}
+      <section className="border-y border-border bg-secondary/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            {[
+              { label: "Negócios Cadastrados", value: "350+", icon: Store },
+              { label: "Cidades Atendidas", value: "120+", icon: MapPin },
+              { label: "PaA­ses", value: "15+", icon: Briefcase },
+              { label: "Avaliações", value: "2.5K+", icon: Star },
+            ].map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center gap-1">
+                <stat.icon className="w-5 h-5 text-amber-600" />
+                <span className="text-2xl font-bold text-foreground">{stat.value}</span>
+                <span className="text-sm text-muted-foreground">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Categories Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground">Categorias</h2>
+          <p className="mt-3 text-muted-foreground">Navegue por categoria para encontrar o que precisa</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map((cat) => (
+            <button
+              key={cat.name}
+              onClick={() => navigate(`/buscar?categoria=${encodeURIComponent(cat.name)}`)}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card border border-border card-hover"
+            >
+              <cat.icon className="w-7 h-7 text-primary" />
+              <span className="font-medium text-sm">{cat.name}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Featured Businesses */}
+      <section className="bg-secondary/30 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">Negócios em Destaque</h2>
+              <p className="mt-2 text-muted-foreground">Recomendados pelo Caramelinho</p>
+            </div>
+            <Button variant="outline" onClick={() => navigate("/buscar")}>
+              Ver Todos <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredBusinesses.slice(0, 6).map((biz) => (
+              <Link
+                key={biz.id}
+                to={buildBusinessUrl(biz)}
+                className="group"
+              >
+                <Card className="overflow-hidden border-border card-hover h-full">
+                  <div className="aspect-[16/9] bg-muted relative overflow-hidden">
+                    <img
+                      src={biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"}
+                      alt={biz.name}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
+                      loading="lazy"
+                    />
+                    <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
+                      {biz.category.split("(")[0].trim()}
+                    </Badge>
+                    {biz.averageRating > 0 && (
+                      <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
+                        <Star className="w-3 h-3 fill-current" />
+                        {biz.averageRating.toFixed(1)}
+                      </Badge>
+                    )}
+                    {userCoords && (
+                      <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                        <MapPin className="w-2.5 h-2.5" />
+                        {calculateDistance(userCoords.lat, userCoords.lng, biz.address.lat, biz.address.lng).toFixed(1)} km
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      {biz.logoUrl && (
+                        <img src={biz.logoUrl} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-border" />
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-foreground truncate group-hover:text-amber-600 transition-colors">
+                          {biz.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {biz.address.city}, {biz.address.country}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {biz.description}
+                    </p>
+                    {biz.services.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {biz.services.slice(0, 3).map((svc) => (
+                          <span key={svc} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                            {svc}
+                          </span>
+                        ))}
+                        {biz.services.length > 3 && (
+                          <span className="text-xs text-muted-foreground">+{biz.services.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {featuredBusinesses.length === 0 && (
+            <div className="text-center py-12">
+              <PawPrint className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">Nenhum negócio encontrado ainda.</p>
+              <p className="text-sm text-muted-foreground mt-1">Seja o primeiro a cadastrar!</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Cities Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground">Cidades Populares</h2>
+          <p className="mt-3 text-muted-foreground">Descubra negócios brasileiros pelo mundo</p>
+        </div>
+        <div className="w-full flex flex-wrap justify-center gap-4">
+          {popularCities.map((city) => (
+            <button
+              key={`${city.countryCode}-${city.name}`}
+              onClick={() => navigate(`/buscar?cidade=${encodeURIComponent(city.name)}`)}
+              className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
+            >
+                            {city.countryCode.toLowerCase() === "ca" ? (
+                <img
+                  src="https://flagcdn.com/w40/ca.png"
+                  alt="Bandeira do Canad?"
+                  className="h-5 w-7 object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-2xl">{city.flag}</span>
+              )}
+              <span className="font-medium text-sm">{city.name}</span>
+              <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-muted text-foreground py-20 border-y border-border">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="w-16 h-16 bg-white border border-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+            <PawPrint className="w-8 h-8 text-emerald-700" />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
+            <span className="text-foreground">Tem um </span>
+            <span
+              className="bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
+            >
+              negócio brasileiro
+            </span>
+            <span className="text-foreground"> no exterior?</span>
+          </h2>
+          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
+            Cadastre seu negócio no Caramelinho e seja encontrado por milhares de brasileiros espalhados pelo mundo!
+          </p>
+          <div className="flex justify-center">
+            <Button size="lg" className="caramelo-gradient text-white border-0 font-bold" onClick={() => navigate("/cadastro")}>
+              Criar Conta Gratuita
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function formatBusinessCount(count: number): string {
+  return `${count} ${count === 1 ? "negócio" : "negócios"}`;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
