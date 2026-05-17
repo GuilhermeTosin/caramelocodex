@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, User, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function Register() {
       return;
     }
     if (password !== confirmPassword) {
-      setError("As senhas nÃ£o conferem.");
+      setError("As senhas não conferem.");
       return;
     }
 
@@ -50,7 +50,7 @@ export default function Register() {
 
     if (signUpError) {
       if (signUpError.message.includes("already")) {
-        setError("Este email jÃ¡ estÃ¡ cadastrado.");
+        setError("Este email já está cadastrado.");
       } else {
         setError(signUpError.message);
       }
@@ -69,10 +69,10 @@ export default function Register() {
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-3">Cadastro realizado!</h1>
           <p className="text-muted-foreground mb-2">
-            Enviamos um email de confirmaÃ§Ã£o para <strong>{email}</strong>.
+            Enviamos um email de confirmação para <strong>{email}</strong>.
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Clique no link enviado para ativar sua conta e comeÃ§ar a usar o Caramelinho.
+            Clique no link enviado para ativar sua conta e começar a usar o Caramelinho.
           </p>
           <div className="flex flex-col gap-3">
             <Button onClick={() => navigate("/entrar")}>
@@ -80,7 +80,7 @@ export default function Register() {
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button variant="outline" onClick={() => navigate("/")}>
-              Voltar ao InÃ­cio
+              Voltar ao Início
             </Button>
           </div>
         </Card>
@@ -155,7 +155,7 @@ export default function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="MÃ­nimo 6 caracteres"
+                  placeholder="Mínimo 6 caracteres"
                   className="pl-10"
                   autoComplete="new-password"
                 />
@@ -185,9 +185,9 @@ export default function Register() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
-              JÃ¡ tem conta?{" "}
+              Já tem conta?{" "}
               <Link to="/entrar" className="text-amber-600 hover:text-amber-700 font-medium">
-                FaÃ§a login
+                Faça login
               </Link>
             </p>
           </div>
@@ -196,7 +196,6 @@ export default function Register() {
     </div>
   );
 }
-
 
 
 

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,88 +35,123 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
-  dentista: ["Sa\u00fade & Beleza", "Cl\u00ednica Dental", "Odontologia", "Dente"],
-  mecanico: ["Servi\u00e7os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  mecanica: ["Servi\u00e7os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  comida: ["Alimenta\u00e7\u00e3o", "Restaurante", "Lanche", "Marmita"],
-  restaurante: ["Alimenta\u00e7\u00e3o"],
-  padaria: ["Alimenta\u00e7\u00e3o"],
-  doce: ["Alimenta\u00e7\u00e3o", "Confeitaria"],
-  advogado: ["Advocacia & Consultoria", "Jur\u00eddico", "Lei"],
-  tradutor: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
-  traducao: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
-  tradu\u00e7\u00e3o: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
-  imigracao: ["Advocacia & Consultoria", "Imigra\u00e7\u00e3o", "Visto"],
-  imigra\u00e7\u00e3o: ["Advocacia & Consultoria", "Imigra\u00e7\u00e3o", "Visto"],
-  obra: ["Constru\u00e7\u00e3o & Reformas"],
-  reforma: ["Constru\u00e7\u00e3o & Reformas"],
-  pintor: ["Constru\u00e7\u00e3o & Reformas"],
-  casa: ["Constru\u00e7\u00e3o & Reformas", "Imobili\u00e1ria"],
-  aluguel: ["Imobili\u00e1ria"],
-  venda: ["Com\u00e9rcio & Varejo", "Imobili\u00e1ria"],
-  medico: ["Sa\u00fade & Beleza"],
-  m\u00e9dico: ["Sa\u00fade & Beleza"],
-  unha: ["Sa\u00fade & Beleza", "Manicure"],
-  cabelo: ["Sa\u00fade & Beleza", "Cabeleireiro"],
+  dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
+  mecanico: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  mecanica: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  comida: ["Alimentação", "Restaurante", "Lanche", "Marmita"],
+  restaurante: ["Alimentação"],
+  padaria: ["Alimentação"],
+  doce: ["Alimentação", "Confeitaria"],
+  advogado: ["Advocacia & Consultoria", "Jurídico", "Lei"],
+  tradutor: ["Advocacia & Consultoria", "Tradução", "Imigração"],
+  traducao: ["Advocacia & Consultoria", "Tradução", "Imigração"],
+  imigracao: ["Advocacia & Consultoria", "Imigração", "Visto"],
+  obra: ["Construção & Reformas"],
+  reforma: ["Construção & Reformas"],
+  pintor: ["Construção & Reformas"],
+  casa: ["Construção & Reformas", "Imobiliária"],
+  aluguel: ["Imobiliária"],
+  venda: ["Comércio & Varejo", "Imobiliária"],
+  medico: ["Saúde & Beleza"],
+  unha: ["Saúde & Beleza", "Manicure"],
+  cabelo: ["Saúde & Beleza", "Cabeleireiro"],
 };
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "caf\u00e9", "almo\u00e7o", "jantar", "marmita"],
-  "Servi\u00e7os Automotivos": ["mecanico", "oficina", "carro", "conserto", "pneu", "\u00f3leo", "auto", "manuten\u00e7\u00e3o", "reparo"],
-  "Sa\u00fade & Beleza": ["dentista", "m\u00e9dico", "cl\u00ednica", "est\u00e9tica", "sal\u00e3o", "cabelo", "unha", "manicure", "pedicure", "terapia", "psic\u00f3logo"],
-  "Constru\u00e7\u00e3o & Reformas": ["obra", "reforma", "pintor", "pedreiro", "eletricista", "encanador", "casa", "apartamento", "telhado"],
-  "Advocacia & Consultoria": ["advogado", "jur\u00eddico", "lei", "processo", "visto", "imigra\u00e7\u00e3o", "consultor", "tradutor", "tradu\u00e7\u00e3o", "traducoes", "tradu\u00e7\u00f5es", "documentos"],
-  "Contabilidade & Finan\u00e7as": ["contador", "imposto", "tax", "finan\u00e7as", "investimento", "dinheiro", "empresa"],
-  "Educa\u00e7\u00e3o & Idiomas": ["escola", "curso", "professor", "aula", "ingl\u00eas", "franc\u00eas", "portugu\u00eas", "aprendizado"],
-  "Tecnologia & TI": ["programador", "software", "computador", "celular", "site", "desenvolvimento", "suporte"],
-  "Com\u00e9rcio & Varejo": ["loja", "venda", "produto", "mercado", "roupa", "acess\u00f3rios"],
-  "Transporte & Mudan\u00e7a": ["mudan\u00e7a", "frete", "entrega", "log\u00edstica", "caminh\u00e3o", "envio"],
-  "Servi\u00e7os para Pets": ["pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario", "veterin\u00e1rio"],
-  "Cuidados Infantis e de Idosos": ["bab\u00e1", "baba", "babysitter", "acompanhante", "cuidadora", "cuidador", "crian\u00e7a", "crian\u00e7as"],
-  "Diaristas": ["diarista", "diaristas", "faxina", "limpeza", "limpar", "casa"],
-  "Imobili\u00e1ria": ["casa", "apartamento", "aluguel", "venda", "im\u00f3vel", "corretor"],
-  "Turismo & Viagens": ["viagem", "passagem", "hotel", "turismo", "guia", "excursao"],
+  "Alimentação (Restaurantes, Padarias, Cafés)": [
+    "restaurante", "lanchonete", "lanches", "padaria", "comida", 
+    "gastronomia", "cafe", "almoco", "jantar", "marmita"
+  ],
+  "Serviços Automotivos": [
+    "mecanico", "oficina", "carro", "conserto", "pneu", 
+    "oleo", "auto", "manutencao", "reparo"
+  ],
+  "Saúde & Beleza": [
+    "dentista", "medico", "clinica", "estetica", "salao", 
+    "cabelo", "unha", "manicure", "pedicure", "terapia", "psicologo"
+  ],
+  "Construção & Reformas": [
+    "obra", "reforma", "pintor", "pedreiro", "eletricista", 
+    "encanador", "casa", "apartamento", "telhado"
+  ],
+  "Advocacia & Consultoria": [
+    "advogado", "juridico", "lei", "processo", "visto", 
+    "imigracao", "consultor", "tradutor", "traducao", "traducoes", "documentos"
+  ],
+  "Contabilidade & Finanças": [
+    "contador", "imposto", "tax", "financas", "investimento", 
+    "dinheiro", "empresa"
+  ],
+  "Educação & Idiomas": [
+    "escola", "curso", "professor", "aula", "ingles", 
+    "frances", "portugues", "aprendizado"
+  ],
+  "Tecnologia & TI": [
+    "programador", "software", "computador", "celular", 
+    "site", "desenvolvimento", "suporte"
+  ],
+  "Comércio & Varejo": [
+    "loja", "venda", "produto", "mercado", "roupa", "acessorios"
+  ],
+  "Transporte & Mudança": [
+    "mudanca", "frete", "entrega", "logistica", "caminhao", "envio"
+  ],
+  "Serviços para Pets": [
+    "pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario"
+  ],
+  "Cuidados Infantis e de Idosos": [
+    "baba", "babysitter", "acompanhante", "cuidadora", "cuidador", "crianca"
+  ],
+  "Diaristas": [
+    "diarista", "faxina", "limpeza", "limpar", "casa"
+  ],
+  "Imobiliária": [
+    "casa", "apartamento", "aluguel", "venda", "imovel", "corretor"
+  ],
+  "Turismo & Viagens": [
+    "viagem", "passagem", "hotel", "turismo", "guia", "excursao"
+  ],
 };
 
 const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
-  [normalizeText("Alimenta\u00e7\u00e3o")]: ["Alimenta\u00e7\u00e3o", "Alimentacao"],
-  [normalizeText("Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)")]: ["Alimenta\u00e7\u00e3o", "Alimentacao"],
-  [normalizeText("Sa\u00fade & Beleza")]: ["Sa\u00fade & Beleza", "Saude e Beleza"],
-  [normalizeText("Saude e Beleza")]: ["Sa\u00fade & Beleza", "Saude e Beleza"],
-  [normalizeText("Automotivo")]: ["Automotivo", "Servi\u00e7os Automotivos", "Servicos Automotivos"],
-  [normalizeText("Servi\u00e7os Automotivos")]: ["Automotivo", "Servi\u00e7os Automotivos", "Servicos Automotivos"],
-  [normalizeText("Constru\u00e7\u00e3o")]: ["Constru\u00e7\u00e3o", "Construcao", "Constru\u00e7\u00e3o & Reformas", "Construcao & Reformas"],
-  [normalizeText("Constru\u00e7\u00e3o & Reformas")]: ["Constru\u00e7\u00e3o", "Construcao", "Constru\u00e7\u00e3o & Reformas", "Construcao & Reformas"],
-  [normalizeText("Advocacia")]: ["Advocacia", "Advocacia & Consultoria"],
-  [normalizeText("Advocacia & Consultoria")]: ["Advocacia", "Advocacia & Consultoria"],
-  [normalizeText("Educa\u00e7\u00e3o")]: ["Educa\u00e7\u00e3o", "Educacao", "Educa\u00e7\u00e3o & Idiomas", "Educacao & Idiomas"],
-  [normalizeText("Educa\u00e7\u00e3o & Idiomas")]: ["Educa\u00e7\u00e3o", "Educacao", "Educa\u00e7\u00e3o & Idiomas", "Educacao & Idiomas"],
-  [normalizeText("Transporte & Mudan\u00e7a")]: ["Transporte & Mudan\u00e7a", "Transporte & Mudanca", "Transporte & Mudancas"],
-  [normalizeText("Transporte & Mudancas")]: ["Transporte & Mudan\u00e7a", "Transporte & Mudanca", "Transporte & Mudancas"],
-  [normalizeText("Servi\u00e7os para Pets")]: ["Servi\u00e7os para Pets", "Servicos para Pets", "Pet", "Pets"],
-  [normalizeText("Cuidados Infantis e de Idosos")]: ["Cuidados Infantis e de Idosos", "Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "Babas & Acompanhantes", "Baba", "Baba", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
-  [normalizeText("Diaristas")]: ["Diaristas", "Diarista", "Faxina", "Limpeza"],
+  "alimentacao": ["Alimentação", "Alimentacao"],
+  "alimentacao (restaurantes, padarias, cafes)": ["Alimentação", "Alimentacao"],
+  "saude & beleza": ["Saúde & Beleza", "Saude e Beleza"],
+  "saude e beleza": ["Saúde & Beleza", "Saude e Beleza"],
+  "automotivo": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
+  "servicos automotivos": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
+  "construcao": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
+  "construcao & reformas": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
+  "advocacia": ["Advocacia", "Advocacia & Consultoria"],
+  "advocacia & consultoria": ["Advocacia", "Advocacia & Consultoria"],
+  "educacao": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
+  "educacao & idiomas": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
+  "transporte & mudanca": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "transporte & mudancas": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "servicos para pets": ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"],
+  "cuidados infantis e de idosos": ["Cuidados Infantis e de Idosos", "Babás & Acompanhantes", "Babá", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
+  "diaristas": ["Diaristas", "Diarista", "Faxina", "Limpeza"],
 };
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
-  "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)": "restaurantes, padarias e caf\u00e9s",
-  "Servi\u00e7os Automotivos": "oficinas e servi\u00e7os automotivos",
-  "Sa\u00fade & Beleza": "servi\u00e7os de sa\u00fade e beleza",
-  "Constru\u00e7\u00e3o & Reformas": "servi\u00e7os de constru\u00e7\u00e3o e reformas",
-  "Advocacia & Consultoria": "advocacia, tradu\u00e7\u00f5es e consultoria de imigra\u00e7\u00e3o",
-  "Contabilidade & Finan\u00e7as": "contabilidade e finan\u00e7as",
-  "Educa\u00e7\u00e3o & Idiomas": "educa\u00e7\u00e3o e idiomas",
+  "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
+  "Serviços Automotivos": "oficinas e serviços automotivos",
+  "Saúde & Beleza": "serviços de saúde e beleza",
+  "Construção & Reformas": "serviços de construção e reformas",
+  "Advocacia & Consultoria": "advocacia, traduções e consultoria de imigração",
+  "Contabilidade & Finanças": "contabilidade e finanças",
+  "Educação & Idiomas": "educação e idiomas",
   "Tecnologia & TI": "tecnologia e TI",
-  "Com\u00e9rcio & Varejo": "com\u00e9rcio e varejo",
-  "Transporte & Mudan\u00e7a": "transporte e mudan\u00e7a",
-  "Servi\u00e7os para Pets": "servi\u00e7os para pets",
+  "Comércio & Varejo": "comércio e varejo",
+  "Transporte & Mudança": "transporte e mudança",
+  "Serviços para Pets": "serviços para pets",
   "Cuidados Infantis e de Idosos": "cuidados infantis e de idosos",
-  "Diaristas": "diaristas e servi\u00e7os de limpeza",
-  "Imobili\u00e1ria": "imobili\u00e1rias e corretores",
+  "Diaristas": "diaristas e serviços de limpeza",
+  "Imobiliária": "imobiliárias e corretores",
   "Turismo & Viagens": "turismo e viagens",
-  "Outros": "servi\u00e7os diversos",
+  "Outros": "serviços diversos",
 };
 
 export default function SearchResults() {
@@ -264,22 +299,22 @@ export default function SearchResults() {
     }
 
     if (parts.length > 0) {
-      return `N\u00E3o encontramos resultados ${parts.join(" ")}.`;
+      return `Não encontramos resultados ${parts.join(" ")}.`;
     }
 
-    return "O Caramelinho n\u00E3o achou nada com esses crit\u00E9rios.";
+    return "O Caramelinho não achou nada com esses critérios.";
   }, [categoryFilter, cityFilter, locationFilter]);
 
 
   useEffect(() => {
-    const baseTitle = "Buscar neg\u00f3cios brasileiros";
+    const baseTitle = "Buscar negócios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "neg\u00f3cios e servi\u00e7os";
+    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negócios e serviços";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare op\u00e7\u00f5es perto de voc\u00ea e fale direto com os neg\u00f3cios.`
+      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
   }, [query, categoryFilter, cityFilter]);
 
@@ -344,7 +379,7 @@ export default function SearchResults() {
       });
     }
 
-    // Expans?o progressiva quando zera: 50km (padr?o) -> 150km -> estado/prov?ncia.
+    // Expansão progressiva quando zera: 50km (padrão) -> 150km -> estado/província.
     if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
       const baseScoped = baseBusinesses.filter((b) => {
         const passesQuery = !query || (
@@ -493,26 +528,26 @@ export default function SearchResults() {
         params.set("raio", "50");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("Localiza\u00e7\u00e3o exata bloqueada. Usei localiza\u00e7\u00e3o aproximada por IP.");
+        window.alert("Localização exata bloqueada. Usei localização aproximada por IP.");
         return;
       }
       if (!window.isSecureContext) {
-        window.alert("Geolocaliza\u00e7\u00e3o exige contexto seguro. Abra em localhost ou HTTPS.");
+        window.alert("Geolocalização exige contexto seguro. Abra em localhost ou HTTPS.");
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("Permiss\u00e3o de localiza\u00e7\u00e3o negada pelo navegador/dispositivo.");
+        window.alert("Permissão de localização negada pelo navegador/dispositivo.");
         return;
       }
       if (geoError?.code === 2) {
-        window.alert("Localizaaao indisponavel no momento. Tente novamente em alguns segundos.");
+        window.alert("Localização indisponível no momento. Tente novamente em alguns segundos.");
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localiza\u00e7\u00e3o. Tente novamente.");
+        window.alert("Tempo esgotado para obter localização. Tente novamente.");
         return;
       }
-      window.alert("N\u00e3o consegui acessar sua localiza\u00e7\u00e3o. Verifique bloqueadores/extens\u00f5es e permiss\u00f5es do navegador.");
+      window.alert("Não consegui acessar sua localização. Verifique bloqueadores/extensões e permissões do navegador.");
       return;
     }
 
@@ -580,7 +615,7 @@ export default function SearchResults() {
           <SelectItem value="all">Todas as categorias</SelectItem>
           {BUSINESS_CATEGORIES.filter((cat) => cat !== "Turismo & Viagens").map((cat) => (
               <SelectItem key={cat} value={cat}>
-               {cat.startsWith("Advocacia & Consultoria") ? "Advocacia & TraduÃ§Ãµes" : cat.split("(")[0].trim()}
+               {cat.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduções" : cat.split("(")[0].trim()}
               </SelectItem>
           ))}
         </SelectContent>
@@ -603,10 +638,10 @@ export default function SearchResults() {
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="PaÃ­s" />
+          <SelectValue placeholder="Paí­s" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos os paÃ­ses</SelectItem>
+          <SelectItem value="all">Todos os paí­ses</SelectItem>
           {availableLocations.map((loc) => (
             <SelectItem key={loc.countryCode} value={loc.countryCode}>{loc.countryName}</SelectItem>
           ))}
@@ -629,7 +664,7 @@ export default function SearchResults() {
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Estado/ProvÃ­ncia" />
+            <SelectValue placeholder="Estado/Província" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os estados</SelectItem>
@@ -672,12 +707,12 @@ export default function SearchResults() {
       >
         <SelectTrigger className="w-full h-9 text-sm">
           <Navigation className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-          <SelectValue placeholder="DistÃ¢ncia" />
+          <SelectValue placeholder="Distância" />
         </SelectTrigger>
         <SelectContent>
           {RADIUS_OPTIONS.map((radius) => (
             <SelectItem key={radius} value={String(radius)}>
-              AtÃ© {radius} km
+              Até {radius} km
             </SelectItem>
           ))}
         </SelectContent>
@@ -753,7 +788,7 @@ export default function SearchResults() {
               value={searchInput}
               onChange={setSearchInput}
               suggestions={searchSuggestions}
-              placeholder="Buscar por nome, serviÃ§o..."
+              placeholder="Buscar por nome, serviço..."
               icon="search"
               onSubmit={(selectedValue) => {
                 const nextValue = selectedValue ?? searchInput;
@@ -769,7 +804,7 @@ export default function SearchResults() {
               value={locationInput}
               onChange={setLocationInput}
               suggestions={citySuggestions}
-              placeholder="Onde? Cidade, bairro ou endereÃ§o"
+              placeholder="Onde? Cidade, bairro ou endereço"
               icon="location"
               onSubmit={(selectedValue, meta) => {
                 const nextValue = selectedValue ?? locationInput;
@@ -850,8 +885,8 @@ export default function SearchResults() {
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em ata <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localiza\u00e7\u00e3o para usar raio</>}
-          {resolvingLocation && <> localizando refer\u00eancia...</>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localização para usar raio</>}
+          {resolvingLocation && <> localizando referência...</>}
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
@@ -878,7 +913,7 @@ export default function SearchResults() {
                       )}
                       <Button onClick={() => navigate("/")}>
                         <PawPrint className="w-4 h-4 mr-2" />
-                        Voltar ao Inacio
+                        Voltar ao Início
                       </Button>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -263,7 +263,7 @@ export default function Home() {
 
             {/* Quick tags */}
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
-              {["Padaria", "Mec\u00e2nico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
+              {["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
                 <button
                   key={tag}
                   onClick={() => {

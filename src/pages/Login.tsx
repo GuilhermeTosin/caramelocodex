@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,14 +38,14 @@ export default function Login() {
       if (signInError.message.includes("Invalid login credentials")) {
         setError("Email ou senha incorretos.");
       } else if (signInError.message.includes("Email not confirmed")) {
-        setError("Seu email ainda nÃ£o foi confirmado. Verifique sua caixa de entrada ou spam.");
+        setError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada ou spam.");
       } else {
         setError(signInError.message);
       }
       return;
     }
 
-    // O onAuthStateChange no AuthContext cuidarÃ¡ do redirecionamento e carregamento
+    // O onAuthStateChange no AuthContext cuidará do redirecionamento e carregamento
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect") || "/perfil";
     navigate(redirect);
@@ -117,7 +117,7 @@ export default function Login() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
-              Ainda nÃ£o tem conta?{" "}
+              Ainda não tem conta?{" "}
               <Link to="/cadastro" className="text-amber-600 hover:text-amber-700 font-medium">
                 Cadastre-se
               </Link>
@@ -128,7 +128,6 @@ export default function Login() {
     </div>
   );
 }
-
 
 
 

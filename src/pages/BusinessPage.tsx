@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   BadgeCheck,
@@ -80,8 +80,8 @@ export default function BusinessPage() {
   useEffect(() => {
     if (!business) {
       setSeoMeta(
-        "NegÃ³cio brasileiro | Caramelinho.com",
-        "Encontre negÃ³cios perto de vocÃª."
+        "Negócio brasileiro | Caramelinho.com",
+        "Encontre negócios perto de você."
       );
       return;
     }
@@ -92,7 +92,7 @@ export default function BusinessPage() {
     const details = keywordSnippet || serviceSnippet;
     setSeoMeta(
       `${business.name} em ${business.address.city} | ${categoryLabel} | Caramelinho.com`,
-      `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliaÃ§Ãµes, contato e localizaÃ§Ã£o para escolher com confianÃ§a.`
+      `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações, contato e localização para escolher com confiança.`
     );
   }, [business]);
 
@@ -109,11 +109,11 @@ export default function BusinessPage() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reviewRating === 0) {
-      toast.error("Selecione uma avaliaÃ§Ã£o de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
       return;
     }
     if (!business || !session) {
-      toast.error("FaÃ§a login para avaliar");
+      toast.error("Faça login para avaliar");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -129,7 +129,7 @@ export default function BusinessPage() {
 
     const success = await addReview(business.id, reviewData);
     if (success) {
-      // Recarregar o negÃ³cio para mostrar a nova avaliaÃ§Ã£o
+      // Recarregar o negócio para mostrar a nova avaliação
       const updated = await getBusinessBySlug(
         countryCode || "",
         stateCode || "",
@@ -137,9 +137,9 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("AvaliaÃ§Ã£o enviada com sucesso!");
+      toast.success("Avaliação enviada com sucesso!");
     } else {
-      toast.error("Erro ao enviar avaliaÃ§Ã£o.");
+      toast.error("Erro ao enviar avaliação.");
     }
 
     setSendingReview(false);
@@ -149,7 +149,7 @@ export default function BusinessPage() {
 
   const handleSendMessage = async () => {
     if (!session) {
-      toast.info("FaÃ§a login para enviar mensagem");
+      toast.info("Faça login para enviar mensagem");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -157,7 +157,7 @@ export default function BusinessPage() {
     trackBusinessClick(business.id, "internal_message", session.userId);
     
     if (session.userId === business.ownerId) {
-      toast.info("Este Ã© o seu prÃ³prio negÃ³cio!");
+      toast.info("Este é o seu próprio negócio!");
       navigate("/dashboard?tab=mensagens");
       return;
     }
@@ -192,7 +192,7 @@ export default function BusinessPage() {
   const handleSaveEditReview = async () => {
     if (!editingReviewId) return;
     if (editRating === 0) {
-      toast.error("Selecione uma avaliaÃ§Ã£o de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
       return;
     }
     setSavingEditReview(true);
@@ -208,16 +208,16 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("AvaliaÃ§Ã£o atualizada!");
+      toast.success("Avaliação atualizada!");
       cancelEditReview();
     } else {
-      toast.error("Erro ao atualizar avaliaÃ§Ã£o.");
+      toast.error("Erro ao atualizar avaliação.");
     }
     setSavingEditReview(false);
   };
 
   const handleDeleteOwnReview = async (reviewId: string) => {
-    if (!confirm("Tem certeza que deseja remover sua avaliaÃ§Ã£o?")) return;
+    if (!confirm("Tem certeza que deseja remover sua avaliação?")) return;
     const ok = await deleteReview(reviewId);
     if (ok) {
       const updated = await getBusinessBySlug(
@@ -227,10 +227,10 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("AvaliaÃ§Ã£o removida!");
+      toast.success("Avaliação removida!");
       if (editingReviewId === reviewId) cancelEditReview();
     } else {
-      toast.error("Erro ao remover avaliaÃ§Ã£o.");
+      toast.error("Erro ao remover avaliação.");
     }
   };
 
@@ -238,7 +238,7 @@ export default function BusinessPage() {
     if (!business?.whatsapp) return;
     trackBusinessClick(business.id, "whatsapp", session?.userId);
     const wpp = business.whatsapp.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    const text = encodeURIComponent(`OlÃ¡! Vi seu negÃ³cio no Caramelinho.com: ${business.name}`);
+    const text = encodeURIComponent(`Olá! Vi seu negócio no Caramelinho.com: ${business.name}`);
     window.open(`https://wa.me/${wpp}?text=${text}`, "_blank");
   };
 
@@ -258,7 +258,7 @@ export default function BusinessPage() {
 
   const handleRequestOwnership = async () => {
     if (!session) {
-      toast.info("Crie uma conta ou entre para reivindicar este negÃ³cio.");
+      toast.info("Crie uma conta ou entre para reivindicar este negócio.");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -267,15 +267,15 @@ export default function BusinessPage() {
     setRequestingOwnership(true);
     const result = await requestBusinessOwnership(
       business.id,
-      `SolicitaÃ§Ã£o enviada pela pÃ¡gina pÃºblica do negÃ³cio ${business.name}.`
+      `Solicitação enviada pela página pública do negócio ${business.name}.`
     );
     setRequestingOwnership(false);
 
     if (result.ok) {
       setHasPendingOwnershipRequest(true);
-      toast.success("SolicitaÃ§Ã£o enviada. Vamos revisar e transferir o negÃ³cio quando confirmado.");
+      toast.success("Solicitação enviada. Vamos revisar e transferir o negócio quando confirmado.");
     } else {
-      toast.error(result.error || "NÃ£o foi possÃ­vel enviar a solicitaÃ§Ã£o.");
+      toast.error(result.error || "Não foi possível enviar a solicitação.");
     }
   };
 
@@ -287,7 +287,7 @@ export default function BusinessPage() {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copiado!");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel copiar o link.");
+      toast.error("Não foi possível copiar o link.");
     }
   };
 
@@ -296,11 +296,11 @@ export default function BusinessPage() {
     try {
       await navigator.share({
         title: business.name,
-        text: `Confira este negÃ³cio no Caramelinho: ${business.name}`,
+        text: `Confira este negócio no Caramelinho: ${business.name}`,
         url: shareUrl,
       });
     } catch {
-      // cancelado pelo usuÃ¡rio
+      // cancelado pelo usuário
     }
   };
 
@@ -328,9 +328,9 @@ export default function BusinessPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">NegÃ³cio nÃ£o encontrado</h1>
-          <p className="text-muted-foreground mb-6">O Caramelinho nÃ£o achou esse negÃ³cio.</p>
-          <Button onClick={() => navigate("/")}>Voltar ao InÃ­cio</Button>
+          <h1 className="text-2xl font-bold mb-2">Negócio não encontrado</h1>
+          <p className="text-muted-foreground mb-6">O Caramelinho não achou esse negócio.</p>
+          <Button onClick={() => navigate("/")}>Voltar ao Início</Button>
         </div>
       </div>
     );
@@ -415,7 +415,7 @@ export default function BusinessPage() {
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="font-bold">{business.averageRating.toFixed(1)}</span>
-                    <span className="text-white/80 font-normal">({business.reviews.length} avaliaÃ§Ãµes)</span>
+                    <span className="text-white/80 font-normal">({business.reviews.length} avaliações)</span>
                   </div>
                 )}
               </div>
@@ -434,19 +434,19 @@ export default function BusinessPage() {
                 </TabsTrigger>
                 {getCategoryId(business.category) !== "food" && (
                   <TabsTrigger value="services" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                    ServiÃ§os
+                    Serviços
                   </TabsTrigger>
                 )}
                 {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                   <TabsTrigger value="menu" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                    CardÃ¡pio
+                    Cardápio
                   </TabsTrigger>
                 ) : null}
                 <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Fotos
                 </TabsTrigger>
                 <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                  AvaliaÃ§Ãµes
+                  Avaliações
                 </TabsTrigger>
               </TabsList>
 
@@ -456,16 +456,16 @@ export default function BusinessPage() {
                 {business.ownerVerified && (
                   <div className="mt-5 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                     <BadgeCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                    <p>Este negÃ³cio foi reivindicado e confirmado pelo proprietÃ¡rio.</p>
+                    <p>Este negócio foi reivindicado e confirmado pelo proprietário.</p>
                   </div>
                 )}
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && (
                 <TabsContent value="services" className="mt-6">
-                  <h2 className="text-xl font-bold text-foreground mb-4">ServiÃ§os</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">Serviços</h2>
                   {business.services.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum serviÃ§o listado.</p>
+                    <p className="text-muted-foreground text-sm">Nenhum serviço listado.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {business.services.map((service) => (
@@ -481,11 +481,11 @@ export default function BusinessPage() {
 
               {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                 <TabsContent value="menu" className="mt-6">
-                  <h2 className="text-xl font-bold text-foreground mb-4">CardÃ¡pio</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">Cardápio</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
                       <a href={business.menuPdfUrl} target="_blank" rel="noreferrer">
-                        <Button variant="outline">Acessar cardÃ¡pio completo</Button>
+                        <Button variant="outline">Acessar cardápio completo</Button>
                       </a>
                     </div>
                   )}
@@ -508,7 +508,7 @@ export default function BusinessPage() {
               <TabsContent value="photos" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-4">Fotos</h2>
                 {business.photos.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhuma foto disponÃ­vel.</p>
+                  <p className="text-muted-foreground text-sm">Nenhuma foto disponível.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {business.photos.slice(0, 8).map((photo) => (
@@ -543,7 +543,7 @@ export default function BusinessPage() {
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6">
-                <h2 className="text-xl font-bold text-foreground mb-6">AvaliaÃ§Ãµes</h2>
+                <h2 className="text-xl font-bold text-foreground mb-6">Avaliações</h2>
                 <Card className="p-5 mb-6 border-border">
                   <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
                     <div className="text-center sm:w-32">
@@ -553,7 +553,7 @@ export default function BusinessPage() {
                           <Star key={i} className={`w-4 h-4 ${i < Math.round(business.averageRating) ? "fill-current" : "text-muted-foreground/20"}`} />
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} avaliaÃ§Ãµes</p>
+                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} avaliações</p>
                     </div>
                     <div className="flex-1 space-y-2">
                       {[5, 4, 3, 2, 1].map((rating) => (
@@ -576,7 +576,7 @@ export default function BusinessPage() {
                 </Card>
 
                 <Card className="p-5 mb-6 border-border bg-secondary/30">
-                  <h3 className="font-semibold text-sm mb-3">Deixe sua avaliaÃ§Ã£o</h3>
+                  <h3 className="font-semibold text-sm mb-3">Deixe sua avaliação</h3>
                   <form onSubmit={handleReviewSubmit}>
                     <div className="flex items-center gap-1 mb-3">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -599,20 +599,20 @@ export default function BusinessPage() {
                       )}
                     </div>
                     <Textarea
-                      placeholder="Conte sua experiÃªncia..."
+                      placeholder="Conte sua experiência..."
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                       className="mb-3 min-h-[80px]"
                     />
                     <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview}>
-                      {sendingReview ? "Enviando..." : "Enviar AvaliaÃ§Ã£o"}
+                      {sendingReview ? "Enviando..." : "Enviar Avaliação"}
                     </Button>
                   </form>
                 </Card>
 
                 <div className="space-y-4">
                   {business.reviews.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhuma avaliaÃ§Ã£o ainda. Seja o primeiro!</p>
+                    <p className="text-muted-foreground text-sm">Nenhuma avaliação ainda. Seja o primeiro!</p>
                   ) : (
                     business.reviews.map((review) => (
                       <div key={review.id} className="p-4 rounded-lg border border-border bg-card">
@@ -684,7 +684,7 @@ export default function BusinessPage() {
                             {session?.userId && review.user_id === session.userId && (
                               <div className="mt-3 flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => startEditReview(review)}>
-                                  Editar minha avaliaÃ§Ã£o
+                                  Editar minha avaliação
                                 </Button>
                                 <Button
                                   size="sm"
@@ -692,7 +692,7 @@ export default function BusinessPage() {
                                   className="text-destructive border-destructive/30 hover:bg-destructive/10"
                                   onClick={() => handleDeleteOwnReview(review.id)}
                                 >
-                                  Remover minha avaliaÃ§Ã£o
+                                  Remover minha avaliação
                                 </Button>
                               </div>
                             )}
@@ -710,7 +710,7 @@ export default function BusinessPage() {
             <div className="sticky top-24 space-y-6">
               {/* Contact Card */}
               <Card className="p-5 border-border">
-                <h3 className="font-semibold mb-4">InformaÃ§Ãµes de Contato</h3>
+                <h3 className="font-semibold mb-4">Informações de Contato</h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -778,7 +778,7 @@ export default function BusinessPage() {
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  HorÃ¡rios
+                  Horários
                 </h3>
                 {business.openingHours.length > 0 ? (
                   <div className="space-y-2">
@@ -787,7 +787,7 @@ export default function BusinessPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">HorÃ¡rios ainda nÃ£o informados.</p>
+                  <p className="text-sm text-muted-foreground">Horários ainda não informados.</p>
                 )}
               </Card>
 
@@ -826,7 +826,7 @@ export default function BusinessPage() {
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-primary" />
-                  Compartilhar pÃ¡gina
+                  Compartilhar página
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <Button
@@ -858,7 +858,7 @@ export default function BusinessPage() {
                   {navigator.share && (
                     <Button variant="ghost" className="justify-start text-muted-foreground" onClick={handleNativeShare}>
                       <Share2 className="w-4 h-4 mr-2" />
-                      Mais opÃ§Ãµes
+                      Mais opções
                     </Button>
                   )}
                 </div>
@@ -874,10 +874,10 @@ export default function BusinessPage() {
                   >
                     <Store className="w-4 h-4 mr-2" />
                     {hasPendingOwnershipRequest
-                      ? "SolicitaÃ§Ã£o de ownership enviada"
+                      ? "Solicitação de ownership enviada"
                       : requestingOwnership
-                        ? "Enviando solicitaÃ§Ã£o..."
-                        : "Sou dono deste negÃ³cio"}
+                        ? "Enviando solicitação..."
+                        : "Sou dono deste negócio"}
                   </Button>
                 </div>
               )}
@@ -887,7 +887,7 @@ export default function BusinessPage() {
 
         {similarBusinesses.length > 0 && (
           <section className="mt-14">
-            <h2 className="text-2xl font-bold mb-6">NegÃ³cios similares na regiÃ£o</h2>
+            <h2 className="text-2xl font-bold mb-6">Negócios similares na região</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item) => (
                 <Link key={item.id} to={buildBusinessUrl(item)} className="group">
@@ -922,6 +922,8 @@ function getReviewBreakdown(reviews: BusinessFrontend["reviews"]): Record<number
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   );
 }
+
+
 
 
 
