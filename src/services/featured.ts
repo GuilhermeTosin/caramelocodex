@@ -35,11 +35,17 @@ export async function getFeaturedBusinessesForRegion(
   limit = 6
 ): Promise<BusinessFrontend[]> {
   const placements = await getActiveFeaturedPlacements();
-  const matching = placements
-    .filter((placement) => matchesRegion(placement, region))
-    .sort(compareFeaturedPlacements);
+  const matching = region
+    ? placements
+        .filter((placement) => matchesRegion(placement, region))
+        .sort(compareFeaturedPlacements)
+    : [...placements].sort(compareFeaturedPlacementsWithoutRegion);
 
-  return uniqueBusinesses(matching)
+  const effective = matching.length > 0
+    ? matching
+    : [...placements].sort(compareFeaturedPlacementsWithoutRegion);
+
+  return uniqueBusinesses(effective)
     .slice(0, limit)
     .map((placement) => placement.business)
     .filter(Boolean) as BusinessFrontend[];
@@ -103,18 +109,40 @@ export async function deleteFeaturedPlacement(id: string): Promise<{ ok: boolean
 }
 
 async function getActiveFeaturedPlacements(): Promise<FeaturedPlacementFrontend[]> {
-  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("featured_placements")
-    .select("*, business:businesses(*)")
+    .select("*")
     .eq("status", "active")
-    .lte("starts_at", now)
-    .gte("ends_at", now)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (error || !data) return [];
-  return (data as FeaturedPlacement[]).map(toFeaturedFrontend);
+  if (error || !data) {
+    console.error("[featured] erro ao carregar placements ativos:", error?.message);
+    return [];
+  }
+
+  const placements = data as FeaturedPlacement[];
+  const businessIds = [...new Set(placements.map((p) => p.business_id).filter(Boolean))];
+  if (businessIds.length === 0) return [];
+
+  const { data: businesses, error: businessesError } = await supabase
+    .from("businesses")
+    .select("*")
+    .in("id", businessIds);
+
+  if (businessesError || !businesses) {
+    console.error("[featured] erro ao carregar negócios dos placements:", businessesError?.message);
+    return [];
+  }
+
+  const businessById = new Map((businesses as Business[]).map((b) => [b.id, b]));
+  const now = new Date();
+  return placements
+    .map((placement) => toFeaturedFrontend({
+      ...placement,
+      business: businessById.get(placement.business_id) || null,
+    }))
+    .filter((placement) => isPlacementActiveNow(placement, now));
 }
 
 function toFeaturedFrontend(placement: FeaturedPlacement): FeaturedPlacementFrontend {
@@ -155,9 +183,29 @@ function compareFeaturedPlacements(
   a: FeaturedPlacementFrontend,
   b: FeaturedPlacementFrontend
 ): number {
+  const scopeOrder = getScopePriority(a.scopeType) - getScopePriority(b.scopeType);
+  if (scopeOrder !== 0) return scopeOrder;
   const priority = b.priority - a.priority;
   if (priority !== 0) return priority;
   return a.endsAt.localeCompare(b.endsAt);
+}
+
+function compareFeaturedPlacementsWithoutRegion(
+  a: FeaturedPlacementFrontend,
+  b: FeaturedPlacementFrontend
+): number {
+  const scopeOrder = getScopePriority(a.scopeType) - getScopePriority(b.scopeType);
+  if (scopeOrder !== 0) return scopeOrder;
+  const priority = b.priority - a.priority;
+  if (priority !== 0) return priority;
+  return a.endsAt.localeCompare(b.endsAt);
+}
+
+function getScopePriority(scope: FeaturedScopeType): number {
+  if (scope === "city") return 0;
+  if (scope === "state") return 1;
+  if (scope === "country") return 2;
+  return 3; // global por último
 }
 
 function uniqueBusinesses(placements: FeaturedPlacementFrontend[]): FeaturedPlacementFrontend[] {
@@ -179,4 +227,28 @@ function normalizeRegionPart(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function isPlacementActiveNow(placement: FeaturedPlacementFrontend, now: Date): boolean {
+  const today = now.toISOString().slice(0, 10);
+  const startDay = parseFlexibleDay(placement.startsAt);
+  const endDay = parseFlexibleDay(placement.endsAt);
+  if (!startDay || !endDay) return false;
+  return startDay <= today && today <= endDay;
+}
+
+function parseFlexibleDay(value: string): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Já está em formato de dia.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Tenta parsear timestamps e normaliza para YYYY-MM-DD (UTC).
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
 }

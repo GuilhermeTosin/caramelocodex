@@ -87,7 +87,7 @@ export default function Home() {
       const regionalFeatured = await getFeaturedBusinessesForRegion(region, 6);
       
       setAllBusinesses(regionalBusinesses);
-      setFeaturedBusinesses(regionalFeatured.length > 0 ? regionalFeatured : regionalBusinesses);
+      setFeaturedBusinesses(regionalFeatured);
     };
 
     loadData();
@@ -322,6 +322,7 @@ export default function Home() {
       </section>
 
       {/* Featured Businesses */}
+      {featuredBusinesses.length > 0 && (
       <section className="bg-secondary/30 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-10">
@@ -409,6 +410,7 @@ export default function Home() {
           )}
         </div>
       </section>
+      )}
 
       {/* Cities Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -486,8 +488,6 @@ function normalizeText(value: string): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
-
 
 
 

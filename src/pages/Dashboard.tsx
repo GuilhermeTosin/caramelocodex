@@ -50,6 +50,7 @@ import {
 } from "@/services/messages";
 import type { ConversationFrontend, MessageFrontend } from "@/types/database";
 import { Send } from "lucide-react";
+import SiteFooter from "@/components/SiteFooter";
 
 type BusinessHour = {
   day: string;
@@ -778,11 +779,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-white border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-24">
-            <a href="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-3 group">
               <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
                 <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
@@ -790,7 +791,7 @@ export default function Dashboard() {
                 <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
                 <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
-            </a>
+            </Link>
             <div className="flex items-center gap-2">
               {session && (
                 <button onClick={() => setActiveTab("mensagens")}>
@@ -825,7 +826,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <aside className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
@@ -1819,7 +1820,7 @@ Delivery"
             </Tabs>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Edit Business Dialog */}
       <Dialog open={!!editingBusiness} onOpenChange={(open) => !open && setEditingBusiness(null)}>
@@ -2221,6 +2222,7 @@ Delivery"
           </div>
         </DialogContent>
       </Dialog>
+      <SiteFooter />
     </div>
   );
 }
@@ -2287,8 +2289,6 @@ function parseBusinessHours(lines: string[]): BusinessHour[] {
 
   return defaults;
 }
-
-
 
 
 

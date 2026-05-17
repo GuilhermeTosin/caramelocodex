@@ -41,6 +41,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import SiteFooter from "@/components/SiteFooter";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile } from "@/services/profiles";
@@ -586,18 +587,18 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-8 h-8 caramelo-gradient rounded-xl flex items-center justify-center">
-                <PawPrint className="w-4 h-4 text-white" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
-              <span className="font-bold text-lg">
-                <span className="caramelo-text-gradient">Caramelinho</span>
-                <span className="text-foreground">.com</span>
-              </span>
+              <div className="leading-tight">
+                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
+              </div>
             </Link>
             <div className="flex items-center gap-4">
               {isAdmin && (
@@ -614,7 +615,7 @@ export default function UserProfile() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-8 lg:gap-12">
           {/* Sidebar Navigation */}
           <aside className="w-full md:w-64 lg:w-72 shrink-0">
@@ -1285,6 +1286,7 @@ export default function UserProfile() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      <SiteFooter />
     </div>
   );
 }
