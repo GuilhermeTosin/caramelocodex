@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -64,11 +64,11 @@ html {
 }
 
 .caramelo-gradient {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #BA4D0A 0%, #D86A1C 100%);
 }
 
 .caramelo-text-gradient {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #BA4D0A 0%, #D86A1C 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -147,3 +147,4 @@ html {
   padding-right: 0 !important;
   margin-right: 0 !important;
 }
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   getAllBusinesses, 
   buildBusinessUrl, 
   BUSINESS_CATEGORIES, 
+  getCategoryLabel,
   getAvailableLocations,
   getSearchSuggestions
 } from "@/services/businesses";
@@ -34,64 +35,65 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
-  dentista: ["Saade & Beleza", "Clanica Dental", "Odontologia", "Dente"],
-  mecanico: ["Servi?os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  mecanica: ["Servi?os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  comida: ["Alimentaaao", "Restaurante", "Lanche", "Marmita"],
-  restaurante: ["Alimentaaao"],
-  padaria: ["Alimentaaao"],
-  doce: ["Alimentaaao", "Confeitaria"],
-  advogado: ["Advocacia & Consultoria", "Juradico", "Lei"],
-  tradutor: ["Advocacia & Consultoria", "Traduaao", "Imigraaao"],
-  traducao: ["Advocacia & Consultoria", "Traduaao", "Imigraaao"],
-  "traduaao": ["Advocacia & Consultoria", "Traduaao", "Imigraaao"],
-  imigracao: ["Advocacia & Consultoria", "Imigraaao", "Visto"],
-  "imigraaao": ["Advocacia & Consultoria", "Imigraaao", "Visto"],
-  obra: ["Constru??o & Reformas"],
-  reforma: ["Constru??o & Reformas"],
-  pintor: ["Constru??o & Reformas"],
-  casa: ["Constru??o & Reformas", "Imobiliaria"],
-  aluguel: ["Imobiliaria"],
-  venda: ["Comarcio & Varejo", "Imobiliaria"],
-  medico: ["Saade & Beleza"],
-  unha: ["Saade & Beleza", "Manicure"],
-  cabelo: ["Saade & Beleza", "Cabeleireiro"],
+  dentista: ["Sa\u00fade & Beleza", "Cl\u00ednica Dental", "Odontologia", "Dente"],
+  mecanico: ["Servi\u00e7os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  mecanica: ["Servi\u00e7os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  comida: ["Alimenta\u00e7\u00e3o", "Restaurante", "Lanche", "Marmita"],
+  restaurante: ["Alimenta\u00e7\u00e3o"],
+  padaria: ["Alimenta\u00e7\u00e3o"],
+  doce: ["Alimenta\u00e7\u00e3o", "Confeitaria"],
+  advogado: ["Advocacia & Consultoria", "Jur\u00eddico", "Lei"],
+  tradutor: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
+  traducao: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
+  tradu\u00e7\u00e3o: ["Advocacia & Consultoria", "Tradu\u00e7\u00e3o", "Imigra\u00e7\u00e3o"],
+  imigracao: ["Advocacia & Consultoria", "Imigra\u00e7\u00e3o", "Visto"],
+  imigra\u00e7\u00e3o: ["Advocacia & Consultoria", "Imigra\u00e7\u00e3o", "Visto"],
+  obra: ["Constru\u00e7\u00e3o & Reformas"],
+  reforma: ["Constru\u00e7\u00e3o & Reformas"],
+  pintor: ["Constru\u00e7\u00e3o & Reformas"],
+  casa: ["Constru\u00e7\u00e3o & Reformas", "Imobili\u00e1ria"],
+  aluguel: ["Imobili\u00e1ria"],
+  venda: ["Com\u00e9rcio & Varejo", "Imobili\u00e1ria"],
+  medico: ["Sa\u00fade & Beleza"],
+  m\u00e9dico: ["Sa\u00fade & Beleza"],
+  unha: ["Sa\u00fade & Beleza", "Manicure"],
+  cabelo: ["Sa\u00fade & Beleza", "Cabeleireiro"],
 };
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  "Alimentaaao (Restaurantes, Padarias, Cafas)": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "cafa", "almoao", "jantar", "marmita"],
-  "Servi?os Automotivos": ["mecanico", "oficina", "carro", "conserto", "pneu", "aleo", "auto", "manutenaao", "reparo"],
-  "Saade & Beleza": ["dentista", "madico", "clanica", "estatica", "salao", "cabelo", "unha", "manicure", "pedicure", "terapia", "psicalogo"],
-  "Constru??o & Reformas": ["obra", "reforma", "pintor", "pedreiro", "eletricista", "encanador", "casa", "apartamento", "telhado"],
-  "Advocacia & Consultoria": ["advogado", "juradico", "lei", "processo", "visto", "imigraaao", "consultor", "tradutor", "traduaao", "traducoes", "traduaaes", "documentos"],
-  "Contabilidade & Finanaas": ["contador", "imposto", "tax", "finanaas", "investimento", "dinheiro", "empresa"],
-  "Educaaao & Idiomas": ["escola", "curso", "professor", "aula", "inglas", "francas", "portuguas", "aprendizado"],
+  "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)": ["restaurante", "lanchonete", "lanches", "padaria", "comida", "gastronomia", "caf\u00e9", "almo\u00e7o", "jantar", "marmita"],
+  "Servi\u00e7os Automotivos": ["mecanico", "oficina", "carro", "conserto", "pneu", "\u00f3leo", "auto", "manuten\u00e7\u00e3o", "reparo"],
+  "Sa\u00fade & Beleza": ["dentista", "m\u00e9dico", "cl\u00ednica", "est\u00e9tica", "sal\u00e3o", "cabelo", "unha", "manicure", "pedicure", "terapia", "psic\u00f3logo"],
+  "Constru\u00e7\u00e3o & Reformas": ["obra", "reforma", "pintor", "pedreiro", "eletricista", "encanador", "casa", "apartamento", "telhado"],
+  "Advocacia & Consultoria": ["advogado", "jur\u00eddico", "lei", "processo", "visto", "imigra\u00e7\u00e3o", "consultor", "tradutor", "tradu\u00e7\u00e3o", "traducoes", "tradu\u00e7\u00f5es", "documentos"],
+  "Contabilidade & Finan\u00e7as": ["contador", "imposto", "tax", "finan\u00e7as", "investimento", "dinheiro", "empresa"],
+  "Educa\u00e7\u00e3o & Idiomas": ["escola", "curso", "professor", "aula", "ingl\u00eas", "franc\u00eas", "portugu\u00eas", "aprendizado"],
   "Tecnologia & TI": ["programador", "software", "computador", "celular", "site", "desenvolvimento", "suporte"],
-  "Comarcio & Varejo": ["loja", "venda", "produto", "mercado", "roupa", "acessarios"],
-  "Transporte & Mudanaa": ["mudanaa", "frete", "entrega", "logastica", "caminhao", "envio"],
-  "Servi?os para Pets": ["pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario", "veterinario"],
-  "Cuidados Infantis e de Idosos": ["baba", "baba", "babysitter", "acompanhante", "cuidadora", "cuidador", "crianaa", "crianaas"],
+  "Com\u00e9rcio & Varejo": ["loja", "venda", "produto", "mercado", "roupa", "acess\u00f3rios"],
+  "Transporte & Mudan\u00e7a": ["mudan\u00e7a", "frete", "entrega", "log\u00edstica", "caminh\u00e3o", "envio"],
+  "Servi\u00e7os para Pets": ["pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario", "veterin\u00e1rio"],
+  "Cuidados Infantis e de Idosos": ["bab\u00e1", "baba", "babysitter", "acompanhante", "cuidadora", "cuidador", "crian\u00e7a", "crian\u00e7as"],
   "Diaristas": ["diarista", "diaristas", "faxina", "limpeza", "limpar", "casa"],
-  "Imobiliaria": ["casa", "apartamento", "aluguel", "venda", "imavel", "corretor"],
+  "Imobili\u00e1ria": ["casa", "apartamento", "aluguel", "venda", "im\u00f3vel", "corretor"],
   "Turismo & Viagens": ["viagem", "passagem", "hotel", "turismo", "guia", "excursao"],
 };
 
 const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
-  [normalizeText("Alimentaaao")]: ["Alimentaaao", "Alimentacao"],
-  [normalizeText("Alimentaaao (Restaurantes, Padarias, Cafas)")]: ["Alimentaaao", "Alimentacao"],
-  [normalizeText("Saade & Beleza")]: ["Saade & Beleza", "Saude e Beleza"],
-  [normalizeText("Saude e Beleza")]: ["Saade & Beleza", "Saude e Beleza"],
-  [normalizeText("Automotivo")]: ["Automotivo", "Servi?os Automotivos", "Servicos Automotivos"],
-  [normalizeText("Servi?os Automotivos")]: ["Automotivo", "Servi?os Automotivos", "Servicos Automotivos"],
-  [normalizeText("Constru??o")]: ["Constru??o", "Construcao", "Constru??o & Reformas", "Construcao & Reformas"],
-  [normalizeText("Constru??o & Reformas")]: ["Constru??o", "Construcao", "Constru??o & Reformas", "Construcao & Reformas"],
+  [normalizeText("Alimenta\u00e7\u00e3o")]: ["Alimenta\u00e7\u00e3o", "Alimentacao"],
+  [normalizeText("Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)")]: ["Alimenta\u00e7\u00e3o", "Alimentacao"],
+  [normalizeText("Sa\u00fade & Beleza")]: ["Sa\u00fade & Beleza", "Saude e Beleza"],
+  [normalizeText("Saude e Beleza")]: ["Sa\u00fade & Beleza", "Saude e Beleza"],
+  [normalizeText("Automotivo")]: ["Automotivo", "Servi\u00e7os Automotivos", "Servicos Automotivos"],
+  [normalizeText("Servi\u00e7os Automotivos")]: ["Automotivo", "Servi\u00e7os Automotivos", "Servicos Automotivos"],
+  [normalizeText("Constru\u00e7\u00e3o")]: ["Constru\u00e7\u00e3o", "Construcao", "Constru\u00e7\u00e3o & Reformas", "Construcao & Reformas"],
+  [normalizeText("Constru\u00e7\u00e3o & Reformas")]: ["Constru\u00e7\u00e3o", "Construcao", "Constru\u00e7\u00e3o & Reformas", "Construcao & Reformas"],
   [normalizeText("Advocacia")]: ["Advocacia", "Advocacia & Consultoria"],
   [normalizeText("Advocacia & Consultoria")]: ["Advocacia", "Advocacia & Consultoria"],
-  [normalizeText("Educaaao")]: ["Educaaao", "Educacao", "Educaaao & Idiomas", "Educacao & Idiomas"],
-  [normalizeText("Educaaao & Idiomas")]: ["Educaaao", "Educacao", "Educaaao & Idiomas", "Educacao & Idiomas"],
-  [normalizeText("Transporte & Mudanaa")]: ["Transporte & Mudanaa", "Transporte & Mudancas", "Transporte & Mudanaas"],
-  [normalizeText("Transporte & Mudanaas")]: ["Transporte & Mudanaa", "Transporte & Mudancas", "Transporte & Mudanaas"],
-  [normalizeText("Servi?os para Pets")]: ["Servi?os para Pets", "Servicos para Pets", "Pet", "Pets"],
+  [normalizeText("Educa\u00e7\u00e3o")]: ["Educa\u00e7\u00e3o", "Educacao", "Educa\u00e7\u00e3o & Idiomas", "Educacao & Idiomas"],
+  [normalizeText("Educa\u00e7\u00e3o & Idiomas")]: ["Educa\u00e7\u00e3o", "Educacao", "Educa\u00e7\u00e3o & Idiomas", "Educacao & Idiomas"],
+  [normalizeText("Transporte & Mudan\u00e7a")]: ["Transporte & Mudan\u00e7a", "Transporte & Mudanca", "Transporte & Mudancas"],
+  [normalizeText("Transporte & Mudancas")]: ["Transporte & Mudan\u00e7a", "Transporte & Mudanca", "Transporte & Mudancas"],
+  [normalizeText("Servi\u00e7os para Pets")]: ["Servi\u00e7os para Pets", "Servicos para Pets", "Pet", "Pets"],
   [normalizeText("Cuidados Infantis e de Idosos")]: ["Cuidados Infantis e de Idosos", "Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "Babas & Acompanhantes", "Baba", "Baba", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
   [normalizeText("Diaristas")]: ["Diaristas", "Diarista", "Faxina", "Limpeza"],
 };
@@ -99,22 +101,22 @@ const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
-  "Alimentaaao (Restaurantes, Padarias, Cafas)": "restaurantes, padarias e cafas",
-  "Servi?os Automotivos": "oficinas e serviaos automotivos",
-  "Saade & Beleza": "serviaos de saade e beleza",
-  "Constru??o & Reformas": "serviaos de construaao e reformas",
-  "Advocacia & Consultoria": "advocacia, traduaaes e consultoria de imigraaao",
-  "Contabilidade & Finanaas": "contabilidade e finanaas",
-  "Educaaao & Idiomas": "educaaao e idiomas",
+  "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)": "restaurantes, padarias e caf\u00e9s",
+  "Servi\u00e7os Automotivos": "oficinas e servi\u00e7os automotivos",
+  "Sa\u00fade & Beleza": "servi\u00e7os de sa\u00fade e beleza",
+  "Constru\u00e7\u00e3o & Reformas": "servi\u00e7os de constru\u00e7\u00e3o e reformas",
+  "Advocacia & Consultoria": "advocacia, tradu\u00e7\u00f5es e consultoria de imigra\u00e7\u00e3o",
+  "Contabilidade & Finan\u00e7as": "contabilidade e finan\u00e7as",
+  "Educa\u00e7\u00e3o & Idiomas": "educa\u00e7\u00e3o e idiomas",
   "Tecnologia & TI": "tecnologia e TI",
-  "Comarcio & Varejo": "comarcio e varejo",
-  "Transporte & Mudanaa": "transporte e mudanaa",
-  "Servi?os para Pets": "serviaos para pets",
+  "Com\u00e9rcio & Varejo": "com\u00e9rcio e varejo",
+  "Transporte & Mudan\u00e7a": "transporte e mudan\u00e7a",
+  "Servi\u00e7os para Pets": "servi\u00e7os para pets",
   "Cuidados Infantis e de Idosos": "cuidados infantis e de idosos",
-  "Diaristas": "diaristas e serviaos de limpeza",
-  "Imobiliaria": "imobiliarias e corretores",
+  "Diaristas": "diaristas e servi\u00e7os de limpeza",
+  "Imobili\u00e1ria": "imobili\u00e1rias e corretores",
   "Turismo & Viagens": "turismo e viagens",
-  "Outros": "serviaos diversos",
+  "Outros": "servi\u00e7os diversos",
 };
 
 export default function SearchResults() {
@@ -131,8 +133,6 @@ export default function SearchResults() {
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
-  const brazilianFilter = searchParams.get("brasileiro") === "1";
-  const portugueseFilter = searchParams.get("portugues") === "1";
   const radiusKm = radiusFilter ? Number(radiusFilter) : null;
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm ?? (hasLocationContext ? 50 : null);
@@ -248,11 +248,11 @@ export default function SearchResults() {
   }, [cityFilter, locationFilter, matchedLocationCoords]);
 
   // Regra de prioridade para distancia:
-  // 1) Se o usuario definiu cidade, usamos apenas essa referancia (sem fallback para GPS).
-  // 2) Se nao definiu cidade, usamos a localizaaao atual do usuario.
+  // 1) Se o usuario definiu cidade, usamos apenas essa referencia (sem fallback para GPS).
+  // 2) Se nao definiu cidade, usamos a localizacao atual do usuario.
   const hasTypedLocation = !!locationFilter.trim();
   const distanceOrigin = hasTypedLocation ? (selectedOriginCoords || locationCoords) : userCoords;
-  const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter || brazilianFilter || portugueseFilter);
+  const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter);
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilter) {
@@ -272,14 +272,14 @@ export default function SearchResults() {
 
 
   useEffect(() => {
-    const baseTitle = "Buscar negacios brasileiros";
+    const baseTitle = "Buscar neg\u00f3cios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negacios e serviaos";
+    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "neg\u00f3cios e servi\u00e7os";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare opaaes perto de voca e fale direto com os negacios.`
+      `Encontre ${categoryText}${cityText}${queryPart}. Compare op\u00e7\u00f5es perto de voc\u00ea e fale direto com os neg\u00f3cios.`
     );
   }, [query, categoryFilter, cityFilter]);
 
@@ -320,7 +320,7 @@ export default function SearchResults() {
       filtered = filtered.filter((b) => matchesCategoryFilter(b.category, categoryFilter));
     }
 
-    // Se ha referancia geografica (origem + raio efetivo), a cidade vira ponto de origem
+    // Se ha referencia geografica (origem + raio efetivo), a cidade vira ponto de origem
     // e nao filtro estrito por nome. Sem origem, mantemos o filtro por cidade.
     if (cityFilter && !(distanceOrigin && effectiveRadiusKm)) {
       filtered = filtered.filter(
@@ -336,13 +336,6 @@ export default function SearchResults() {
       filtered = filtered.filter((b) => b.address.stateCode.toLowerCase() === stateFilter.toLowerCase());
     }
 
-    if (brazilianFilter) {
-      filtered = filtered.filter((b) => b.isBrazilianOwned);
-    }
-
-    if (portugueseFilter) {
-      filtered = filtered.filter((b) => b.servesPortuguese);
-    }
 
     if (effectiveRadiusKm && distanceOrigin) {
       filtered = filtered.filter((b) => {
@@ -364,9 +357,7 @@ export default function SearchResults() {
         const passesCategory = !categoryFilter || matchesCategoryFilter(b.category, categoryFilter);
         const passesCountry = !countryFilter || b.address.countryCode.toLowerCase() === countryFilter.toLowerCase();
         const passesState = !stateFilter || b.address.stateCode.toLowerCase() === stateFilter.toLowerCase();
-        const passesBr = !brazilianFilter || b.isBrazilianOwned;
-        const passesPt = !portugueseFilter || b.servesPortuguese;
-        return passesQuery && passesCategory && passesCountry && passesState && passesBr && passesPt;
+        return passesQuery && passesCategory && passesCountry && passesState;
       });
 
       const within = (km) => baseScoped.filter((b) => calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng) <= km);
@@ -396,8 +387,6 @@ export default function SearchResults() {
         cityFilter ||
         countryFilter ||
         stateFilter ||
-        brazilianFilter ||
-        portugueseFilter ||
         radiusKm
       );
 
@@ -421,7 +410,7 @@ export default function SearchResults() {
         }
       }
     }
-    // Se tiver coordenadas de referancia, ordena por proximidade sem alterar a contagem.
+    // Se tiver coordenadas de referencia, ordena por proximidade sem alterar a contagem.
     if (distanceOrigin) {
       return [...filtered].sort((a, b) => {
         const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
@@ -431,7 +420,7 @@ export default function SearchResults() {
     }
 
     return filtered;
-  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, brazilianFilter, portugueseFilter, allBusinesses, distanceOrigin]);
+  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -504,15 +493,15 @@ export default function SearchResults() {
         params.set("raio", "50");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("Localizaaao exata bloqueada. Usei localizaaao aproximada por IP.");
+        window.alert("Localiza\u00e7\u00e3o exata bloqueada. Usei localiza\u00e7\u00e3o aproximada por IP.");
         return;
       }
       if (!window.isSecureContext) {
-        window.alert("Geolocalizaaao exige contexto seguro. Abra em localhost ou HTTPS.");
+        window.alert("Geolocaliza\u00e7\u00e3o exige contexto seguro. Abra em localhost ou HTTPS.");
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("Permissao de localizaaao negada pelo navegador/dispositivo.");
+        window.alert("Permiss\u00e3o de localiza\u00e7\u00e3o negada pelo navegador/dispositivo.");
         return;
       }
       if (geoError?.code === 2) {
@@ -520,10 +509,10 @@ export default function SearchResults() {
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localizaaao. Tente novamente.");
+        window.alert("Tempo esgotado para obter localiza\u00e7\u00e3o. Tente novamente.");
         return;
       }
-      window.alert("Nao consegui acessar sua localizaaao. Verifique bloqueadores/extensaes e permissaes do navegador.");
+      window.alert("N\u00e3o consegui acessar sua localiza\u00e7\u00e3o. Verifique bloqueadores/extens\u00f5es e permiss\u00f5es do navegador.");
       return;
     }
 
@@ -590,9 +579,9 @@ export default function SearchResults() {
         <SelectContent>
           <SelectItem value="all">Todas as categorias</SelectItem>
           {BUSINESS_CATEGORIES.filter((cat) => cat !== "Turismo & Viagens").map((cat) => (
-            <SelectItem key={cat} value={cat}>
-              {cat.startsWith("Advocacia & Consultoria") ? "Advocacia & Traduaaes" : cat.split("(")[0].trim()}
-            </SelectItem>
+              <SelectItem key={cat} value={cat}>
+               {cat.startsWith("Advocacia & Consultoria") ? "Advocacia & TraduÃ§Ãµes" : cat.split("(")[0].trim()}
+              </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -614,10 +603,10 @@ export default function SearchResults() {
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Paas" />
+          <SelectValue placeholder="PaÃ­s" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos os paases</SelectItem>
+          <SelectItem value="all">Todos os paÃ­ses</SelectItem>
           {availableLocations.map((loc) => (
             <SelectItem key={loc.countryCode} value={loc.countryCode}>{loc.countryName}</SelectItem>
           ))}
@@ -640,7 +629,7 @@ export default function SearchResults() {
           }}
         >
           <SelectTrigger className="w-full h-9 text-sm">
-            <SelectValue placeholder="Estado/Provancia" />
+            <SelectValue placeholder="Estado/ProvÃ­ncia" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os estados</SelectItem>
@@ -683,46 +672,16 @@ export default function SearchResults() {
       >
         <SelectTrigger className="w-full h-9 text-sm">
           <Navigation className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-          <SelectValue placeholder="Distancia" />
+          <SelectValue placeholder="DistÃ¢ncia" />
         </SelectTrigger>
         <SelectContent>
           {RADIUS_OPTIONS.map((radius) => (
             <SelectItem key={radius} value={String(radius)}>
-              Ata {radius} km
+              AtÃ© {radius} km
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-
-      <Button
-        type="button"
-        size="sm"
-        variant={brazilianFilter ? "default" : "outline"}
-        className="h-9 w-full justify-start"
-        onClick={() => {
-          const params = getParamsWithCurrentLocation();
-          if (brazilianFilter) params.delete("brasileiro");
-          else params.set("brasileiro", "1");
-          setSearchParams(params);
-        }}
-      >
-        Neg?cio brasileiro
-      </Button>
-
-      <Button
-        type="button"
-        size="sm"
-        variant={portugueseFilter ? "default" : "outline"}
-        className="h-9 w-full justify-start"
-        onClick={() => {
-          const params = getParamsWithCurrentLocation();
-          if (portugueseFilter) params.delete("portugues");
-          else params.set("portugues", "1");
-          setSearchParams(params);
-        }}
-      >
-        Atende em portuguas
-      </Button>
 
       {hasActiveFilters && (
         <Button type="button" variant="ghost" size="sm" className="h-9 w-full justify-start text-muted-foreground" onClick={handleClearFilters}>
@@ -739,12 +698,12 @@ export default function SearchResults() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-lg sm:text-xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] sm:text-xs font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
 
@@ -794,7 +753,7 @@ export default function SearchResults() {
               value={searchInput}
               onChange={setSearchInput}
               suggestions={searchSuggestions}
-              placeholder="Buscar por nome, serviao..."
+              placeholder="Buscar por nome, serviÃ§o..."
               icon="search"
               onSubmit={(selectedValue) => {
                 const nextValue = selectedValue ?? searchInput;
@@ -810,7 +769,7 @@ export default function SearchResults() {
               value={locationInput}
               onChange={setLocationInput}
               suggestions={citySuggestions}
-              placeholder="Onde? Cidade, bairro ou endereao"
+              placeholder="Onde? Cidade, bairro ou endereÃ§o"
               icon="location"
               onSubmit={(selectedValue, meta) => {
                 const nextValue = selectedValue ?? locationInput;
@@ -820,7 +779,7 @@ export default function SearchResults() {
                   params.set("local", nextValue.trim());
                   params.set("cidade", nextValue.trim());
                   // A cidade da barra principal nao deve impor filtros administrativos,
-                  // pois o cadastro histarico pode usar cadigos diferentes (ex.: lau vs qc).
+                  // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
                   params.delete("pais");
                   params.delete("estado");
                   params.delete("categoria");
@@ -891,8 +850,8 @@ export default function SearchResults() {
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em ata <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localizaaao para usar raio</>}
-          {resolvingLocation && <> localizando referancia...</>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localiza\u00e7\u00e3o para usar raio</>}
+          {resolvingLocation && <> localizando refer\u00eancia...</>}
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
@@ -1022,7 +981,7 @@ export default function SearchResults() {
 }
 
 function matchesCategoryFilter(category: string, filter: string): boolean {
-  const normalizedCategory = normalizeText(category);
+  const normalizedCategory = normalizeText(getCategoryLabel(category));
   const terms = CATEGORY_FILTER_ALIASES[normalizeText(filter)] || [filter];
 
   return terms.some((term) => normalizedCategory.includes(normalizeText(term)));
@@ -1047,6 +1006,9 @@ function cityMatches(businessCity: string, selectedCity: string): boolean {
     normalizedSelectedCity.includes(normalizedBusinessCity)
   );
 }
+
+
+
 
 
 

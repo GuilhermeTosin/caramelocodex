@@ -32,7 +32,8 @@ export interface Business {
   owner_id: string;
   name: string;
   slug: string;
-  category: string;
+  category_id: string;
+  category?: string | null;
   description: string;
   hero_image: string | null;
   logo_url: string | null;
@@ -95,6 +96,7 @@ export interface BusinessFrontend {
   ownerName: string;
   name: string;
   slug: string;
+  categoryId: string;
   category: string;
   description: string;
   heroImage: string;

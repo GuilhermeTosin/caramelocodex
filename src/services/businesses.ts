@@ -1,24 +1,72 @@
 import { supabase } from "@/lib/supabase";
 import type { Business, BusinessFrontend, Review } from "@/types/database";
 
-export const BUSINESS_CATEGORIES = [
-  "Alimentaaao (Restaurantes, Padarias, Cafas)",
-  "Servi?os Automotivos",
-  "Saade & Beleza",
-  "Constru??o & Reformas",
-  "Advocacia & Consultoria",
-  "Contabilidade & Finanaas",
-  "Educaaao & Idiomas",
-  "Comarcio & Varejo",
-  "Transporte & Mudanaa",
-  "Servi?os para Pets",
-  "Cuidados Infantis e de Idosos",
-  "Diaristas",
-  "Imobiliaria",
-  "Turismo & Viagens",
-  "Artistas",
-  "Outros",
+export const BUSINESS_CATEGORY_OPTIONS = [
+  { id: "food", label: "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)" },
+  { id: "auto", label: "Servi\u00e7os Automotivos" },
+  { id: "health_beauty", label: "Sa\u00fade & Beleza" },
+  { id: "construction", label: "Constru\u00e7\u00e3o & Reformas" },
+  { id: "legal_consulting", label: "Advocacia & Consultoria" },
+  { id: "accounting_finance", label: "Contabilidade & Finan\u00e7as" },
+  { id: "education", label: "Educa\u00e7\u00e3o & Idiomas" },
+  { id: "retail", label: "Com\u00e9rcio & Varejo" },
+  { id: "transport_moving", label: "Transporte & Mudan\u00e7a" },
+  { id: "pets", label: "Servi\u00e7os para Pets" },
+  { id: "child_elder_care", label: "Cuidados Infantis e de Idosos" },
+  { id: "cleaning", label: "Diaristas" },
+  { id: "real_estate", label: "Imobili\u00e1ria" },
+  { id: "tourism", label: "Turismo & Viagens" },
+  { id: "artists", label: "Artistas" },
+  { id: "other", label: "Outros" },
 ] as const;
+
+const CATEGORY_LABEL_BY_ID: Record<string, string> = {
+  food: "Alimenta\u00e7\u00e3o (Restaurantes, Padarias, Caf\u00e9s)",
+  auto: "Servi\u00e7os Automotivos",
+  health_beauty: "Sa\u00fade & Beleza",
+  construction: "Constru\u00e7\u00e3o & Reformas",
+  legal_consulting: "Advocacia & Consultoria",
+  accounting_finance: "Contabilidade & Finan\u00e7as",
+  education: "Educa\u00e7\u00e3o & Idiomas",
+  retail: "Com\u00e9rcio & Varejo",
+  transport_moving: "Transporte & Mudan\u00e7a",
+  pets: "Servi\u00e7os para Pets",
+  child_elder_care: "Cuidados Infantis e de Idosos",
+  cleaning: "Diaristas",
+  real_estate: "Imobili\u00e1ria",
+  tourism: "Turismo & Viagens",
+  artists: "Artistas",
+  other: "Outros",
+};
+
+export const BUSINESS_CATEGORIES = BUSINESS_CATEGORY_OPTIONS.map(
+  (c) => CATEGORY_LABEL_BY_ID[c.id] || c.label
+) as readonly string[];
+
+const CATEGORY_ID_BY_LABEL: Record<string, string> = Object.fromEntries(
+  BUSINESS_CATEGORY_OPTIONS.flatMap((c) => {
+    const canonicalLabel = CATEGORY_LABEL_BY_ID[c.id] || c.label;
+    return [
+      [canonicalLabel.toLowerCase(), c.id],
+      [c.label.toLowerCase(), c.id],
+    ];
+  })
+);
+
+export function getCategoryId(value: string): string {
+  if (!value) return "other";
+  return CATEGORY_LABEL_BY_ID[value] ? value : (CATEGORY_ID_BY_LABEL[value.toLowerCase()] || "other");
+}
+
+export function getCategoryLabel(value: string): string {
+  if (!value) return value;
+  const categoryId = getCategoryId(value);
+  return CATEGORY_LABEL_BY_ID[categoryId] || "Outros";
+}
+
+export function isFoodCategory(value: string): boolean {
+  return getCategoryId(value) === "food";
+}
 
 export const COUNTRIES: Record<string, { name: string; states: Record<string, string> }> = {
   ca: {
@@ -152,13 +200,15 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
 };
 
 export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
+  const categoryId = getCategoryId((b as any).category_id || "");
   return {
     id: b.id,
     ownerId: b.owner_id,
     ownerName: ownerName || "Propriet?rio",
     name: b.name,
     slug: b.slug,
-    category: b.category,
+    categoryId,
+    category: getCategoryLabel(categoryId),
     description: b.description,
     heroImage: b.hero_image || "",
     logoUrl: b.logo_url || "",
@@ -290,7 +340,7 @@ export async function createBusiness(
   data: {
     name: string;
     slug?: string;
-    category: string;
+    categoryId: string;
     description: string;
     heroImage?: string;
     logoUrl?: string;
@@ -327,7 +377,7 @@ export async function createBusiness(
       owner_id: ownerId,
       name: data.name,
       slug: safeSlug,
-      category: data.category,
+      category_id: getCategoryId(data.categoryId),
       description: data.description,
       hero_image: data.heroImage || null,
       logo_url: data.logoUrl || null,
@@ -379,6 +429,10 @@ export async function updateBusiness(
   // Mapear camelCase para snake_case (colunas do banco)
   const mapped: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(normalizedUpdates)) {
+    if (key === "categoryId" || key === "category") {
+      mapped["category_id"] = getCategoryId(String(value || ""));
+      continue;
+    }
     const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
     mapped[snakeKey] = value;
   }

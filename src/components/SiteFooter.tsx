@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { MapPin, Store, ShieldCheck, MessageCircle } from "lucide-react";
 
 export default function SiteFooter() {
@@ -7,13 +7,13 @@ export default function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2">
+            <div className="group flex items-center gap-2">
               <div className="w-8 h-8 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-base tracking-tight text-amber-300">Caramelinho</div>
-                <div className="text-[11px] font-medium text-amber-100/90">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-base tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-[11px] font-semibold tracking-wide text-amber-200">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-400 max-w-md leading-relaxed">

@@ -1,3 +1,5 @@
+import { utf8Fetch } from "@/lib/http/utf8";
+
 /**
  * Calcula a distância entre dois pontos (lat/lng) em quilômetros usando a fórmula de Haversine.
  */
@@ -51,7 +53,7 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number } | nul
 export async function getApproxPositionByIp(): Promise<{ lat: number; lng: number } | null> {
   const providers: Array<() => Promise<{ lat: number; lng: number } | null>> = [
     async () => {
-      const res = await fetch("https://ipapi.co/json/");
+      const res = await utf8Fetch("https://ipapi.co/json/");
       if (!res.ok) return null;
       const data = await res.json();
       const lat = Number(data?.latitude);
@@ -60,7 +62,7 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
       return { lat, lng };
     },
     async () => {
-      const res = await fetch("https://ipwho.is/");
+      const res = await utf8Fetch("https://ipwho.is/");
       if (!res.ok) return null;
       const data = await res.json();
       if (data?.success === false) return null;
@@ -70,7 +72,7 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
       return { lat, lng };
     },
     async () => {
-      const res = await fetch("https://ipinfo.io/json");
+      const res = await utf8Fetch("https://ipinfo.io/json");
       if (!res.ok) return null;
       const data = await res.json();
       const loc = String(data?.loc || "");

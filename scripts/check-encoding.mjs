@@ -3,13 +3,19 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const includeExt = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".md", ".json"]);
+const includeExt = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".md", ".json", ".sql", ".toml"]);
 const ignoreDirs = new Set(["node_modules", "dist", ".git"]);
+const targetDirs = ["src", "scripts", "supabase", "public", ".vscode"];
+const targetRootFiles = ["index.html", "package.json", ".editorconfig", ".gitattributes"];
 
 const suspicious = [
-  /\uFFFD/, // replacement char
-  /\u00C3|\u00C2/, // mojibake markers (� / �)
-  /N\?o|n\?o|h\?|H\?|voc\?|Voc\?/ // common broken PT-BR chunks
+  /\uFFFD/,
+  /\u00C3|\u00C2/,
+  /N\?o|n\?o|h\?|H\?|voc\?|Voc\?/,
+  /â€”|â€“|â€œ|â€|â€¢/,
+  /Alimentaaao|Servi\?os|Constru\?\?|Saade|Finanaas|Educaaao|Comarcio|Mudanaa/,
+  /serviaos|construaao|traduaa|imigraa|localizaaao|referancia|histarico|cadigos/,
+  /endereao|portuguas|negacios|madico|clanica|psicalogo|imavel|cafa|almoao|crianaa|opaaes/,
 ];
 
 function walk(dir, out = []) {
@@ -25,9 +31,17 @@ function walk(dir, out = []) {
   return out;
 }
 
-const targets = walk(path.join(root, "src"), []);
-const indexPath = path.join(root, "index.html");
-if (fs.existsSync(indexPath)) targets.push(indexPath);
+const targets = [];
+for (const dir of targetDirs) {
+  const fullPath = path.join(root, dir);
+  if (fs.existsSync(fullPath)) walk(fullPath, targets);
+}
+for (const file of targetRootFiles) {
+  const fullPath = path.join(root, file);
+  if (fs.existsSync(fullPath)) {
+    targets.push(fullPath);
+  }
+}
 
 const findings = [];
 for (const file of targets) {

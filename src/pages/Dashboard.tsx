@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { PawPrint, Store, Plus, User, Edit, Star, MapPin, MessageCircle, Trash2, Eye, Save, X, ShieldCheck, CheckCircle, Ban, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessesByOwner, createBusiness, updateBusiness, deleteBusiness, BUSINESS_CATEGORIES, buildBusinessUrl, slugify } from "@/services/businesses";
+import { getAllBusinesses, getBusinessesByOwner, createBusiness, updateBusiness, deleteBusiness, BUSINESS_CATEGORY_OPTIONS, buildBusinessUrl, slugify, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import {
   approveOwnershipRequest,
   getPendingOwnershipRequests,
@@ -96,7 +96,7 @@ export default function Dashboard() {
     city: "",
     state: "",
     stateCode: "",
-    country: "Canadá",
+    country: "CanadÃ¡",
     countryCode: "ca",
     postalCode: "",
     services: "",
@@ -202,14 +202,14 @@ export default function Dashboard() {
           setMyBusinesses(bizs);
         })
         .catch((err) => {
-          console.error("Erro ao carregar negócios:", err);
-          toast.error("Não foi possível carregar seus negócios.");
+          console.error("Erro ao carregar negÃ³cios:", err);
+          toast.error("NÃ£o foi possÃ­vel carregar seus negÃ³cios.");
         })
         .finally(() => {
           setLoading(false);
         });
 
-      // Carregar conversas do dono do negócio
+      // Carregar conversas do dono do negÃ³cio
       getConversationsForUser(session.userId).then(setConversations);
     } else {
       Promise.resolve().then(() => setLoading(false));
@@ -236,7 +236,7 @@ export default function Dashboard() {
   const handleCreateFeaturedPlacement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!featuredForm.businessId) {
-      toast.error("Selecione um negócio para destacar.");
+      toast.error("Selecione um negÃ³cio para destacar.");
       return;
     }
 
@@ -280,7 +280,7 @@ export default function Dashboard() {
   };
 
   const handleDeleteFeaturedPlacement = async (placement: FeaturedPlacementFrontend) => {
-    if (!confirm(`Remover destaque de "${placement.business?.name || "negócio"}"?`)) return;
+    if (!confirm(`Remover destaque de "${placement.business?.name || "negÃ³cio"}"?`)) return;
     const result = await deleteFeaturedPlacement(placement.id);
     if (result.ok) {
       toast.success("Destaque removido.");
@@ -296,24 +296,24 @@ export default function Dashboard() {
       toast.success(`Ownership transferido para ${request.requester_name || request.requester_email}.`);
       loadOwnershipAdminData();
     } else {
-      toast.error(result.error || "Erro ao aprovar solicitação.");
+      toast.error(result.error || "Erro ao aprovar solicitaÃ§Ã£o.");
     }
   };
 
   const handleRejectOwnership = async (request: OwnerClaimRequest) => {
     const result = await rejectOwnershipRequest(request.id);
     if (result.ok) {
-      toast.success("Solicitação recusada.");
+      toast.success("SolicitaÃ§Ã£o recusada.");
       loadOwnershipAdminData();
     } else {
-      toast.error(result.error || "Erro ao recusar solicitação.");
+      toast.error(result.error || "Erro ao recusar solicitaÃ§Ã£o.");
     }
   };
 
   const handleDirectTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferBusinessId || !transferEmail.trim()) {
-      toast.error("Selecione o negócio e informe o email do novo dono.");
+      toast.error("Selecione o negÃ³cio e informe o email do novo dono.");
       return;
     }
 
@@ -403,16 +403,16 @@ export default function Dashboard() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) {
-      toast.error("Faça login para cadastrar um negócio");
+      toast.error("FaÃ§a login para cadastrar um negÃ³cio");
       navigate("/entrar");
       return;
     }
     if (!formData.name || !formData.category || !formData.description) {
-      toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
+      toast.error("Preencha os campos obrigatÃ³rios: Nome, Categoria e DescriÃ§Ã£o");
       return;
     }
     if (!formData.city || !formData.stateCode) {
-      toast.error("O endereço (Cidade e Estado) é obrigatório para que seu negócio seja encontrado.");
+      toast.error("O endereÃ§o (Cidade e Estado) Ã© obrigatÃ³rio para que seu negÃ³cio seja encontrado.");
       return;
     }
 
@@ -427,7 +427,7 @@ export default function Dashboard() {
     let logoUrl = "";
     let heroImage = "";
 
-    // Simular ID para o path (já que não temos o ID do novo negócio ainda, usamos o ownerId + random)
+    // Simular ID para o path (jÃ¡ que nÃ£o temos o ID do novo negÃ³cio ainda, usamos o ownerId + random)
     const tempId = `${session.userId}_${Date.now()}`;
 
     if (logoFile) {
@@ -448,7 +448,7 @@ export default function Dashboard() {
     }
 
     let menuPdfUrl = formData.menuPdfUrl;
-    if (formData.category.includes("Alimentação") && menuPdfFile) {
+    if (getCategoryId(formData.category) === "food" && menuPdfFile) {
       const path = generateImagePath(tempId, "menu", menuPdfFile.name);
       menuPdfUrl = await uploadImage("business-images", path, menuPdfFile) || "";
     }
@@ -456,7 +456,7 @@ export default function Dashboard() {
     const result = await createBusiness(session.userId, {
       name: formData.name,
       slug,
-      category: formData.category,
+      categoryId: formData.category,
       description: formData.description,
       logoUrl,
       heroImage,
@@ -476,17 +476,17 @@ export default function Dashboard() {
       instagram: formData.instagram,
       facebook: formData.facebook,
       whatsapp: formData.whatsapp,
-      menu: formData.category.includes("Alimentação") ? formData.menu : [],
-      menuPdfUrl: formData.category.includes("Alimentação") ? menuPdfUrl : "",
-      isBrazilianOwned: formData.isBrazilianOwned,
-      servesPortuguese: formData.servesPortuguese,
+      menu: getCategoryId(formData.category) === "food" ? formData.menu : [],
+      menuPdfUrl: getCategoryId(formData.category) === "food" ? menuPdfUrl : "",
+      isBrazilianOwned: false,
+      servesPortuguese: false,
       keywords: formData.keywords.split(",").map(k => k.trim()).filter(Boolean),
       openingHours: serializeBusinessHours(businessHours),
       photos: uploadedPhotos,
     });
 
     if (result) {
-      toast.success("Negócio cadastrado com sucesso!");
+      toast.success("NegÃ³cio cadastrado com sucesso!");
       setMyBusinesses((prev) => [result, ...prev]);
       setFormData({
         name: "",
@@ -499,7 +499,7 @@ export default function Dashboard() {
         city: "",
         state: "",
         stateCode: "",
-        country: "Canadá",
+        country: "CanadÃ¡",
         countryCode: "ca",
         postalCode: "",
         services: "",
@@ -521,13 +521,13 @@ export default function Dashboard() {
       setMenuPdfFile(null);
       setActiveTab("meus-negocios");
     } else {
-      toast.error("Erro ao cadastrar negócio. Verifique as credenciais do Supabase.");
+      toast.error("Erro ao cadastrar negÃ³cio. Verifique as credenciais do Supabase.");
     }
     setIsUploading(false);
   };
 
   const handleRemoveBusiness = async (id: string, name: string) => {
-    if (!confirm(`Tem certeza que deseja remover "${name}"? Esta ação não pode ser desfeita.`)) {
+    if (!confirm(`Tem certeza que deseja remover "${name}"? Esta aÃ§Ã£o nÃ£o pode ser desfeita.`)) {
       return;
     }
     const ok = await deleteBusiness(id);
@@ -535,14 +535,14 @@ export default function Dashboard() {
       toast.success(`"${name}" removido com sucesso.`);
       setMyBusinesses((prev) => prev.filter((b) => b.id !== id));
     } else {
-      toast.error("Erro ao remover negócio. Tente novamente.");
+      toast.error("Erro ao remover negÃ³cio. Tente novamente.");
     }
   };
 
   const handleEditClick = (biz: BusinessFrontend) => {
     setEditFormData({
       name: biz.name,
-      category: biz.category,
+      category: biz.categoryId,
       description: biz.description,
       phone: biz.phone || "",
       email: biz.email || "",
@@ -604,7 +604,7 @@ export default function Dashboard() {
     const validFiles = files.filter(f => {
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(f.type)) {
-        toast.error(`Formato inválido: ${f.name}. Use JPG, PNG ou WEBP.`);
+        toast.error(`Formato invÃ¡lido: ${f.name}. Use JPG, PNG ou WEBP.`);
         return false;
       }
       if (f.size > 5 * 1024 * 1024) {
@@ -619,7 +619,7 @@ export default function Dashboard() {
         const existingCount = existingPhotos.length;
         const total = prev.length + validFiles.length + existingCount;
         if (total > 8) {
-          toast.error("Limite máximo de 8 fotos no total.");
+          toast.error("Limite mÃ¡ximo de 8 fotos no total.");
           return [...prev, ...validFiles].slice(0, 8 - existingCount - prev.length);
         }
         return [...prev, ...validFiles];
@@ -627,7 +627,7 @@ export default function Dashboard() {
     } else {
       setPhotoFiles(prev => {
         if (prev.length + validFiles.length > 8) {
-          toast.error("Limite máximo de 8 fotos.");
+          toast.error("Limite mÃ¡ximo de 8 fotos.");
           return [...prev, ...validFiles].slice(0, 8 - prev.length);
         }
         return [...prev, ...validFiles];
@@ -644,7 +644,7 @@ export default function Dashboard() {
     }
 
     if (file.type !== "application/pdf") {
-      toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
+      toast.error("Formato invÃ¡lido. O cardÃ¡pio completo deve ser um arquivo PDF.");
       e.target.value = "";
       return;
     }
@@ -682,11 +682,11 @@ export default function Dashboard() {
   const handleEditSave = async () => {
     if (!editingBusiness || !session) return;
     if (!editFormData.name || !editFormData.category || !editFormData.description) {
-      toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
+      toast.error("Preencha os campos obrigatÃ³rios: Nome, Categoria e DescriÃ§Ã£o");
       return;
     }
     if (!editFormData.city || !editFormData.stateCode) {
-      toast.error("O endereço (Cidade e Estado) é obrigatório.");
+      toast.error("O endereÃ§o (Cidade e Estado) Ã© obrigatÃ³rio.");
       return;
     }
 
@@ -698,7 +698,7 @@ export default function Dashboard() {
     const updates: any = {
       name: editFormData.name,
       slug: slugify(editFormData.name),
-      category: editFormData.category,
+      categoryId: editFormData.category,
       description: editFormData.description,
       street: editFormData.street,
       city: editFormData.city,
@@ -716,10 +716,10 @@ export default function Dashboard() {
       instagram: editFormData.instagram,
       facebook: editFormData.facebook,
       whatsapp: editFormData.whatsapp,
-      menu: editFormData.category.includes("Alimentação") ? editFormData.menu : [],
-      menuPdfUrl: editFormData.category.includes("Alimentação") ? editFormData.menuPdfUrl : "",
-      isBrazilianOwned: editFormData.isBrazilianOwned,
-      servesPortuguese: editFormData.servesPortuguese,
+      menu: getCategoryId(editFormData.category) === "food" ? editFormData.menu : [],
+      menuPdfUrl: getCategoryId(editFormData.category) === "food" ? editFormData.menuPdfUrl : "",
+      isBrazilianOwned: false,
+      servesPortuguese: false,
       keywords: editFormData.keywords.split(",").map(k => k.trim()).filter(Boolean),
       openingHours: serializeBusinessHours(editBusinessHours),
     };
@@ -750,7 +750,7 @@ export default function Dashboard() {
       updates.photos = [...existingPhotos, ...uploadedPhotos];
     }
 
-    if (editFormData.category.includes("Alimentação") && editMenuPdfFile) {
+    if (getCategoryId(editFormData.category) === "food" && editMenuPdfFile) {
       const path = generateImagePath(editingBusiness.id, "menu", editMenuPdfFile.name);
       const url = await uploadImage("business-images", path, editMenuPdfFile);
       if (url) updates.menuPdfUrl = url;
@@ -768,7 +768,7 @@ export default function Dashboard() {
       // Recarregar lista
       getBusinessesByOwner(session.userId).then(setMyBusinesses);
     } else {
-      toast.error("Erro ao atualizar negócio. Tente novamente.");
+      toast.error("Erro ao atualizar negÃ³cio. Tente novamente.");
     }
     setIsUploading(false);
   };
@@ -783,12 +783,12 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-24">
             <a href="/" className="flex items-center gap-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-lg sm:text-xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] sm:text-xs font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </a>
             <div className="flex items-center gap-2">
@@ -836,7 +836,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{session?.name || "Visitante"}</p>
-                    <p className="text-xs text-muted-foreground">Empresário</p>
+                    <p className="text-xs text-muted-foreground">EmpresÃ¡rio</p>
                   </div>
                 </div>
                 <nav className="space-y-1">
@@ -849,7 +849,7 @@ export default function Dashboard() {
                     }`}
                   >
                     <Store className="w-4 h-4" />
-                    Meus Negócios
+                    Meus NegÃ³cios
                     {!loading && (
                       <span className="ml-auto bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">
                         {myBusinesses.length}
@@ -907,7 +907,7 @@ export default function Dashboard() {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="flex items-center justify-between mb-6">
                 <TabsList>
-                  <TabsTrigger value="meus-negocios">Meus Negócios</TabsTrigger>
+                  <TabsTrigger value="meus-negocios">Meus NegÃ³cios</TabsTrigger>
                   <TabsTrigger value="cadastrar">Cadastrar Novo</TabsTrigger>
                   <TabsTrigger value="mensagens" className="relative">
                     Mensagens
@@ -932,7 +932,7 @@ export default function Dashboard() {
               </div>
 
               <TabsContent value="meus-negocios">
-                <h2 className="text-2xl font-bold text-foreground mb-6">Meus Negócios</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-6">Meus NegÃ³cios</h2>
 
                 {loading ? (
                   <div className="text-center py-12">
@@ -942,9 +942,9 @@ export default function Dashboard() {
                 ) : myBusinesses.length === 0 ? (
                   <Card className="p-12 text-center border-border">
                     <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum negócio cadastrado</h3>
+                    <h3 className="text-lg font-semibold mb-2">Nenhum negÃ³cio cadastrado</h3>
                     <p className="text-muted-foreground mb-6">
-                      Cadastre seu primeiro negócio e comece a ser encontrado por milhares de brasileiros!
+                      Cadastre seu primeiro negÃ³cio e comece a ser encontrado por milhares de brasileiros!
                     </p>
                     <Button onClick={() => setActiveTab("cadastrar")}>
                       <Plus className="w-4 h-4 mr-2" />
@@ -972,14 +972,14 @@ export default function Dashboard() {
                                   <span>{biz.address.city}, {biz.address.countryCode.toUpperCase()}</span>
                                 </div>
                               </div>
-                              <Badge variant="secondary">{biz.category.split(" (")[0]}</Badge>
+                              <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>
                             </div>
                             <div className="flex items-center gap-3 mt-2">
                               <div className="flex items-center text-amber-500 text-sm">
                                 <Star className="w-4 h-4 fill-current" />
                                 <span className="ml-1 font-semibold text-foreground">{biz.averageRating.toFixed(1)}</span>
                               </div>
-                              <span className="text-xs text-muted-foreground">{biz.reviews.length} avaliações</span>
+                              <span className="text-xs text-muted-foreground">{biz.reviews.length} avaliaÃ§Ãµes</span>
                             </div>
                               <div className="flex gap-2 mt-3">
                                 <Link to={buildBusinessUrl(biz)}>
@@ -1015,7 +1015,7 @@ export default function Dashboard() {
               </TabsContent>
 
               <TabsContent value="cadastrar">
-                <h2 className="text-2xl font-bold text-foreground mb-6">Cadastrar Novo Negócio</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-6">Cadastrar Novo NegÃ³cio</h2>
 
                 <Card className="p-6 sm:p-8 border-border">
                   <form onSubmit={handleRegister} className="space-y-6">
@@ -1024,7 +1024,7 @@ export default function Dashboard() {
                         <h3 className="text-base font-semibold">Dados principais</h3>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label htmlFor="name">Nome do Negócio *</Label>
+                        <Label htmlFor="name">Nome do NegÃ³cio *</Label>
                         <Input
                           id="name"
                           value={formData.name}
@@ -1044,9 +1044,9 @@ export default function Dashboard() {
                             <SelectValue placeholder="Selecione a categoria" />
                           </SelectTrigger>
                           <SelectContent>
-                            {BUSINESS_CATEGORIES.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
+                            {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1054,51 +1054,24 @@ export default function Dashboard() {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label htmlFor="description">Descrição *</Label>
+                        <Label htmlFor="description">DescriÃ§Ã£o *</Label>
                         <Textarea
                           id="description"
                           value={formData.description}
                           onChange={(e) => handleInputChange("description", e.target.value)}
-                          placeholder="Descreva seu negócio, o que oferece, diferenciais..."
+                          placeholder="Descreva seu negÃ³cio, o que oferece, diferenciais..."
                           className="mt-1.5 min-h-[160px]"
                         />
                       </div>
 
-                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={`justify-start ${
-                            formData.isBrazilianOwned
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                              : ""
-                          }`}
-                          onClick={() => setFormData((prev) => ({ ...prev, isBrazilianOwned: !prev.isBrazilianOwned }))}
-                        >
-                          🇧🇷 Negócio brasileiro
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={`justify-start ${
-                            formData.servesPortuguese
-                              ? "border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100"
-                              : ""
-                          }`}
-                          onClick={() => setFormData((prev) => ({ ...prev, servesPortuguese: !prev.servesPortuguese }))}
-                        >
-                          🗣️ Atendimento em português
-                        </Button>
-                      </div>
-
                       <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                        <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
+                        <h3 className="text-base font-semibold">Oferta e conteÃºdo</h3>
                       </div>
 
-                      {formData.category.includes("Alimentação") ? (
+                      {getCategoryId(formData.category) === "food" ? (
                         <div className="sm:col-span-2 space-y-4 rounded-lg border border-border bg-secondary/10 p-4">
                           <div className="flex items-center justify-between">
-                            <Label>Cardápio</Label>
+                            <Label>CardÃ¡pio</Label>
                             <Button
                               type="button"
                               variant="outline"
@@ -1137,12 +1110,12 @@ export default function Dashboard() {
                                         newMenu[index].name = e.target.value;
                                         setFormData(prev => ({ ...prev, menu: newMenu }));
                                       }}
-                                      placeholder="Ex: Pão de Queijo"
+                                      placeholder="Ex: PÃ£o de Queijo"
                                       className="h-8 text-sm mt-1"
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs">Preço</Label>
+                                    <Label className="text-xs">PreÃ§o</Label>
                                     <Input
                                       value={item.price}
                                       onChange={(e) => {
@@ -1156,7 +1129,7 @@ export default function Dashboard() {
                                   </div>
                                 </div>
                                 <div>
-                                  <Label className="text-xs">Descrição</Label>
+                                  <Label className="text-xs">DescriÃ§Ã£o</Label>
                                   <Input
                                     value={item.description}
                                     onChange={(e) => {
@@ -1164,7 +1137,7 @@ export default function Dashboard() {
                                       newMenu[index].description = e.target.value;
                                       setFormData(prev => ({ ...prev, menu: newMenu }));
                                     }}
-                                    placeholder="Ex: Porção com 6 unidades"
+                                    placeholder="Ex: PorÃ§Ã£o com 6 unidades"
                                     className="h-8 text-sm mt-1"
                                   />
                                 </div>
@@ -1172,12 +1145,12 @@ export default function Dashboard() {
                             ))}
                             {formData.menu.length === 0 && (
                               <div className="text-center py-6 border border-dashed border-border rounded-lg">
-                                <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro!</p>
+                                <p className="text-xs text-muted-foreground">Nenhum item no cardÃ¡pio. Adicione o seu primeiro!</p>
                               </div>
                             )}
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor="menu-pdf">Cardápio completo (PDF, opcional)</Label>
+                            <Label htmlFor="menu-pdf">CardÃ¡pio completo (PDF, opcional)</Label>
                             <Input
                               id="menu-pdf"
                               type="file"
@@ -1186,13 +1159,13 @@ export default function Dashboard() {
                               className="cursor-pointer"
                             />
                             <p className="text-xs text-muted-foreground">
-                              Envie um PDF para clientes acessarem o cardápio completo.
+                              Envie um PDF para clientes acessarem o cardÃ¡pio completo.
                             </p>
                           </div>
                         </div>
                       ) : (
                         <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                          <Label htmlFor="services">Serviços Oferecidos (um por linha)</Label>
+                          <Label htmlFor="services">ServiÃ§os Oferecidos (um por linha)</Label>
                           <Textarea
                             id="services"
                             value={formData.services}
@@ -1208,7 +1181,7 @@ Delivery"
                       )}
 
                       <div className="sm:col-span-2">
-                        <Label htmlFor="keywords">Palavras-Chave (para busca, separadas por vírgula)</Label>
+                        <Label htmlFor="keywords">Palavras-Chave (para busca, separadas por vÃ­rgula)</Label>
                         <Input
                           id="keywords"
                           value={formData.keywords}
@@ -1289,11 +1262,11 @@ Delivery"
                       </div>
 
                       <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                        <h3 className="text-base font-semibold">Horários</h3>
+                        <h3 className="text-base font-semibold">HorÃ¡rios</h3>
                       </div>
 
                       <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                        <Label>Horários de funcionamento</Label>
+                        <Label>HorÃ¡rios de funcionamento</Label>
                         <div className="mt-3 space-y-2">
                           {businessHours.map((hour) => (
                             <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
@@ -1324,11 +1297,11 @@ Delivery"
                       </div>
 
                       <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                        <h3 className="text-base font-semibold">Mídia</h3>
+                        <h3 className="text-base font-semibold">MÃ­dia</h3>
                       </div>
 
                       <div className="sm:col-span-1">
-                        <Label htmlFor="logo">Logo do Negócio</Label>
+                        <Label htmlFor="logo">Logo do NegÃ³cio</Label>
                         <Input
                           id="logo"
                           type="file"
@@ -1354,7 +1327,7 @@ Delivery"
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label htmlFor="photos">Galeria de Fotos (Máx. 8)</Label>
+                        <Label htmlFor="photos">Galeria de Fotos (MÃ¡x. 8)</Label>
                         <Input
                           id="photos"
                           type="file"
@@ -1364,7 +1337,7 @@ Delivery"
                           className="mt-1.5 cursor-pointer"
                         />
                         <div className="text-xs text-muted-foreground mt-1 mb-2">
-                          Selecionadas: {photoFiles.length}/8 | Tamanho máx: 5MB por imagem | Formatos: JPG, PNG, WEBP
+                          Selecionadas: {photoFiles.length}/8 | Tamanho mÃ¡x: 5MB por imagem | Formatos: JPG, PNG, WEBP
                         </div>
                         {photoFiles.length > 0 && (
                           <div className="flex flex-wrap gap-2 mt-2">
@@ -1381,11 +1354,11 @@ Delivery"
                       </div>
 
                       <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-                        <h3 className="text-base font-semibold">Localização</h3>
+                        <h3 className="text-base font-semibold">LocalizaÃ§Ã£o</h3>
                       </div>
 
                       <div className="sm:col-span-2">
-                        <Label>Endereço</Label>
+                        <Label>EndereÃ§o</Label>
                         <div className="mt-1.5">
                           <AddressAutocomplete
                           value={formData.street}
@@ -1403,7 +1376,7 @@ Delivery"
 
                     <Button type="submit" className="w-full caramelo-gradient text-white border-0" disabled={isUploading}>
                       <Plus className="w-4 h-4 mr-2" />
-                      {isUploading ? "Enviando Imagens..." : "Cadastrar Negócio"}
+                      {isUploading ? "Enviando Imagens..." : "Cadastrar NegÃ³cio"}
                     </Button>
                   </form>
                 </Card>
@@ -1415,24 +1388,24 @@ Delivery"
                     <div>
                       <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Aprove solicitações de donos ou transfira um negócio diretamente por email.
+                        Aprove solicitaÃ§Ãµes de donos ou transfira um negÃ³cio diretamente por email.
                       </p>
                     </div>
 
                     <Card className="p-6 border-border">
                       <h3 className="font-semibold mb-4 flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-primary" />
-                        Transferência direta
+                        TransferÃªncia direta
                       </h3>
                       <form onSubmit={handleDirectTransfer} className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-3">
                         <Select value={transferBusinessId} onValueChange={setTransferBusinessId}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecione o negócio" />
+                            <SelectValue placeholder="Selecione o negÃ³cio" />
                           </SelectTrigger>
                           <SelectContent>
                             {allBusinesses.map((biz) => (
                               <SelectItem key={biz.id} value={biz.id}>
-                                {biz.name} · {biz.address.city}
+                                {biz.name} Â· {biz.address.city}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1452,9 +1425,9 @@ Delivery"
                     <Card className="border-border overflow-hidden">
                       <div className="p-5 border-b border-border flex items-center justify-between gap-4">
                         <div>
-                          <h3 className="font-semibold">Solicitações pendentes</h3>
+                          <h3 className="font-semibold">SolicitaÃ§Ãµes pendentes</h3>
                           <p className="text-sm text-muted-foreground">
-                            Pedidos feitos pelo botão “Sou dono deste negócio”.
+                            Pedidos feitos pelo botÃ£o â€œSou dono deste negÃ³cioâ€.
                           </p>
                         </div>
                         <Button variant="outline" size="sm" onClick={loadOwnershipAdminData} disabled={ownershipLoading}>
@@ -1464,11 +1437,11 @@ Delivery"
 
                       {ownershipLoading ? (
                         <div className="p-8 text-center text-muted-foreground">
-                          Carregando solicitações...
+                          Carregando solicitaÃ§Ãµes...
                         </div>
                       ) : ownershipRequests.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground">
-                          Nenhuma solicitação pendente.
+                          Nenhuma solicitaÃ§Ã£o pendente.
                         </div>
                       ) : (
                         <div className="divide-y divide-border">
@@ -1477,15 +1450,15 @@ Delivery"
                               <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <h4 className="font-semibold">
-                                    {request.business?.name || "Negócio"}
+                                    {request.business?.name || "NegÃ³cio"}
                                   </h4>
                                   <Badge variant="secondary">
-                                    {request.business?.city || "Cidade não informada"}
+                                    {request.business?.city || "Cidade nÃ£o informada"}
                                     {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  Solicitado por {request.requester_name || "Usuário"}  {request.requester_email || "sem email"}
+                                  Solicitado por {request.requester_name || "UsuÃ¡rio"}  {request.requester_email || "sem email"}
                                 </p>
                                 {request.message && (
                                   <p className="text-sm mt-2 text-foreground/80">
@@ -1526,7 +1499,7 @@ Delivery"
                     <div>
                       <h2 className="text-2xl font-bold text-foreground">Destaques Regionais</h2>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Gerencie campanhas de destaque por cidade, estado/província, país ou global.
+                        Gerencie campanhas de destaque por cidade, estado/provÃ­ncia, paÃ­s ou global.
                       </p>
                     </div>
 
@@ -1538,15 +1511,15 @@ Delivery"
                       <form onSubmit={handleCreateFeaturedPlacement} className="space-y-4">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                           <div>
-                            <Label>Negócio</Label>
+                            <Label>NegÃ³cio</Label>
                             <Select value={featuredForm.businessId} onValueChange={handleFeaturedBusinessChange}>
                               <SelectTrigger className="mt-1.5">
-                                <SelectValue placeholder="Selecione o negócio" />
+                                <SelectValue placeholder="Selecione o negÃ³cio" />
                               </SelectTrigger>
                               <SelectContent>
                                 {allBusinesses.map((biz) => (
                                   <SelectItem key={biz.id} value={biz.id}>
-                                    {biz.name} · {biz.address.city}
+                                    {biz.name} Â· {biz.address.city}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1564,15 +1537,15 @@ Delivery"
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="city">Cidade</SelectItem>
-                                <SelectItem value="state">Estado/Província</SelectItem>
-                                <SelectItem value="country">País</SelectItem>
+                                <SelectItem value="state">Estado/ProvÃ­ncia</SelectItem>
+                                <SelectItem value="country">PaÃ­s</SelectItem>
                                 <SelectItem value="global">Global</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
 
                           <div>
-                            <Label>País</Label>
+                            <Label>PaÃ­s</Label>
                             <Input
                               value={featuredForm.countryCode}
                               onChange={(e) => setFeaturedForm((prev) => ({ ...prev, countryCode: e.target.value.toLowerCase() }))}
@@ -1583,7 +1556,7 @@ Delivery"
                           </div>
 
                           <div>
-                            <Label>Estado/Província</Label>
+                            <Label>Estado/ProvÃ­ncia</Label>
                             <Input
                               value={featuredForm.stateCode}
                               onChange={(e) => setFeaturedForm((prev) => ({ ...prev, stateCode: e.target.value.toLowerCase() }))}
@@ -1615,7 +1588,7 @@ Delivery"
                           </div>
 
                           <div>
-                            <Label>Início</Label>
+                            <Label>InÃ­cio</Label>
                             <Input
                               type="date"
                               value={featuredForm.startsAt}
@@ -1635,7 +1608,7 @@ Delivery"
                           </div>
 
                           <div>
-                            <Label>Preço cobrado (centavos)</Label>
+                            <Label>PreÃ§o cobrado (centavos)</Label>
                             <Input
                               type="number"
                               value={featuredForm.priceCents}
@@ -1646,7 +1619,7 @@ Delivery"
                           </div>
 
                           <div>
-                            <Label>Observações</Label>
+                            <Label>ObservaÃ§Ãµes</Label>
                             <Input
                               value={featuredForm.notes}
                               onChange={(e) => setFeaturedForm((prev) => ({ ...prev, notes: e.target.value }))}
@@ -1684,7 +1657,7 @@ Delivery"
                             <div key={placement.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <h4 className="font-semibold">{placement.business?.name || "Negócio removido"}</h4>
+                                  <h4 className="font-semibold">{placement.business?.name || "NegÃ³cio removido"}</h4>
                                   <Badge variant={placement.status === "active" ? "default" : "secondary"}>
                                     {placement.status}
                                   </Badge>
@@ -1696,8 +1669,8 @@ Delivery"
                                   )}
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  {new Date(placement.startsAt).toLocaleDateString("pt-BR")} até {new Date(placement.endsAt).toLocaleDateString("pt-BR")}
-                                  {placement.priceCents > 0 ? ` · ${(placement.priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "CAD" })}` : ""}
+                                  {new Date(placement.startsAt).toLocaleDateString("pt-BR")} atÃ© {new Date(placement.endsAt).toLocaleDateString("pt-BR")}
+                                  {placement.priceCents > 0 ? ` Â· ${(placement.priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "CAD" })}` : ""}
                                 </p>
                                 {placement.notes && <p className="text-sm mt-2">{placement.notes}</p>}
                               </div>
@@ -1866,7 +1839,7 @@ Delivery"
           }}
         >
           <DialogHeader>
-            <DialogTitle>Editar {editFormData.name || "Negócio"}</DialogTitle>
+            <DialogTitle>Editar {editFormData.name || "NegÃ³cio"}</DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
@@ -1874,7 +1847,7 @@ Delivery"
               <h3 className="text-base font-semibold">Dados principais</h3>
             </div>
             <div className="sm:col-span-2">
-              <Label htmlFor="edit-name">Nome do Negócio *</Label>
+              <Label htmlFor="edit-name">Nome do NegÃ³cio *</Label>
               <Input
                 id="edit-name"
                 value={editFormData.name}
@@ -1894,9 +1867,9 @@ Delivery"
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {BUSINESS_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1904,51 +1877,24 @@ Delivery"
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="edit-description">Descrição *</Label>
+              <Label htmlFor="edit-description">DescriÃ§Ã£o *</Label>
               <Textarea
                 id="edit-description"
                 value={editFormData.description}
                 onChange={(e) => handleEditInputChange("description", e.target.value)}
-                placeholder="Descreva seu negócio..."
+                placeholder="Descreva seu negÃ³cio..."
                 className="mt-1.5 min-h-[160px]"
               />
             </div>
 
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className={`justify-start ${
-                  editFormData.isBrazilianOwned
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                    : ""
-                }`}
-                onClick={() => setEditFormData((prev) => ({ ...prev, isBrazilianOwned: !prev.isBrazilianOwned }))}
-              >
-                🇧🇷 Negócio brasileiro
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className={`justify-start ${
-                  editFormData.servesPortuguese
-                    ? "border-sky-300 bg-sky-50 text-sky-900 hover:bg-sky-100"
-                    : ""
-                }`}
-                onClick={() => setEditFormData((prev) => ({ ...prev, servesPortuguese: !prev.servesPortuguese }))}
-              >
-                🗣️ Atendimento em português
-              </Button>
-            </div>
-
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
+              <h3 className="text-base font-semibold">Oferta e conteÃºdo</h3>
             </div>
 
-            {editFormData.category.includes("Alimentação") ? (
+            {getCategoryId(editFormData.category) === "food" ? (
               <div className="sm:col-span-2 space-y-4 rounded-lg border border-border bg-secondary/10 p-4">
                 <div className="flex items-center justify-between">
-                  <Label>Cardápio</Label>
+                  <Label>CardÃ¡pio</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -1987,12 +1933,12 @@ Delivery"
                               newMenu[index].name = e.target.value;
                               setEditFormData(prev => ({ ...prev, menu: newMenu }));
                             }}
-                            placeholder="Ex: Pão de Queijo"
+                            placeholder="Ex: PÃ£o de Queijo"
                             className="h-8 text-sm mt-1"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Preço</Label>
+                          <Label className="text-xs">PreÃ§o</Label>
                           <Input
                             value={item.price}
                             onChange={(e) => {
@@ -2006,7 +1952,7 @@ Delivery"
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs">Descrição</Label>
+                        <Label className="text-xs">DescriÃ§Ã£o</Label>
                         <Input
                           value={item.description}
                           onChange={(e) => {
@@ -2014,7 +1960,7 @@ Delivery"
                             newMenu[index].description = e.target.value;
                             setEditFormData(prev => ({ ...prev, menu: newMenu }));
                           }}
-                          placeholder="Ex: Porção com 6 unidades"
+                          placeholder="Ex: PorÃ§Ã£o com 6 unidades"
                           className="h-8 text-sm mt-1"
                         />
                       </div>
@@ -2022,12 +1968,12 @@ Delivery"
                   ))}
                   {editFormData.menu.length === 0 && (
                     <div className="text-center py-6 border border-dashed border-border rounded-lg">
-                      <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro!</p>
+                      <p className="text-xs text-muted-foreground">Nenhum item no cardÃ¡pio. Adicione o seu primeiro!</p>
                     </div>
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
+                  <Label htmlFor="edit-menu-pdf">CardÃ¡pio completo (PDF, opcional)</Label>
                   <Input
                     id="edit-menu-pdf"
                     type="file"
@@ -2049,7 +1995,7 @@ Delivery"
               </div>
             ) : (
               <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                <Label htmlFor="edit-services">Serviços Oferecidos (um por linha)</Label>
+                <Label htmlFor="edit-services">ServiÃ§os Oferecidos (um por linha)</Label>
                 <Textarea
                   id="edit-services"
                   value={editFormData.services}
@@ -2062,7 +2008,7 @@ Delivery"
             )}
 
             <div className="sm:col-span-2">
-              <Label htmlFor="edit-keywords">Palavras-Chave (para busca, separadas por vírgula)</Label>
+              <Label htmlFor="edit-keywords">Palavras-Chave (para busca, separadas por vÃ­rgula)</Label>
               <Input
                 id="edit-keywords"
                 value={editFormData.keywords}
@@ -2139,11 +2085,11 @@ Delivery"
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">Horários</h3>
+              <h3 className="text-base font-semibold">HorÃ¡rios</h3>
             </div>
 
             <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-              <Label>Horários de funcionamento</Label>
+              <Label>HorÃ¡rios de funcionamento</Label>
               <div className="mt-3 space-y-2">
                 {editBusinessHours.map((hour) => (
                   <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
@@ -2174,7 +2120,7 @@ Delivery"
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">Mídia</h3>
+              <h3 className="text-base font-semibold">MÃ­dia</h3>
             </div>
 
             <div>
@@ -2214,7 +2160,7 @@ Delivery"
                 className="mt-1.5 cursor-pointer"
               />
               <div className="text-xs text-muted-foreground mt-1 mb-2">
-                Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho máx: 5MB | Formatos: JPG, PNG, WEBP
+                Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho mÃ¡x: 5MB | Formatos: JPG, PNG, WEBP
               </div>
               {(existingPhotos.length > 0 || editPhotoFiles.length > 0) && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -2242,11 +2188,11 @@ Delivery"
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">Localização</h3>
+              <h3 className="text-base font-semibold">LocalizaÃ§Ã£o</h3>
             </div>
 
             <div className="sm:col-span-2">
-              <Label>Endereço</Label>
+              <Label>EndereÃ§o</Label>
               <div className="mt-1.5">
                 <AddressAutocomplete
                   key={editingBusiness?.id}
@@ -2270,7 +2216,7 @@ Delivery"
             </Button>
             <Button className="caramelo-gradient text-white border-0" onClick={handleEditSave} disabled={isUploading}>
               <Save className="w-4 h-4 mr-2" />
-              {isUploading ? "Enviando Imagens..." : "Salvar Alterações"}
+              {isUploading ? "Enviando Imagens..." : "Salvar AlteraÃ§Ãµes"}
             </Button>
           </div>
         </DialogContent>
@@ -2287,7 +2233,7 @@ function getDateInputDaysFromNow(days: number): string {
 
 function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
   if (placement.scopeType === "global") return "Global";
-  if (placement.scopeType === "country") return `País: ${placement.countryCode.toUpperCase()}`;
+  if (placement.scopeType === "country") return `PaÃ­s: ${placement.countryCode.toUpperCase()}`;
   if (placement.scopeType === "state") {
     return `${placement.countryCode.toUpperCase()}/${placement.stateCode.toUpperCase()}`;
   }
@@ -2297,11 +2243,11 @@ function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
 function createDefaultBusinessHours(): BusinessHour[] {
   return [
     { day: "Segunda", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Terça", enabled: true, open: "09:00", close: "18:00" },
+    { day: "TerÃ§a", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quarta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quinta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Sexta", enabled: true, open: "09:00", close: "18:00" },
-    { day: "Sábado", enabled: false, open: "10:00", close: "14:00" },
+    { day: "SÃ¡bado", enabled: false, open: "10:00", close: "14:00" },
     { day: "Domingo", enabled: false, open: "10:00", close: "14:00" },
   ];
 }
@@ -2341,6 +2287,9 @@ function parseBusinessHours(lines: string[]): BusinessHour[] {
 
   return defaults;
 }
+
+
+
 
 
 

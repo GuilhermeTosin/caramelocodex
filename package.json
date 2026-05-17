@@ -4,8 +4,11 @@
     "version":  "0.0.0",
     "type":  "module",
     "scripts":  {
+                    "predev":  "npm run check:encoding",
                     "dev":  "vite --host 0.0.0.0",
+                    "prebuild":  "npm run check:encoding",
                     "build":  "vite build",
+                    "prepreview":  "npm run check:encoding",
                     "lint":  "eslint .",
                     "preview":  "vite preview --host 0.0.0.0",
                     "check:encoding":  "node scripts/check-encoding.mjs",

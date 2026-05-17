@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, User, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function Register() {
       return;
     }
     if (password !== confirmPassword) {
-      setError("As senhas não conferem.");
+      setError("As senhas nÃ£o conferem.");
       return;
     }
 
@@ -50,7 +50,7 @@ export default function Register() {
 
     if (signUpError) {
       if (signUpError.message.includes("already")) {
-        setError("Este email já está cadastrado.");
+        setError("Este email jÃ¡ estÃ¡ cadastrado.");
       } else {
         setError(signUpError.message);
       }
@@ -69,10 +69,10 @@ export default function Register() {
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-3">Cadastro realizado!</h1>
           <p className="text-muted-foreground mb-2">
-            Enviamos um email de confirmação para <strong>{email}</strong>.
+            Enviamos um email de confirmaÃ§Ã£o para <strong>{email}</strong>.
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Clique no link enviado para ativar sua conta e começar a usar o Caramelinho.
+            Clique no link enviado para ativar sua conta e comeÃ§ar a usar o Caramelinho.
           </p>
           <div className="flex flex-col gap-3">
             <Button onClick={() => navigate("/entrar")}>
@@ -80,7 +80,7 @@ export default function Register() {
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button variant="outline" onClick={() => navigate("/")}>
-              Voltar ao Início
+              Voltar ao InÃ­cio
             </Button>
           </div>
         </Card>
@@ -94,11 +94,11 @@ export default function Register() {
         <div className="mb-8">
           <Link to="/" className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
             <div className="leading-tight text-left">
-                <div className="font-extrabold text-2xl sm:text-3xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-sm sm:text-base font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-base sm:text-lg font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
           </Link>
         </div>
@@ -155,7 +155,7 @@ export default function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="MÃ­nimo 6 caracteres"
                   className="pl-10"
                   autoComplete="new-password"
                 />
@@ -185,9 +185,9 @@ export default function Register() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>
-              Já tem conta?{" "}
+              JÃ¡ tem conta?{" "}
               <Link to="/entrar" className="text-amber-600 hover:text-amber-700 font-medium">
-                Faça login
+                FaÃ§a login
               </Link>
             </p>
           </div>
@@ -196,6 +196,8 @@ export default function Register() {
     </div>
   );
 }
+
+
 
 
 

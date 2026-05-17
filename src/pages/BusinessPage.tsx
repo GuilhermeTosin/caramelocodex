@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   BadgeCheck,
@@ -19,7 +19,6 @@ import {
   User,
   Share2,
   Link2,
-  Languages,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessBySlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl } from "@/services/businesses";
+import { getAllBusinesses, getBusinessBySlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -81,8 +80,8 @@ export default function BusinessPage() {
   useEffect(() => {
     if (!business) {
       setSeoMeta(
-        "Negócio brasileiro | Caramelinho.com",
-        "Encontre negócios brasileiros e atendimento em português perto de você."
+        "NegÃ³cio brasileiro | Caramelinho.com",
+        "Encontre negÃ³cios perto de vocÃª."
       );
       return;
     }
@@ -93,7 +92,7 @@ export default function BusinessPage() {
     const details = keywordSnippet || serviceSnippet;
     setSeoMeta(
       `${business.name} em ${business.address.city} | ${categoryLabel} | Caramelinho.com`,
-      `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações, contato e localização para escolher com confiança.`
+      `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliaÃ§Ãµes, contato e localizaÃ§Ã£o para escolher com confianÃ§a.`
     );
   }, [business]);
 
@@ -110,11 +109,11 @@ export default function BusinessPage() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (reviewRating === 0) {
-      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliaÃ§Ã£o de 1 a 5 estrelas");
       return;
     }
     if (!business || !session) {
-      toast.error("Faça login para avaliar");
+      toast.error("FaÃ§a login para avaliar");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -130,7 +129,7 @@ export default function BusinessPage() {
 
     const success = await addReview(business.id, reviewData);
     if (success) {
-      // Recarregar o negócio para mostrar a nova avaliação
+      // Recarregar o negÃ³cio para mostrar a nova avaliaÃ§Ã£o
       const updated = await getBusinessBySlug(
         countryCode || "",
         stateCode || "",
@@ -138,9 +137,9 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("Avaliação enviada com sucesso!");
+      toast.success("AvaliaÃ§Ã£o enviada com sucesso!");
     } else {
-      toast.error("Erro ao enviar avaliação.");
+      toast.error("Erro ao enviar avaliaÃ§Ã£o.");
     }
 
     setSendingReview(false);
@@ -150,7 +149,7 @@ export default function BusinessPage() {
 
   const handleSendMessage = async () => {
     if (!session) {
-      toast.info("Faça login para enviar mensagem");
+      toast.info("FaÃ§a login para enviar mensagem");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -158,7 +157,7 @@ export default function BusinessPage() {
     trackBusinessClick(business.id, "internal_message", session.userId);
     
     if (session.userId === business.ownerId) {
-      toast.info("Este é o seu próprio negócio!");
+      toast.info("Este Ã© o seu prÃ³prio negÃ³cio!");
       navigate("/dashboard?tab=mensagens");
       return;
     }
@@ -193,7 +192,7 @@ export default function BusinessPage() {
   const handleSaveEditReview = async () => {
     if (!editingReviewId) return;
     if (editRating === 0) {
-      toast.error("Selecione uma avaliação de 1 a 5 estrelas");
+      toast.error("Selecione uma avaliaÃ§Ã£o de 1 a 5 estrelas");
       return;
     }
     setSavingEditReview(true);
@@ -209,16 +208,16 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("Avaliação atualizada!");
+      toast.success("AvaliaÃ§Ã£o atualizada!");
       cancelEditReview();
     } else {
-      toast.error("Erro ao atualizar avaliação.");
+      toast.error("Erro ao atualizar avaliaÃ§Ã£o.");
     }
     setSavingEditReview(false);
   };
 
   const handleDeleteOwnReview = async (reviewId: string) => {
-    if (!confirm("Tem certeza que deseja remover sua avaliação?")) return;
+    if (!confirm("Tem certeza que deseja remover sua avaliaÃ§Ã£o?")) return;
     const ok = await deleteReview(reviewId);
     if (ok) {
       const updated = await getBusinessBySlug(
@@ -228,10 +227,10 @@ export default function BusinessPage() {
         businessName || ""
       );
       if (updated) setBusiness(updated);
-      toast.success("Avaliação removida!");
+      toast.success("AvaliaÃ§Ã£o removida!");
       if (editingReviewId === reviewId) cancelEditReview();
     } else {
-      toast.error("Erro ao remover avaliação.");
+      toast.error("Erro ao remover avaliaÃ§Ã£o.");
     }
   };
 
@@ -239,7 +238,7 @@ export default function BusinessPage() {
     if (!business?.whatsapp) return;
     trackBusinessClick(business.id, "whatsapp", session?.userId);
     const wpp = business.whatsapp.replace(/\s+/g, "").replace(/[^0-9]/g, "");
-    const text = encodeURIComponent(`Olá! Vi seu negócio no Caramelinho.com: ${business.name}`);
+    const text = encodeURIComponent(`OlÃ¡! Vi seu negÃ³cio no Caramelinho.com: ${business.name}`);
     window.open(`https://wa.me/${wpp}?text=${text}`, "_blank");
   };
 
@@ -259,7 +258,7 @@ export default function BusinessPage() {
 
   const handleRequestOwnership = async () => {
     if (!session) {
-      toast.info("Crie uma conta ou entre para reivindicar este negócio.");
+      toast.info("Crie uma conta ou entre para reivindicar este negÃ³cio.");
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
@@ -268,15 +267,15 @@ export default function BusinessPage() {
     setRequestingOwnership(true);
     const result = await requestBusinessOwnership(
       business.id,
-      `Solicitação enviada pela página pública do negócio ${business.name}.`
+      `SolicitaÃ§Ã£o enviada pela pÃ¡gina pÃºblica do negÃ³cio ${business.name}.`
     );
     setRequestingOwnership(false);
 
     if (result.ok) {
       setHasPendingOwnershipRequest(true);
-      toast.success("Solicitação enviada. Vamos revisar e transferir o negócio quando confirmado.");
+      toast.success("SolicitaÃ§Ã£o enviada. Vamos revisar e transferir o negÃ³cio quando confirmado.");
     } else {
-      toast.error(result.error || "Não foi possível enviar a solicitação.");
+      toast.error(result.error || "NÃ£o foi possÃ­vel enviar a solicitaÃ§Ã£o.");
     }
   };
 
@@ -288,7 +287,7 @@ export default function BusinessPage() {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copiado!");
     } catch {
-      toast.error("Não foi possível copiar o link.");
+      toast.error("NÃ£o foi possÃ­vel copiar o link.");
     }
   };
 
@@ -297,11 +296,11 @@ export default function BusinessPage() {
     try {
       await navigator.share({
         title: business.name,
-        text: `Confira este negócio no Caramelinho: ${business.name}`,
+        text: `Confira este negÃ³cio no Caramelinho: ${business.name}`,
         url: shareUrl,
       });
     } catch {
-      // cancelado pelo usuário
+      // cancelado pelo usuÃ¡rio
     }
   };
 
@@ -329,9 +328,9 @@ export default function BusinessPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Negócio não encontrado</h1>
-          <p className="text-muted-foreground mb-6">O Caramelinho não achou esse negócio.</p>
-          <Button onClick={() => navigate("/")}>Voltar ao Início</Button>
+          <h1 className="text-2xl font-bold mb-2">NegÃ³cio nÃ£o encontrado</h1>
+          <p className="text-muted-foreground mb-6">O Caramelinho nÃ£o achou esse negÃ³cio.</p>
+          <Button onClick={() => navigate("/")}>Voltar ao InÃ­cio</Button>
         </div>
       </div>
     );
@@ -343,12 +342,12 @@ export default function BusinessPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-lg sm:text-xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] sm:text-xs font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
             <div className="flex items-center gap-3">
@@ -398,7 +397,7 @@ export default function BusinessPage() {
             </div>
             <div className="flex-1 text-white mb-2">
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">
-                {business.category}
+                {getCategoryLabel(business.category)}
               </Badge>
               {business.ownerVerified && (
                 <Badge className="mb-3 ml-2 bg-blue-600 text-white border-0 rounded-lg px-3 py-1">
@@ -416,7 +415,7 @@ export default function BusinessPage() {
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="font-bold">{business.averageRating.toFixed(1)}</span>
-                    <span className="text-white/80 font-normal">({business.reviews.length} avaliações)</span>
+                    <span className="text-white/80 font-normal">({business.reviews.length} avaliaÃ§Ãµes)</span>
                   </div>
                 )}
               </div>
@@ -433,21 +432,21 @@ export default function BusinessPage() {
                 <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Sobre
                 </TabsTrigger>
-                {!business.category.includes("Alimentação") && (
+                {getCategoryId(business.category) !== "food" && (
                   <TabsTrigger value="services" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                    Serviços
+                    ServiÃ§os
                   </TabsTrigger>
                 )}
                 {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                   <TabsTrigger value="menu" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                    Cardápio
+                    CardÃ¡pio
                   </TabsTrigger>
                 ) : null}
                 <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Fotos
                 </TabsTrigger>
                 <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                  Avaliações
+                  AvaliaÃ§Ãµes
                 </TabsTrigger>
               </TabsList>
 
@@ -457,16 +456,16 @@ export default function BusinessPage() {
                 {business.ownerVerified && (
                   <div className="mt-5 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                     <BadgeCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                    <p>Este negócio foi reivindicado e confirmado pelo proprietário.</p>
+                    <p>Este negÃ³cio foi reivindicado e confirmado pelo proprietÃ¡rio.</p>
                   </div>
                 )}
               </TabsContent>
 
-              {!business.category.includes("Alimentação") && (
+              {getCategoryId(business.category) !== "food" && (
                 <TabsContent value="services" className="mt-6">
-                  <h2 className="text-xl font-bold text-foreground mb-4">Serviços</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">ServiÃ§os</h2>
                   {business.services.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum serviço listado.</p>
+                    <p className="text-muted-foreground text-sm">Nenhum serviÃ§o listado.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {business.services.map((service) => (
@@ -482,11 +481,11 @@ export default function BusinessPage() {
 
               {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
                 <TabsContent value="menu" className="mt-6">
-                  <h2 className="text-xl font-bold text-foreground mb-4">Cardápio</h2>
+                  <h2 className="text-xl font-bold text-foreground mb-4">CardÃ¡pio</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
                       <a href={business.menuPdfUrl} target="_blank" rel="noreferrer">
-                        <Button variant="outline">Acessar cardápio completo</Button>
+                        <Button variant="outline">Acessar cardÃ¡pio completo</Button>
                       </a>
                     </div>
                   )}
@@ -509,7 +508,7 @@ export default function BusinessPage() {
               <TabsContent value="photos" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-4">Fotos</h2>
                 {business.photos.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhuma foto disponível.</p>
+                  <p className="text-muted-foreground text-sm">Nenhuma foto disponÃ­vel.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {business.photos.slice(0, 8).map((photo) => (
@@ -544,7 +543,7 @@ export default function BusinessPage() {
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6">
-                <h2 className="text-xl font-bold text-foreground mb-6">Avaliações</h2>
+                <h2 className="text-xl font-bold text-foreground mb-6">AvaliaÃ§Ãµes</h2>
                 <Card className="p-5 mb-6 border-border">
                   <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
                     <div className="text-center sm:w-32">
@@ -554,7 +553,7 @@ export default function BusinessPage() {
                           <Star key={i} className={`w-4 h-4 ${i < Math.round(business.averageRating) ? "fill-current" : "text-muted-foreground/20"}`} />
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} avaliações</p>
+                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} avaliaÃ§Ãµes</p>
                     </div>
                     <div className="flex-1 space-y-2">
                       {[5, 4, 3, 2, 1].map((rating) => (
@@ -577,7 +576,7 @@ export default function BusinessPage() {
                 </Card>
 
                 <Card className="p-5 mb-6 border-border bg-secondary/30">
-                  <h3 className="font-semibold text-sm mb-3">Deixe sua avaliação</h3>
+                  <h3 className="font-semibold text-sm mb-3">Deixe sua avaliaÃ§Ã£o</h3>
                   <form onSubmit={handleReviewSubmit}>
                     <div className="flex items-center gap-1 mb-3">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -600,20 +599,20 @@ export default function BusinessPage() {
                       )}
                     </div>
                     <Textarea
-                      placeholder="Conte sua experiência..."
+                      placeholder="Conte sua experiÃªncia..."
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                       className="mb-3 min-h-[80px]"
                     />
                     <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview}>
-                      {sendingReview ? "Enviando..." : "Enviar Avaliação"}
+                      {sendingReview ? "Enviando..." : "Enviar AvaliaÃ§Ã£o"}
                     </Button>
                   </form>
                 </Card>
 
                 <div className="space-y-4">
                   {business.reviews.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhuma avaliação ainda. Seja o primeiro!</p>
+                    <p className="text-muted-foreground text-sm">Nenhuma avaliaÃ§Ã£o ainda. Seja o primeiro!</p>
                   ) : (
                     business.reviews.map((review) => (
                       <div key={review.id} className="p-4 rounded-lg border border-border bg-card">
@@ -685,7 +684,7 @@ export default function BusinessPage() {
                             {session?.userId && review.user_id === session.userId && (
                               <div className="mt-3 flex gap-2">
                                 <Button size="sm" variant="outline" onClick={() => startEditReview(review)}>
-                                  Editar minha avaliação
+                                  Editar minha avaliaÃ§Ã£o
                                 </Button>
                                 <Button
                                   size="sm"
@@ -693,7 +692,7 @@ export default function BusinessPage() {
                                   className="text-destructive border-destructive/30 hover:bg-destructive/10"
                                   onClick={() => handleDeleteOwnReview(review.id)}
                                 >
-                                  Remover minha avaliação
+                                  Remover minha avaliaÃ§Ã£o
                                 </Button>
                               </div>
                             )}
@@ -711,7 +710,7 @@ export default function BusinessPage() {
             <div className="sticky top-24 space-y-6">
               {/* Contact Card */}
               <Card className="p-5 border-border">
-                <h3 className="font-semibold mb-4">Informações de Contato</h3>
+                <h3 className="font-semibold mb-4">InformaÃ§Ãµes de Contato</h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -779,7 +778,7 @@ export default function BusinessPage() {
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  Horários
+                  HorÃ¡rios
                 </h3>
                 {business.openingHours.length > 0 ? (
                   <div className="space-y-2">
@@ -788,7 +787,7 @@ export default function BusinessPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Horários ainda não informados.</p>
+                  <p className="text-sm text-muted-foreground">HorÃ¡rios ainda nÃ£o informados.</p>
                 )}
               </Card>
 
@@ -823,29 +822,11 @@ export default function BusinessPage() {
                 </Card>
               )}
 
-              {(business.isBrazilianOwned || business.servesPortuguese) && (
-                <Card className="p-5 border-border">
-                  <h3 className="font-semibold mb-4">Atendimento</h3>
-                  <div className="space-y-2">
-                    {business.isBrazilianOwned && (
-                      <div className="border border-emerald-200 bg-emerald-50 text-emerald-900 px-3 py-2 rounded-md text-sm font-medium">
-                        🇧🇷 Negócio de brasileiro
-                      </div>
-                    )}
-                    {business.servesPortuguese && (
-                      <div className="border border-sky-200 bg-sky-50 text-sky-900 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2">
-                        <Languages className="w-4 h-4" />
-                        Atendimento em português
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              )}
 
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-primary" />
-                  Compartilhar página
+                  Compartilhar pÃ¡gina
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <Button
@@ -877,7 +858,7 @@ export default function BusinessPage() {
                   {navigator.share && (
                     <Button variant="ghost" className="justify-start text-muted-foreground" onClick={handleNativeShare}>
                       <Share2 className="w-4 h-4 mr-2" />
-                      Mais opções
+                      Mais opÃ§Ãµes
                     </Button>
                   )}
                 </div>
@@ -893,10 +874,10 @@ export default function BusinessPage() {
                   >
                     <Store className="w-4 h-4 mr-2" />
                     {hasPendingOwnershipRequest
-                      ? "Solicitação de ownership enviada"
+                      ? "SolicitaÃ§Ã£o de ownership enviada"
                       : requestingOwnership
-                        ? "Enviando solicitação..."
-                        : "Sou dono deste negócio"}
+                        ? "Enviando solicitaÃ§Ã£o..."
+                        : "Sou dono deste negÃ³cio"}
                   </Button>
                 </div>
               )}
@@ -906,7 +887,7 @@ export default function BusinessPage() {
 
         {similarBusinesses.length > 0 && (
           <section className="mt-14">
-            <h2 className="text-2xl font-bold mb-6">Negócios similares na região</h2>
+            <h2 className="text-2xl font-bold mb-6">NegÃ³cios similares na regiÃ£o</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item) => (
                 <Link key={item.id} to={buildBusinessUrl(item)} className="group">
@@ -916,8 +897,6 @@ export default function BusinessPage() {
                     </div>
                     <div className="p-4">
                       <Badge variant="secondary" className="mb-2">{item.category.split("(")[0].trim()}</Badge>
-                      {item.isBrazilianOwned && <Badge className="mb-2 ml-2 bg-emerald-600 text-white border-0">🇧🇷</Badge>}
-                      {item.servesPortuguese && <Badge className="mb-2 ml-2 bg-sky-600 text-white border-0">🗣️</Badge>}
                       <h3 className="font-semibold group-hover:text-primary transition-colors">{item.name}</h3>
                       <p className="text-sm text-muted-foreground mt-1">{item.address.city}, {item.address.country}</p>
                     </div>
@@ -943,6 +922,9 @@ function getReviewBreakdown(reviews: BusinessFrontend["reviews"]): Record<number
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   );
 }
+
+
+
 
 
 

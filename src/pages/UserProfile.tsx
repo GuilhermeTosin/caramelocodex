@@ -18,6 +18,7 @@ import {
   Plus,
   ExternalLink,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -52,10 +60,24 @@ import {
   buildBusinessUrl,
   updateReview,
   deleteReview,
+  updateBusiness,
+  deleteBusiness,
+  BUSINESS_CATEGORY_OPTIONS,
+  slugify,
+  getCategoryId,
+  getCategoryLabel,
 } from "@/services/businesses";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import type { AddressResult } from "@/components/AddressAutocomplete";
 import type { BusinessFrontend, ConversationFrontend, MessageFrontend, Review } from "@/types/database";
 
 export default function UserProfile() {
+  type BusinessHour = {
+    day: string;
+    enabled: boolean;
+    open: string;
+    close: string;
+  };
   const navigate = useNavigate();
   const { session, user, isLoading, logout, refreshUnread, unreadMessages, refreshSession } = useAuth();
   const isAdmin = session?.role === "admin" || user?.role === "admin";
@@ -91,6 +113,39 @@ export default function UserProfile() {
 
   // Businesses
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
+  const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    category: "",
+    description: "",
+    phone: "",
+    email: "",
+    website: "",
+    street: "",
+    city: "",
+    state: "",
+    stateCode: "",
+    country: "",
+    countryCode: "",
+    postalCode: "",
+    services: "",
+    lat: 0,
+    lng: 0,
+    instagram: "",
+    facebook: "",
+    whatsapp: "",
+    menu: [] as { name: string; description: string; price: string }[],
+    menuPdfUrl: "",
+    isBrazilianOwned: false,
+    servesPortuguese: true,
+    keywords: "",
+  });
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [editHeroFile, setEditHeroFile] = useState<File | null>(null);
+  const [editPhotoFiles, setEditPhotoFiles] = useState<File[]>([]);
+  const [editMenuPdfFile, setEditMenuPdfFile] = useState<File | null>(null);
+  const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [myReviews, setMyReviews] = useState<(BusinessFrontend["reviews"][0] & { businessName: string; businessSlug: string; businessId: string })[]>([]);
 
   // Reviews I made (on any business)
@@ -275,6 +330,223 @@ export default function UserProfile() {
       toast.error("Erro ao remover avaliação.");
       setConfirmDeleteReview(null);
     }
+  };
+
+  const handleStartEditBusiness = (biz: BusinessFrontend) => {
+    setEditFormData({
+      name: biz.name,
+      category: biz.categoryId,
+      description: biz.description,
+      phone: biz.phone || "",
+      email: biz.email || "",
+      website: biz.website || "",
+      street: biz.address.street,
+      city: biz.address.city,
+      state: biz.address.state,
+      stateCode: biz.address.stateCode,
+      country: biz.address.country,
+      countryCode: biz.address.countryCode,
+      postalCode: biz.address.postalCode,
+      services: biz.services.join("\n"),
+      lat: biz.address.lat,
+      lng: biz.address.lng,
+      instagram: biz.instagram || "",
+      facebook: biz.facebook || "",
+      whatsapp: biz.whatsapp || "",
+      menu: biz.menu || [],
+      menuPdfUrl: biz.menuPdfUrl || "",
+      isBrazilianOwned: !!biz.isBrazilianOwned,
+      servesPortuguese: !!biz.servesPortuguese,
+      keywords: (biz.keywords || []).join(", "),
+    });
+    setEditBusinessHours(parseBusinessHours(biz.openingHours || []));
+    setEditingBusiness(biz);
+    setExistingPhotos(biz.photos || []);
+  };
+
+  const handleEditInputChange = (field: string, value: string) => {
+    setEditFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero", isEdit: boolean) => {
+    const file = e.target.files?.[0] || null;
+    if (isEdit) {
+      if (type === "logo") setEditLogoFile(file);
+      else setEditHeroFile(file);
+    }
+  };
+
+  const handleRemoveNewPhoto = (index: number, isEdit: boolean) => {
+    if (isEdit) {
+      setEditPhotoFiles(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleRemoveExistingPhoto = (index: number) => {
+    setExistingPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePhotosChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(f => {
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(f.type)) {
+        toast.error(`Formato inválido: ${f.name}. Use JPG, PNG ou WEBP.`);
+        return false;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`Arquivo muito grande: ${f.name}. Limite de 5MB.`);
+        return false;
+      }
+      return true;
+    });
+    if (isEdit) {
+      setEditPhotoFiles(prev => {
+        const existingCount = existingPhotos.length;
+        const total = prev.length + validFiles.length + existingCount;
+        if (total > 8) {
+          toast.error("Limite máximo de 8 fotos no total.");
+          return [...prev, ...validFiles].slice(0, 8 - existingCount - prev.length);
+        }
+        return [...prev, ...validFiles];
+      });
+    }
+  };
+
+  const handleMenuPdfChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      if (isEdit) setEditMenuPdfFile(null);
+      return;
+    }
+    if (file.type !== "application/pdf") {
+      toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
+      e.target.value = "";
+      return;
+    }
+    if (isEdit) setEditMenuPdfFile(file);
+  };
+
+  const updateBusinessHour = (
+    day: string,
+    changes: Partial<BusinessHour>,
+    isEdit: boolean
+  ) => {
+    const setter = isEdit ? setEditBusinessHours : setEditBusinessHours;
+    setter((prev) =>
+      prev.map((entry) => (entry.day === day ? { ...entry, ...changes } : entry))
+    );
+  };
+
+  const handleEditPlaceSelected = (place: AddressResult) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      street: place.formattedAddress,
+      city: place.city,
+      state: place.state,
+      stateCode: place.stateCode,
+      country: place.country,
+      countryCode: place.countryCode,
+      postalCode: place.postalCode,
+      lat: place.lat,
+      lng: place.lng,
+    }));
+  };
+
+  const handleSaveBusiness = async () => {
+    if (!editingBusiness || !session) return;
+    if (!editFormData.name || !editFormData.category || !editFormData.description) {
+      toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
+      return;
+    }
+    if (!editFormData.city || !editFormData.stateCode) {
+      toast.error("O endereço (Cidade e Estado) é obrigatório.");
+      return;
+    }
+    const services = editFormData.services
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const updates: any = {
+      name: editFormData.name,
+      slug: slugify(editFormData.name),
+      categoryId: editFormData.category,
+      description: editFormData.description,
+      street: editFormData.street,
+      city: editFormData.city,
+      state: editFormData.state,
+      stateCode: editFormData.stateCode,
+      country: editFormData.country,
+      countryCode: editFormData.countryCode,
+      postalCode: editFormData.postalCode,
+      lat: editFormData.lat,
+      lng: editFormData.lng,
+      services,
+      phone: editFormData.phone,
+      email: editFormData.email,
+      website: editFormData.website,
+      instagram: editFormData.instagram,
+      facebook: editFormData.facebook,
+      whatsapp: editFormData.whatsapp,
+      menu: getCategoryId(editFormData.category) === "food" ? editFormData.menu : [],
+      menuPdfUrl: getCategoryId(editFormData.category) === "food" ? editFormData.menuPdfUrl : "",
+      isBrazilianOwned: false,
+      servesPortuguese: false,
+      keywords: editFormData.keywords.split(",").map(k => k.trim()).filter(Boolean),
+      openingHours: serializeBusinessHours(editBusinessHours),
+    };
+    setIsUploading(true);
+    if (editLogoFile) {
+      const path = generateImagePath(editingBusiness.id, "logo", editLogoFile.name);
+      const url = await uploadImage("business-images", path, editLogoFile);
+      if (url) updates.logoUrl = url;
+    }
+    if (editHeroFile) {
+      const path = generateImagePath(editingBusiness.id, "hero", editHeroFile.name);
+      const url = await uploadImage("business-images", path, editHeroFile);
+      if (url) updates.heroImage = url;
+    }
+    updates.photos = existingPhotos;
+    if (editPhotoFiles.length > 0) {
+      const uploadedPhotos: string[] = [];
+      for (const file of editPhotoFiles) {
+        const path = generateImagePath(editingBusiness.id, "photo", file.name);
+        const url = await uploadImage("business-images", path, file);
+        if (url) uploadedPhotos.push(url);
+      }
+      updates.photos = [...existingPhotos, ...uploadedPhotos];
+    }
+    if (getCategoryId(editFormData.category) === "food" && editMenuPdfFile) {
+      const path = generateImagePath(editingBusiness.id, "menu", editMenuPdfFile.name);
+      const url = await uploadImage("business-images", path, editMenuPdfFile);
+      if (url) updates.menuPdfUrl = url;
+    }
+    const ok = await updateBusiness(editingBusiness.id, {
+      ...updates,
+    });
+    if (ok) {
+      toast.success(`"${editFormData.name}" atualizado com sucesso!`);
+      setEditingBusiness(null);
+      setEditLogoFile(null);
+      setEditHeroFile(null);
+      setEditPhotoFiles([]);
+      setEditMenuPdfFile(null);
+      getBusinessesByOwner(session.userId).then(setMyBusinesses);
+    } else {
+      toast.error("Erro ao atualizar negócio.");
+    }
+    setIsUploading(false);
+  };
+
+  const handleDeleteMyBusiness = async (biz: BusinessFrontend) => {
+    if (!confirm(`Tem certeza que deseja excluir "${biz.name}"?`)) return;
+    const ok = await deleteBusiness(biz.id);
+    if (ok) {
+      setMyBusinesses((prev) => prev.filter((b) => b.id !== biz.id));
+      toast.success("Negócio removido com sucesso!");
+      return;
+    }
+    toast.error("Erro ao remover negócio.");
   };
 
   if (isLoading) {
@@ -550,9 +822,30 @@ export default function UserProfile() {
                         </span>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="flex-shrink-0">
-                      {biz.category.split(" (")[0]}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant="secondary" className="flex-shrink-0">
+                        {getCategoryLabel(biz.category).split(" (")[0]}
+                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStartEditBusiness(biz)}
+                        >
+                          <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => handleDeleteMyBusiness(biz)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -891,6 +1184,148 @@ export default function UserProfile() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        <Dialog open={!!editingBusiness} onOpenChange={(open) => !open && setEditingBusiness(null)}>
+          <DialogContent
+            className="max-w-2xl max-h-[85vh] overflow-y-auto"
+            onPointerDownOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target?.closest(".pac-container")) {
+                e.preventDefault();
+              }
+            }}
+            onInteractOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target?.closest(".pac-container")) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Editar {editFormData.name || "Negócio"}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
+              <div className="sm:col-span-2 border-b border-border pb-2">
+                <h3 className="text-base font-semibold">Dados principais</h3>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="edit-name">Nome do Negócio *</Label>
+                <Input id="edit-name" value={editFormData.name} onChange={(e) => handleEditInputChange("name", e.target.value)} className="mt-1.5" />
+              </div>
+              <div>
+                <Label htmlFor="edit-category">Categoria *</Label>
+                <Select value={editFormData.category} onValueChange={(val) => handleEditInputChange("category", val)}>
+                  <SelectTrigger id="edit-category" className="mt-1.5"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{BUSINESS_CATEGORY_OPTIONS.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="edit-description">Descrição *</Label>
+                <Textarea id="edit-description" value={editFormData.description} onChange={(e) => handleEditInputChange("description", e.target.value)} className="mt-1.5 min-h-[160px]" />
+              </div>
+              <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
+                <Label htmlFor="edit-services">Serviços Oferecidos (um por linha)</Label>
+                <Textarea id="edit-services" value={editFormData.services} onChange={(e) => handleEditInputChange("services", e.target.value)} className="mt-1.5" rows={4} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="edit-keywords">Palavras-Chave</Label>
+                <Input id="edit-keywords" value={editFormData.keywords} onChange={(e) => handleEditInputChange("keywords", e.target.value)} className="mt-1.5" />
+              </div>
+              <div><Label htmlFor="edit-phone">Telefone</Label><Input id="edit-phone" value={editFormData.phone} onChange={(e) => handleEditInputChange("phone", e.target.value)} className="mt-1.5" /></div>
+              <div><Label htmlFor="edit-email">Email</Label><Input id="edit-email" value={editFormData.email} onChange={(e) => handleEditInputChange("email", e.target.value)} className="mt-1.5" /></div>
+              <div><Label htmlFor="edit-website">Website</Label><Input id="edit-website" value={editFormData.website} onChange={(e) => handleEditInputChange("website", e.target.value)} className="mt-1.5" /></div>
+              <div><Label htmlFor="edit-instagram">Instagram</Label><Input id="edit-instagram" value={editFormData.instagram} onChange={(e) => handleEditInputChange("instagram", e.target.value)} className="mt-1.5" /></div>
+              <div><Label htmlFor="edit-facebook">Facebook</Label><Input id="edit-facebook" value={editFormData.facebook} onChange={(e) => handleEditInputChange("facebook", e.target.value)} className="mt-1.5" /></div>
+              <div><Label htmlFor="edit-whatsapp">WhatsApp</Label><Input id="edit-whatsapp" value={editFormData.whatsapp} onChange={(e) => handleEditInputChange("whatsapp", e.target.value)} className="mt-1.5" /></div>
+              <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
+                <Label>Horários de funcionamento</Label>
+                <div className="mt-3 space-y-2">
+                  {editBusinessHours.map((hour) => (
+                    <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
+                      <span className="text-sm font-medium">{hour.day}</span>
+                      <Button type="button" size="sm" variant={hour.enabled ? "default" : "outline"} onClick={() => updateBusinessHour(hour.day, { enabled: !hour.enabled }, true)}>{hour.enabled ? "Aberto" : "Fechado"}</Button>
+                      <Input type="time" value={hour.open} disabled={!hour.enabled} onChange={(e) => updateBusinessHour(hour.day, { open: e.target.value }, true)} />
+                      <Input type="time" value={hour.close} disabled={!hour.enabled} onChange={(e) => updateBusinessHour(hour.day, { close: e.target.value }, true)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div><Label htmlFor="edit-logo">Alterar Logo</Label><Input id="edit-logo" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo", true)} className="mt-1.5 cursor-pointer" /></div>
+              <div><Label htmlFor="edit-hero">Alterar Capa (Banner)</Label><Input id="edit-hero" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "hero", true)} className="mt-1.5 cursor-pointer" /></div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="edit-photos">Adicionar Novas Fotos na Galeria</Label>
+                <Input id="edit-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => handlePhotosChange(e, true)} className="mt-1.5 cursor-pointer" />
+                <div className="text-xs text-muted-foreground mt-1 mb-2">Existentes: {existingPhotos.length}/8 | Novas: {editPhotoFiles.length}</div>
+                {(existingPhotos.length > 0 || editPhotoFiles.length > 0) && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {existingPhotos.map((url, i) => <div key={`exist-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-border group"><img src={url} alt="preview" className="w-full h-full object-cover" /><button type="button" onClick={() => handleRemoveExistingPhoto(i)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button></div>)}
+                    {editPhotoFiles.map((f, i) => <div key={`new-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-primary/50 group"><img src={URL.createObjectURL(f)} alt="preview" className="w-full h-full object-cover" /><button type="button" onClick={() => handleRemoveNewPhoto(i, true)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"><X className="w-3 h-3" /></button></div>)}
+                  </div>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
+                <Input id="edit-menu-pdf" type="file" accept="application/pdf" onChange={(e) => handleMenuPdfChange(e, true)} className="cursor-pointer mt-1.5" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Endereço</Label>
+                <div className="mt-1.5">
+                  <AddressAutocomplete key={editingBusiness?.id} value={editFormData.street} onChange={(val) => handleEditInputChange("street", val)} onPlaceSelected={handleEditPlaceSelected} />
+                </div>
+                {editFormData.street && <div className="mt-2 text-sm text-muted-foreground">{editFormData.street}, {editFormData.city}, {editFormData.stateCode?.toUpperCase()}</div>}
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setEditingBusiness(null)} disabled={isUploading}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveBusiness} disabled={isUploading}>
+                {isUploading ? "Enviando Imagens..." : "Salvar Alterações"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   );
+}
+
+function createDefaultBusinessHours() {
+  return [
+    { day: "Segunda", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Terça", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Quarta", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Quinta", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Sexta", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Sábado", enabled: false, open: "10:00", close: "14:00" },
+    { day: "Domingo", enabled: false, open: "10:00", close: "14:00" },
+  ];
+}
+
+function serializeBusinessHours(hours: { day: string; enabled: boolean; open: string; close: string }[]) {
+  return hours.map((hour) =>
+    hour.enabled ? `${hour.day}: ${hour.open}-${hour.close}` : `${hour.day}: fechado`
+  );
+}
+
+function parseBusinessHours(lines: string[]) {
+  const defaults = createDefaultBusinessHours();
+  const byDay = new Map(defaults.map((item) => [item.day.toLowerCase(), item]));
+  for (const line of lines) {
+    const [rawDay, rawValue] = line.split(":");
+    if (!rawDay || !rawValue) continue;
+    const entry = byDay.get(rawDay.trim().toLowerCase());
+    if (!entry) continue;
+    const normalized = rawValue.trim().toLowerCase();
+    if (normalized.includes("fechado")) {
+      entry.enabled = false;
+      continue;
+    }
+    const match = normalized.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    if (match) {
+      entry.enabled = true;
+      entry.open = match[1];
+      entry.close = match[2];
+    }
+  }
+  return defaults;
 }

@@ -159,12 +159,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-lg sm:text-xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-[11px] sm:text-xs font-medium text-foreground/75">{"O Brasil perto de voc\u00EA, onde estiver"}</div>
+                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
+                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
             
@@ -239,7 +239,7 @@ export default function Home() {
                   value={searchQuery}
                   onChange={setSearchQuery}
                   suggestions={searchSuggestions}
-                  placeholder="O que vocAª procura? (ex: Padaria)"
+                  placeholder="O que você procura? (ex: Padaria)"
                   icon="search"
                   inputClassName="text-xl sm:text-2xl placeholder:text-xs sm:placeholder:text-sm"
                 />
@@ -263,7 +263,7 @@ export default function Home() {
 
             {/* Quick tags */}
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
-              {["Padaria", "MecA¢nico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
+              {["Padaria", "Mec\u00e2nico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
                 <button
                   key={tag}
                   onClick={() => {
@@ -287,7 +287,7 @@ export default function Home() {
             {[
               { label: "Negócios Cadastrados", value: "350+", icon: Store },
               { label: "Cidades Atendidas", value: "120+", icon: MapPin },
-              { label: "PaA­ses", value: "15+", icon: Briefcase },
+              { label: "Países", value: "15+", icon: Briefcase },
               { label: "Avaliações", value: "2.5K+", icon: Star },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
@@ -426,7 +426,7 @@ export default function Home() {
                             {city.countryCode.toLowerCase() === "ca" ? (
                 <img
                   src="https://flagcdn.com/w40/ca.png"
-                  alt="Bandeira do Canad?"
+                  alt="Bandeira do Canadá"
                   className="h-5 w-7 object-cover"
                   loading="lazy"
                 />
@@ -443,8 +443,12 @@ export default function Home() {
       {/* CTA Section */}
       <section className="bg-muted text-foreground py-20 border-y border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="w-16 h-16 bg-white border border-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <PawPrint className="w-8 h-8 text-emerald-700" />
+          <div className="flex items-center justify-center mx-auto mb-6">
+            <img
+              src="/brazil-map-pin.png"
+              alt="Ícone de localização com bandeira do Brasil"
+              className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
+            />
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">
             <span className="text-foreground">Tem um </span>
@@ -482,6 +486,11 @@ function normalizeText(value: string): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
+
+
+
+
+
 
 
 
