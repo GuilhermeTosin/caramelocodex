@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   PawPrint,
@@ -1206,84 +1206,380 @@ export default function UserProfile() {
               <DialogTitle>Editar {editFormData.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
-              <div className="sm:col-span-2 border-b border-border pb-2">
-                <h3 className="text-base font-semibold">Dados principais</h3>
+            <div className="sm:col-span-2 border-b border-border pb-2">
+              <h3 className="text-base font-semibold">Dados principais</h3>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="edit-name">Nome do Negócio *</Label>
+              <Input
+                id="edit-name"
+                value={editFormData.name}
+                onChange={(e) => handleEditInputChange("name", e.target.value)}
+                placeholder="Ex: Brasil Tropical Bakery"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-category">Categoria *</Label>
+              <Select
+                value={editFormData.category}
+                onValueChange={(val) => handleEditInputChange("category", val)}
+              >
+                <SelectTrigger id="edit-category" className="mt-1.5">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label htmlFor="edit-description">Descrição *</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) => handleEditInputChange("description", e.target.value)}
+                placeholder="Descreva seu negócio..."
+                className="mt-1.5 min-h-[160px]"
+              />
+            </div>
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
+            </div>
+
+            {getCategoryId(editFormData.category) === "food" ? (
+              <div className="sm:col-span-2 space-y-4 rounded-lg border border-border bg-secondary/10 p-4">
+                <div className="flex items-center justify-between">
+                  <Label>Cardápio</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditFormData(prev => ({
+                      ...prev,
+                      menu: [...prev.menu, { name: "", description: "", price: "" }]
+                    }))}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Adicionar Item
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {editFormData.menu.map((item, index) => (
+                    <div key={index} className="p-4 border border-border rounded-lg bg-secondary/10 space-y-3 relative group">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setEditFormData(prev => ({
+                          ...prev,
+                          menu: prev.menu.filter((_, i) => i !== index)
+                        }))}
+                      >
+                        <X className="w-4 h-4 text-destructive" />
+                      </Button>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs">Nome do Item</Label>
+                          <Input
+                            value={item.name}
+                            onChange={(e) => {
+                              const newMenu = [...editFormData.menu];
+                              newMenu[index].name = e.target.value;
+                              setEditFormData(prev => ({ ...prev, menu: newMenu }));
+                            }}
+                            placeholder="Ex: Pão de Queijo"
+                            className="h-8 text-sm mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Preço</Label>
+                          <Input
+                            value={item.price}
+                            onChange={(e) => {
+                              const newMenu = [...editFormData.menu];
+                              newMenu[index].price = e.target.value;
+                              setEditFormData(prev => ({ ...prev, menu: newMenu }));
+                            }}
+                            placeholder="Ex: $5.00"
+                            className="h-8 text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Descrição</Label>
+                        <Input
+                          value={item.description}
+                          onChange={(e) => {
+                            const newMenu = [...editFormData.menu];
+                            newMenu[index].description = e.target.value;
+                            setEditFormData(prev => ({ ...prev, menu: newMenu }));
+                          }}
+                          placeholder="Ex: Porção com 6 unidades"
+                          className="h-8 text-sm mt-1"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {editFormData.menu.length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-border rounded-lg">
+                      <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro!</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
+                  <Input
+                    id="edit-menu-pdf"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => handleMenuPdfChange(e, true)}
+                    className="cursor-pointer"
+                  />
+                  {editFormData.menuPdfUrl && (
+                    <a
+                      href={editFormData.menuPdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary underline"
+                    >
+                      Ver PDF atual
+                    </a>
+                  )}
+                </div>
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="edit-name">Nome do Negócio *</Label>
-                <Input id="edit-name" value={editFormData.name} onChange={(e) => handleEditInputChange("name", e.target.value)} className="mt-1.5" />
-              </div>
-              <div>
-                <Label htmlFor="edit-category">Categoria *</Label>
-                <Select value={editFormData.category} onValueChange={(val) => handleEditInputChange("category", val)}>
-                  <SelectTrigger id="edit-category" className="mt-1.5"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{BUSINESS_CATEGORY_OPTIONS.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="edit-description">Descrição *</Label>
-                <Textarea id="edit-description" value={editFormData.description} onChange={(e) => handleEditInputChange("description", e.target.value)} className="mt-1.5 min-h-[160px]" />
-              </div>
+            ) : (
               <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
                 <Label htmlFor="edit-services">Serviços Oferecidos (um por linha)</Label>
-                <Textarea id="edit-services" value={editFormData.services} onChange={(e) => handleEditInputChange("services", e.target.value)} className="mt-1.5" rows={4} />
+                <Textarea
+                  id="edit-services"
+                  value={editFormData.services}
+                  onChange={(e) => handleEditInputChange("services", e.target.value)}
+                  placeholder="Padaria&#10;Confeitaria&#10;Delivery"
+                  className="mt-1.5"
+                  rows={4}
+                />
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="edit-keywords">Palavras-Chave</Label>
-                <Input id="edit-keywords" value={editFormData.keywords} onChange={(e) => handleEditInputChange("keywords", e.target.value)} className="mt-1.5" />
+            )}
+
+            <div className="sm:col-span-2">
+              <Label htmlFor="edit-keywords">Palavras-Chave (para busca, separadas por vírgula)</Label>
+              <Input
+                id="edit-keywords"
+                value={editFormData.keywords}
+                onChange={(e) => handleEditInputChange("keywords", e.target.value)}
+                placeholder="Ex: dentista, clareamento, odontologia, aparelhos"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Contato e redes</h3>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-phone">Telefone</Label>
+              <Input
+                id="edit-phone"
+                value={editFormData.phone}
+                onChange={(e) => handleEditInputChange("phone", e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                value={editFormData.email}
+                onChange={(e) => handleEditInputChange("email", e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-website">Website</Label>
+              <Input
+                id="edit-website"
+                value={editFormData.website}
+                onChange={(e) => handleEditInputChange("website", e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-instagram">Instagram</Label>
+              <Input
+                id="edit-instagram"
+                value={editFormData.instagram}
+                onChange={(e) => handleEditInputChange("instagram", e.target.value)}
+                placeholder="@seuinstagram"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-facebook">Facebook</Label>
+              <Input
+                id="edit-facebook"
+                value={editFormData.facebook}
+                onChange={(e) => handleEditInputChange("facebook", e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-whatsapp">WhatsApp</Label>
+              <Input
+                id="edit-whatsapp"
+                value={editFormData.whatsapp}
+                onChange={(e) => handleEditInputChange("whatsapp", e.target.value)}
+                placeholder="+1 (555) 000-0000"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Horários</h3>
+            </div>
+
+            <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
+              <Label>Horários de funcionamento</Label>
+              <div className="mt-3 space-y-2">
+                {editBusinessHours.map((hour) => (
+                  <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
+                    <span className="text-sm font-medium">{hour.day}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={hour.enabled ? "default" : "outline"}
+                      onClick={() => updateBusinessHour(hour.day, { enabled: !hour.enabled }, true)}
+                    >
+                      {hour.enabled ? "Aberto" : "Fechado"}
+                    </Button>
+                    <Input
+                      type="time"
+                      value={hour.open}
+                      disabled={!hour.enabled}
+                      onChange={(e) => updateBusinessHour(hour.day, { open: e.target.value }, true)}
+                    />
+                    <Input
+                      type="time"
+                      value={hour.close}
+                      disabled={!hour.enabled}
+                      onChange={(e) => updateBusinessHour(hour.day, { close: e.target.value }, true)}
+                    />
+                  </div>
+                ))}
               </div>
-              <div><Label htmlFor="edit-phone">Telefone</Label><Input id="edit-phone" value={editFormData.phone} onChange={(e) => handleEditInputChange("phone", e.target.value)} className="mt-1.5" /></div>
-              <div><Label htmlFor="edit-email">Email</Label><Input id="edit-email" value={editFormData.email} onChange={(e) => handleEditInputChange("email", e.target.value)} className="mt-1.5" /></div>
-              <div><Label htmlFor="edit-website">Website</Label><Input id="edit-website" value={editFormData.website} onChange={(e) => handleEditInputChange("website", e.target.value)} className="mt-1.5" /></div>
-              <div><Label htmlFor="edit-instagram">Instagram</Label><Input id="edit-instagram" value={editFormData.instagram} onChange={(e) => handleEditInputChange("instagram", e.target.value)} className="mt-1.5" /></div>
-              <div><Label htmlFor="edit-facebook">Facebook</Label><Input id="edit-facebook" value={editFormData.facebook} onChange={(e) => handleEditInputChange("facebook", e.target.value)} className="mt-1.5" /></div>
-              <div><Label htmlFor="edit-whatsapp">WhatsApp</Label><Input id="edit-whatsapp" value={editFormData.whatsapp} onChange={(e) => handleEditInputChange("whatsapp", e.target.value)} className="mt-1.5" /></div>
-              <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                <Label>Horários de funcionamento</Label>
-                <div className="mt-3 space-y-2">
-                  {editBusinessHours.map((hour) => (
-                    <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
-                      <span className="text-sm font-medium">{hour.day}</span>
-                      <Button type="button" size="sm" variant={hour.enabled ? "default" : "outline"} onClick={() => updateBusinessHour(hour.day, { enabled: !hour.enabled }, true)}>{hour.enabled ? "Aberto" : "Fechado"}</Button>
-                      <Input type="time" value={hour.open} disabled={!hour.enabled} onChange={(e) => updateBusinessHour(hour.day, { open: e.target.value }, true)} />
-                      <Input type="time" value={hour.close} disabled={!hour.enabled} onChange={(e) => updateBusinessHour(hour.day, { close: e.target.value }, true)} />
+            </div>
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Mídia</h3>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-logo">Alterar Logo</Label>
+              <Input
+                id="edit-logo"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, "logo", true)}
+                className="mt-1.5 cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-hero">Alterar Capa (Banner)</Label>
+              <Input
+                id="edit-hero"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, "hero", true)}
+                className="mt-1.5 cursor-pointer"
+              />
+            </div>
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Galeria</h3>
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label htmlFor="edit-photos">Adicionar Novas Fotos na Galeria</Label>
+              <Input
+                id="edit-photos"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(e) => handlePhotosChange(e, true)}
+                className="mt-1.5 cursor-pointer"
+              />
+              <div className="text-xs text-muted-foreground mt-1 mb-2">
+                Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho máx: 5MB | Formatos: JPG, PNG, WEBP
+              </div>
+              {(existingPhotos.length > 0 || editPhotoFiles.length > 0) && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {existingPhotos.map((url, i) => (
+                    <div key={`exist-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-border group">
+                      <img src={url} alt="preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => handleRemoveExistingPhoto(i)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {editPhotoFiles.map((f, i) => (
+                    <div key={`new-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-primary/50 group">
+                      <div className="absolute inset-0 bg-primary/10 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">NOVA</span>
+                      </div>
+                      <img src={URL.createObjectURL(f)} alt="preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => handleRemoveNewPhoto(i, true)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
-              </div>
-              <div><Label htmlFor="edit-logo">Alterar Logo</Label><Input id="edit-logo" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo", true)} className="mt-1.5 cursor-pointer" /></div>
-              <div><Label htmlFor="edit-hero">Alterar Capa (Banner)</Label><Input id="edit-hero" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "hero", true)} className="mt-1.5 cursor-pointer" /></div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="edit-photos">Adicionar Novas Fotos na Galeria</Label>
-                <Input id="edit-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => handlePhotosChange(e, true)} className="mt-1.5 cursor-pointer" />
-                <div className="text-xs text-muted-foreground mt-1 mb-2">Existentes: {existingPhotos.length}/8 | Novas: {editPhotoFiles.length}</div>
-                {(existingPhotos.length > 0 || editPhotoFiles.length > 0) && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {existingPhotos.map((url, i) => <div key={`exist-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-border group"><img src={url} alt="preview" className="w-full h-full object-cover" /><button type="button" onClick={() => handleRemoveExistingPhoto(i)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button></div>)}
-                    {editPhotoFiles.map((f, i) => <div key={`new-${i}`} className="relative w-20 h-20 rounded-md overflow-hidden border border-primary/50 group"><img src={URL.createObjectURL(f)} alt="preview" className="w-full h-full object-cover" /><button type="button" onClick={() => handleRemoveNewPhoto(i, true)} className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20"><X className="w-3 h-3" /></button></div>)}
-                  </div>
-                )}
-              </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
-                <Input id="edit-menu-pdf" type="file" accept="application/pdf" onChange={(e) => handleMenuPdfChange(e, true)} className="cursor-pointer mt-1.5" />
-              </div>
-              <div className="sm:col-span-2">
-                <Label>Endereço</Label>
-                <div className="mt-1.5">
-                  <AddressAutocomplete key={editingBusiness?.id} value={editFormData.street} onChange={(val) => handleEditInputChange("street", val)} onPlaceSelected={handleEditPlaceSelected} />
-                </div>
-                {editFormData.street && <div className="mt-2 text-sm text-muted-foreground">{editFormData.street}, {editFormData.city}, {editFormData.stateCode?.toUpperCase()}</div>}
-              </div>
+              )}
             </div>
-            <DialogFooter className="gap-2">
+
+            <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
+              <h3 className="text-base font-semibold">Localização</h3>
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label>Endereço</Label>
+              <div className="mt-1.5">
+                <AddressAutocomplete
+                  key={editingBusiness?.id}
+                  value={editFormData.street}
+                  onChange={(val) => handleEditInputChange("street", val)}
+                  onPlaceSelected={handleEditPlaceSelected}
+                />
+              </div>
+              {editFormData.street && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {editFormData.street}, {editFormData.city}, {editFormData.stateCode?.toUpperCase()}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setEditingBusiness(null)} disabled={isUploading}>
                 Cancelar
               </Button>
               <Button onClick={handleSaveBusiness} disabled={isUploading}>
                 {isUploading ? "Enviando Imagens..." : "Salvar Alterações"}
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       <SiteFooter />
@@ -1331,3 +1627,4 @@ function parseBusinessHours(lines: string[]) {
   }
   return defaults;
 }
+
