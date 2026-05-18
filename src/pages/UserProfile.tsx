@@ -22,6 +22,10 @@ import {
   TicketPercent,
   Eye,
   AlertTriangle,
+  Megaphone,
+  ShieldCheck,
+  CheckCircle,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -71,9 +75,30 @@ import {
   getCategoryId,
   getCategoryLabel,
 } from "@/services/businesses";
+import {
+  createFeaturedPlacement,
+  deleteFeaturedPlacement,
+  getFeaturedPlacementsForAdmin,
+  updateFeaturedPlacementStatus,
+} from "@/services/featured";
+import {
+  approveOwnershipRequest,
+  getPendingOwnershipRequests,
+  rejectOwnershipRequest,
+  transferBusinessOwnershipByEmail,
+} from "@/services/ownership";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
-import type { BusinessFrontend, ConversationFrontend, MessageFrontend, Promotion, Review } from "@/types/database";
+import type {
+  BusinessFrontend,
+  ConversationFrontend,
+  FeaturedPlacementFrontend,
+  FeaturedScopeType,
+  MessageFrontend,
+  OwnerClaimRequest,
+  Promotion,
+  Review,
+} from "@/types/database";
 
 export default function UserProfile() {
   type BusinessHour = {
@@ -160,6 +185,25 @@ export default function UserProfile() {
   const [editMenuPdfFile, setEditMenuPdfFile] = useState<File | null>(null);
   const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [myReviews, setMyReviews] = useState<(BusinessFrontend["reviews"][0] & { businessName: string; businessSlug: string; businessId: string })[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
+  const [ownershipRequests, setOwnershipRequests] = useState<OwnerClaimRequest[]>([]);
+  const [ownershipLoading, setOwnershipLoading] = useState(false);
+  const [transferBusinessId, setTransferBusinessId] = useState("");
+  const [transferEmail, setTransferEmail] = useState("");
+  const [featuredPlacements, setFeaturedPlacements] = useState<FeaturedPlacementFrontend[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [featuredForm, setFeaturedForm] = useState({
+    businessId: "",
+    scopeType: "city" as FeaturedScopeType,
+    countryCode: "",
+    stateCode: "",
+    city: "",
+    startsAt: new Date().toISOString().slice(0, 10),
+    endsAt: getDateInputDaysFromNow(30),
+    priority: "0",
+    priceCents: "",
+    notes: "",
+  });
 
   // Reviews I made (on any business)
   const [givenReviews, setGivenReviews] = useState<(Review & { businessName: string; businessSlug: string; businessId: string })[]>([]);
@@ -207,6 +251,141 @@ export default function UserProfile() {
       setGivenReviews(reviews as any);
     });
   }, [session, user, navigate]);
+
+  const loadFeaturedAdminData = async () => {
+    setFeaturedLoading(true);
+    const [placements, businesses] = await Promise.all([
+      getFeaturedPlacementsForAdmin(),
+      getAllBusinesses(),
+    ]);
+    setFeaturedPlacements(placements);
+    setAllBusinesses(businesses);
+    setFeaturedLoading(false);
+  };
+
+  const loadOwnershipAdminData = async () => {
+    setOwnershipLoading(true);
+    const [requests, businesses] = await Promise.all([
+      getPendingOwnershipRequests(),
+      getAllBusinesses(),
+    ]);
+    setOwnershipRequests(requests);
+    setAllBusinesses(businesses);
+    setOwnershipLoading(false);
+  };
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadFeaturedAdminData();
+    loadOwnershipAdminData();
+  }, [isAdmin]);
+
+  const handleApproveOwnership = async (request: OwnerClaimRequest) => {
+    const result = await approveOwnershipRequest(request.id);
+    if (result.ok) {
+      toast.success(`Ownership transferido para ${request.requester_name || request.requester_email}.`);
+      loadOwnershipAdminData();
+    } else {
+      toast.error(result.error || "Erro ao aprovar solicitação.");
+    }
+  };
+
+  const handleRejectOwnership = async (request: OwnerClaimRequest) => {
+    const result = await rejectOwnershipRequest(request.id);
+    if (result.ok) {
+      toast.success("Solicitação recusada.");
+      loadOwnershipAdminData();
+    } else {
+      toast.error(result.error || "Erro ao recusar solicitação.");
+    }
+  };
+
+  const handleDirectTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferBusinessId || !transferEmail.trim()) {
+      toast.error("Selecione o negócio e informe o email do novo dono.");
+      return;
+    }
+
+    const result = await transferBusinessOwnershipByEmail(transferBusinessId, transferEmail.trim());
+    if (result.ok) {
+      toast.success("Ownership transferido com sucesso.");
+      setTransferBusinessId("");
+      setTransferEmail("");
+      loadOwnershipAdminData();
+      if (session) getBusinessesByOwner(session.userId).then(setMyBusinesses);
+    } else {
+      toast.error(result.error || "Erro ao transferir ownership.");
+    }
+  };
+
+  const handleFeaturedBusinessChange = (businessId: string) => {
+    const biz = allBusinesses.find((item) => item.id === businessId);
+    setFeaturedForm((prev) => ({
+      ...prev,
+      businessId,
+      countryCode: biz?.address.countryCode || prev.countryCode,
+      stateCode: biz?.address.stateCode || prev.stateCode,
+      city: biz?.address.city || prev.city,
+    }));
+  };
+
+  const handleCreateFeaturedPlacement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!featuredForm.businessId) {
+      toast.error("Selecione um negócio para destacar.");
+      return;
+    }
+
+    const result = await createFeaturedPlacement({
+      businessId: featuredForm.businessId,
+      scopeType: featuredForm.scopeType,
+      countryCode: featuredForm.countryCode,
+      stateCode: featuredForm.stateCode,
+      city: featuredForm.city,
+      startsAt: new Date(`${featuredForm.startsAt}T00:00:00`).toISOString(),
+      endsAt: new Date(`${featuredForm.endsAt}T23:59:59`).toISOString(),
+      priority: Number(featuredForm.priority) || 0,
+      priceCents: Number(featuredForm.priceCents) || 0,
+      notes: featuredForm.notes,
+    });
+
+    if (result.ok) {
+      toast.success("Destaque criado com sucesso.");
+      setFeaturedForm((prev) => ({
+        ...prev,
+        businessId: "",
+        priority: "0",
+        priceCents: "",
+        notes: "",
+      }));
+      loadFeaturedAdminData();
+    } else {
+      toast.error(result.error || "Erro ao criar destaque.");
+    }
+  };
+
+  const handleToggleFeaturedStatus = async (placement: FeaturedPlacementFrontend) => {
+    const nextStatus = placement.status === "active" ? "paused" : "active";
+    const result = await updateFeaturedPlacementStatus(placement.id, nextStatus);
+    if (result.ok) {
+      toast.success(nextStatus === "active" ? "Destaque ativado." : "Destaque pausado.");
+      loadFeaturedAdminData();
+    } else {
+      toast.error(result.error || "Erro ao atualizar destaque.");
+    }
+  };
+
+  const handleDeleteFeaturedPlacement = async (placement: FeaturedPlacementFrontend) => {
+    if (!confirm(`Remover destaque de "${placement.business?.name || "negócio"}"?`)) return;
+    const result = await deleteFeaturedPlacement(placement.id);
+    if (result.ok) {
+      toast.success("Destaque removido.");
+      loadFeaturedAdminData();
+    } else {
+      toast.error(result.error || "Erro ao remover destaque.");
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!session) return;
@@ -692,6 +871,18 @@ export default function UserProfile() {
                     <Store className="w-4 h-4" />
                     Meus Negócios
                   </TabsTrigger>
+                  {isAdmin && (
+                    <TabsTrigger value="ownership" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <ShieldCheck className="w-4 h-4" />
+                      Ownership
+                    </TabsTrigger>
+                  )}
+                  {isAdmin && (
+                    <TabsTrigger value="destaques" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <Megaphone className="w-4 h-4" />
+                      Destaques
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="avaliacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <Star className="w-4 h-4" />
                     Avaliações
@@ -922,6 +1113,321 @@ export default function UserProfile() {
               </div>
             )}
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="ownership">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Aprove solicitações de donos ou transfira um negócio diretamente por email.
+                  </p>
+                </div>
+
+                <Card className="p-6 border-border">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-primary" />
+                    Transferência direta
+                  </h3>
+                  <form onSubmit={handleDirectTransfer} className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-3">
+                    <Select value={transferBusinessId} onValueChange={setTransferBusinessId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o negócio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allBusinesses.map((biz) => (
+                          <SelectItem key={biz.id} value={biz.id}>
+                            {biz.name} · {biz.address.city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="email"
+                      value={transferEmail}
+                      onChange={(e) => setTransferEmail(e.target.value)}
+                      placeholder="email do novo dono"
+                    />
+                    <Button type="submit">
+                      Transferir
+                    </Button>
+                  </form>
+                </Card>
+
+                <Card className="border-border overflow-hidden">
+                  <div className="p-5 border-b border-border flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold">Solicitações pendentes</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Pedidos feitos pelo botão "Sou dono deste negócio".
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={loadOwnershipAdminData} disabled={ownershipLoading}>
+                      Atualizar
+                    </Button>
+                  </div>
+
+                  {ownershipLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      Carregando solicitações...
+                    </div>
+                  ) : ownershipRequests.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      Nenhuma solicitação pendente.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {ownershipRequests.map((request) => (
+                        <div key={request.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold">
+                                {request.business?.name || "Negócio"}
+                              </h4>
+                              <Badge variant="secondary">
+                                {request.business?.city || "Cidade não informada"}
+                                {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Solicitado por {request.requester_name || "Usuário"} · {request.requester_email || "sem email"}
+                            </p>
+                            {request.message && (
+                              <p className="text-sm mt-2 text-foreground/80">
+                                {request.message}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(request.created_at).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleApproveOwnership(request)}>
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() => handleRejectOwnership(request)}
+                            >
+                              <Ban className="w-3.5 h-3.5 mr-1" />
+                              Recusar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="destaques">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Destaques Regionais</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Gerencie campanhas de destaque por cidade, estado/província, país ou global.
+                  </p>
+                </div>
+
+                <Card className="p-6 border-border">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-primary" />
+                    Novo destaque
+                  </h3>
+                  <form onSubmit={handleCreateFeaturedPlacement} className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Negócio</Label>
+                        <Select value={featuredForm.businessId} onValueChange={handleFeaturedBusinessChange}>
+                          <SelectTrigger className="mt-1.5">
+                            <SelectValue placeholder="Selecione o negócio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allBusinesses.map((biz) => (
+                              <SelectItem key={biz.id} value={biz.id}>
+                                {biz.name} · {biz.address.city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label>Escopo</Label>
+                        <Select
+                          value={featuredForm.scopeType}
+                          onValueChange={(value) => setFeaturedForm((prev) => ({ ...prev, scopeType: value as FeaturedScopeType }))}
+                        >
+                          <SelectTrigger className="mt-1.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="city">Cidade</SelectItem>
+                            <SelectItem value="state">Estado/Província</SelectItem>
+                            <SelectItem value="country">País</SelectItem>
+                            <SelectItem value="global">Global</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label>País</Label>
+                        <Input
+                          value={featuredForm.countryCode}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, countryCode: e.target.value.toLowerCase() }))}
+                          placeholder="ca"
+                          className="mt-1.5"
+                          disabled={featuredForm.scopeType === "global"}
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Estado/Província</Label>
+                        <Input
+                          value={featuredForm.stateCode}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, stateCode: e.target.value.toLowerCase() }))}
+                          placeholder="qc"
+                          className="mt-1.5"
+                          disabled={featuredForm.scopeType === "country" || featuredForm.scopeType === "global"}
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Cidade</Label>
+                        <Input
+                          value={featuredForm.city}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, city: e.target.value }))}
+                          placeholder="Montreal"
+                          className="mt-1.5"
+                          disabled={featuredForm.scopeType !== "city"}
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Prioridade</Label>
+                        <Input
+                          type="number"
+                          value={featuredForm.priority}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, priority: e.target.value }))}
+                          className="mt-1.5"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Início</Label>
+                        <Input
+                          type="date"
+                          value={featuredForm.startsAt}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, startsAt: e.target.value }))}
+                          className="mt-1.5"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Fim</Label>
+                        <Input
+                          type="date"
+                          value={featuredForm.endsAt}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, endsAt: e.target.value }))}
+                          className="mt-1.5"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Preço cobrado (centavos)</Label>
+                        <Input
+                          type="number"
+                          value={featuredForm.priceCents}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, priceCents: e.target.value }))}
+                          placeholder="9900"
+                          className="mt-1.5"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Observações</Label>
+                        <Input
+                          value={featuredForm.notes}
+                          onChange={(e) => setFeaturedForm((prev) => ({ ...prev, notes: e.target.value }))}
+                          placeholder="Ex: pago manualmente"
+                          className="mt-1.5"
+                        />
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="caramelo-gradient text-white border-0">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Criar destaque
+                    </Button>
+                  </form>
+                </Card>
+
+                <Card className="border-border overflow-hidden">
+                  <div className="p-5 border-b border-border flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold">Campanhas</h3>
+                      <p className="text-sm text-muted-foreground">Destaques ativos, pausados e expirados.</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={loadFeaturedAdminData} disabled={featuredLoading}>
+                      Atualizar
+                    </Button>
+                  </div>
+
+                  {featuredLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">Carregando destaques...</div>
+                  ) : featuredPlacements.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">Nenhum destaque cadastrado.</div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {featuredPlacements.map((placement) => (
+                        <div key={placement.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold">{placement.business?.name || "Negócio removido"}</h4>
+                              <Badge variant={placement.status === "active" ? "default" : "secondary"}>
+                                {placement.status}
+                              </Badge>
+                              <Badge variant="secondary">
+                                {formatFeaturedScope(placement)}
+                              </Badge>
+                              {placement.priority > 0 && (
+                                <Badge variant="outline">prioridade {placement.priority}</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {new Date(placement.startsAt).toLocaleDateString("pt-BR")} até {new Date(placement.endsAt).toLocaleDateString("pt-BR")}
+                              {placement.priceCents > 0 ? ` · ${(placement.priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "CAD" })}` : ""}
+                            </p>
+                            {placement.notes && <p className="text-sm mt-2">{placement.notes}</p>}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleToggleFeaturedStatus(placement)}>
+                              {placement.status === "active" ? "Pausar" : "Ativar"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() => handleDeleteFeaturedPlacement(placement)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Remover
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+          )}
 
           {/* Tab: Reviews */}
           <TabsContent value="avaliacoes">
@@ -1828,6 +2334,21 @@ function parseBusinessHours(lines: string[]) {
     }
   }
   return defaults;
+}
+
+function getDateInputDaysFromNow(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
+  if (placement.scopeType === "global") return "Global";
+  if (placement.scopeType === "country") return `País: ${placement.countryCode.toUpperCase()}`;
+  if (placement.scopeType === "state") {
+    return `${placement.countryCode.toUpperCase()}/${placement.stateCode.toUpperCase()}`;
+  }
+  return `${placement.city}, ${placement.stateCode.toUpperCase()}`;
 }
 
 
