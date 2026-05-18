@@ -201,6 +201,28 @@ export interface OwnerClaimRequest {
   } | null;
 }
 
+export interface BusinessReport {
+  id: string;
+  business_id: string;
+  reporter_user_id: string | null;
+  reporter_email: string | null;
+  reason: "fake" | "difamacao" | "golpe" | "conteudo_ofensivo" | "outro";
+  details: string | null;
+  status: "pending" | "reviewing" | "resolved" | "rejected";
+  archived_at: string | null;
+  archived_by: string | null;
+  created_at: string;
+  updated_at: string;
+  business?: {
+    id: string;
+    name: string;
+    slug?: string | null;
+    city: string | null;
+    state_code?: string | null;
+    country_code: string | null;
+  } | null;
+}
+
 export interface ConversationFrontend {
   id: string;
   participants: string[];

@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Ban,
   Calendar,
+  Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -88,6 +89,7 @@ import {
   rejectOwnershipRequest,
   transferBusinessOwnershipByEmail,
 } from "@/services/ownership";
+import { archiveReport, getReportsForAdmin, unarchiveReport, updateReportStatus } from "@/services/reports";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type {
@@ -97,6 +99,7 @@ import type {
   FeaturedScopeType,
   MessageFrontend,
   OwnerClaimRequest,
+  BusinessReport,
   Promotion,
   Review,
 } from "@/types/database";
@@ -194,6 +197,9 @@ export default function UserProfile() {
   const [transferBusinessId, setTransferBusinessId] = useState("");
   const [transferEmail, setTransferEmail] = useState("");
   const [featuredPlacements, setFeaturedPlacements] = useState<FeaturedPlacementFrontend[]>([]);
+  const [reports, setReports] = useState<BusinessReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsView, setReportsView] = useState<"active" | "archived">("active");
   const [featuredLoading, setFeaturedLoading] = useState(false);
   const [featuredForm, setFeaturedForm] = useState({
     businessId: "",
@@ -283,11 +289,62 @@ export default function UserProfile() {
     setOwnershipLoading(false);
   };
 
+  const loadReportsAdminData = async (mode: "active" | "archived" = reportsView) => {
+    setReportsLoading(true);
+    const data = await getReportsForAdmin(mode);
+    setReports(data);
+    setReportsLoading(false);
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     loadFeaturedAdminData();
     loadOwnershipAdminData();
+    loadReportsAdminData();
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadReportsAdminData(reportsView);
+  }, [isAdmin, reportsView]);
+
+  const handleReportStatus = async (id: string, status: BusinessReport["status"]) => {
+    const result = await updateReportStatus(id, status);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao atualizar denúncia.");
+      return;
+    }
+    toast.success("Denúncia atualizada.");
+    loadReportsAdminData(reportsView);
+  };
+
+  const handleArchiveReport = async (report: BusinessReport) => {
+    if (!session?.userId) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    if (report.status !== "resolved" && report.status !== "rejected") {
+      toast.error("Só é possível arquivar denúncias resolvidas ou rejeitadas.");
+      return;
+    }
+    const result = await archiveReport(report.id, session.userId);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao arquivar denúncia.");
+      return;
+    }
+    toast.success("Denúncia arquivada.");
+    loadReportsAdminData(reportsView);
+  };
+
+  const handleUnarchiveReport = async (report: BusinessReport) => {
+    const result = await unarchiveReport(report.id);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao desarquivar denúncia.");
+      return;
+    }
+    toast.success("Denúncia desarquivada.");
+    loadReportsAdminData(reportsView);
+  };
 
   const handleApproveOwnership = async (request: OwnerClaimRequest) => {
     const result = await approveOwnershipRequest(request.id);
@@ -948,6 +1005,12 @@ export default function UserProfile() {
                     </TabsTrigger>
                   )}
                   {isAdmin && (
+                    <TabsTrigger value="denuncias" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <Flag className="w-4 h-4" />
+                      Denúncias
+                    </TabsTrigger>
+                  )}
+                  {isAdmin && (
                     <TabsTrigger value="destaques" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <Megaphone className="w-4 h-4" />
                       Destaques
@@ -1301,6 +1364,109 @@ export default function UserProfile() {
                               <Ban className="w-3.5 h-3.5 mr-1" />
                               Recusar
                             </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="denuncias">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Denúncias</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Analise denúncias enviadas pelos usuários.</p>
+                </div>
+                <Card className="border-border overflow-hidden">
+                  <div className="p-5 border-b border-border flex items-center justify-between gap-4">
+                    <h3 className="font-semibold">Fila de denúncias</h3>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={reportsView === "active" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setReportsView("active")}
+                        disabled={reportsLoading}
+                      >
+                        Ativas
+                      </Button>
+                      <Button
+                        variant={reportsView === "archived" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setReportsView("archived")}
+                        disabled={reportsLoading}
+                      >
+                        Arquivadas
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => loadReportsAdminData(reportsView)}
+                        disabled={reportsLoading}
+                      >
+                        Atualizar
+                      </Button>
+                    </div>
+                  </div>
+                  {reportsLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">Carregando denúncias...</div>
+                  ) : reports.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      {reportsView === "archived" ? "Nenhuma denúncia arquivada." : "Nenhuma denúncia registrada."}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {reports.map((r) => (
+                        <div key={r.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {r.business?.slug && r.business?.city && r.business?.country_code && r.business?.state_code ? (
+                                <a
+                                  href={`/${r.business.country_code.toLowerCase()}/${r.business.state_code.toLowerCase()}/${slugify(r.business.city)}/${r.business.slug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-semibold hover:underline text-primary"
+                                >
+                                  {r.business?.name || "Negócio"}
+                                </a>
+                              ) : (
+                                <h4 className="font-semibold">{r.business?.name || "Negócio"}</h4>
+                              )}
+                              <Badge variant={r.status === "pending" ? "secondary" : "default"}>{r.status}</Badge>
+                              <Badge variant="outline">{r.reason}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {r.business?.city || "Cidade não informada"} {r.business?.country_code ? `, ${r.business.country_code.toUpperCase()}` : ""}
+                            </p>
+                            {r.details && <p className="text-sm mt-2">{r.details}</p>}
+                            <p className="text-xs text-muted-foreground mt-2">{new Date(r.created_at).toLocaleString("pt-BR")}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleReportStatus(r.id, "reviewing")}>Em análise</Button>
+                            <Button size="sm" onClick={() => handleReportStatus(r.id, "resolved")}>Resolver</Button>
+                            <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleReportStatus(r.id, "rejected")}>Rejeitar</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={reportsView === "archived" ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50" : ""}
+                              disabled={reportsView === "archived" || (r.status !== "resolved" && r.status !== "rejected")}
+                              onClick={() => handleArchiveReport(r)}
+                            >
+                              Arquivar
+                            </Button>
+                            {reportsView === "archived" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-sky-700 border-sky-300 hover:bg-sky-50"
+                                onClick={() => handleUnarchiveReport(r)}
+                              >
+                                Desarquivar
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}

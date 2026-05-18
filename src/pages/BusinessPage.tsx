@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   BadgeCheck,
@@ -24,12 +24,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { getAllBusinesses, getBusinessBySlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
+import { createBusinessReport } from "@/services/reports";
 import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { Store } from "lucide-react";
@@ -54,6 +58,10 @@ export default function BusinessPage() {
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
   const [requestingOwnership, setRequestingOwnership] = useState(false);
   const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>([]);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<"fake" | "difamacao" | "golpe" | "conteudo_ofensivo" | "outro">("fake");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
   const activePromotions = (business?.promotions || []).filter((promotion) => {
     if (!promotion?.expiresAt) return false;
     return promotion.expiresAt >= new Date().toISOString().slice(0, 10);
@@ -310,6 +318,25 @@ export default function BusinessPage() {
     } catch {
       // cancelado pelo usuário
     }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!business) return;
+    setReporting(true);
+    const result = await createBusinessReport({
+      businessId: business.id,
+      reason: reportReason,
+      details: reportDetails,
+    });
+    setReporting(false);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível enviar denúncia.");
+      return;
+    }
+    toast.success("Denúncia enviada para análise.");
+    setReportDetails("");
+    setReportReason("fake");
+    setReportOpen(false);
   };
 
   const canRequestOwnership =
@@ -845,24 +872,24 @@ export default function BusinessPage() {
                   <div className="space-y-3">
                     {business.instagram && (
                       <a
-                        href={`https://instagram.com/${business.instagram.replace("@", "")}`}
+                        href={buildInstagramUrl(business.instagram)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Instagram className="w-4 h-4 text-pink-600" />
-                        {business.instagram}
+                        {formatInstagramDisplay(business.instagram)}
                       </a>
                     )}
                     {business.facebook && (
                       <a
-                        href={`https://facebook.com/${business.facebook}`}
+                        href={buildFacebookUrl(business.facebook)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Facebook className="w-4 h-4 text-blue-600" />
-                        {business.facebook}
+                        {formatFacebookDisplay(business.facebook)}
                       </a>
                     )}
                   </div>
@@ -928,6 +955,13 @@ export default function BusinessPage() {
                   </Button>
                 </div>
               )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setReportOpen(true)}
+              >
+                Denunciar anúncio
+              </Button>
             </div>
           </aside>
         </div>
@@ -955,6 +989,50 @@ export default function BusinessPage() {
         )}
       </div>
 
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Denunciar anúncio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Sua denúncia é 100% anônima. Nenhum dado pessoal é exibido ao anúncio denunciado.
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Select value={reportReason} onValueChange={(v: any) => setReportReason(v)}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fake">Conta/perfil falso</SelectItem>
+                  <SelectItem value="difamacao">Difamação</SelectItem>
+                  <SelectItem value="golpe">Golpe/fraude</SelectItem>
+                  <SelectItem value="conteudo_ofensivo">Conteúdo ofensivo</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Detalhes (opcional)</Label>
+              <Textarea
+                className="mt-1.5"
+                rows={4}
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Descreva rapidamente o problema."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setReportOpen(false)} disabled={reporting}>Cancelar</Button>
+              <Button onClick={handleSubmitReport} disabled={reporting}>
+                {reporting ? "Enviando..." : "Enviar denúncia"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <SiteFooter />
     </div>
   );
@@ -969,6 +1047,36 @@ function getReviewBreakdown(reviews: BusinessFrontend["reviews"]): Record<number
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   );
 }
+
+function normalizeSocialValue(value: string): string {
+  const v = (value || "").trim();
+  return v
+    .replace(/^https?:\/\/(www\.)?/i, "")
+    .replace(/^instagram\.com\//i, "")
+    .replace(/^facebook\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/+$/, "");
+}
+
+function buildInstagramUrl(value: string): string {
+  return `https://instagram.com/${normalizeSocialValue(value)}`;
+}
+
+function buildFacebookUrl(value: string): string {
+  return `https://facebook.com/${normalizeSocialValue(value)}`;
+}
+
+function formatInstagramDisplay(value: string): string {
+  const handle = normalizeSocialValue(value);
+  return handle ? `@${handle}` : value;
+}
+
+function formatFacebookDisplay(value: string): string {
+  return normalizeSocialValue(value) || value;
+}
+
+
+
 
 
 
