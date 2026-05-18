@@ -333,7 +333,43 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
     .select("name")
     .eq("id", ownerId)
     .maybeSingle();
-  return (data as Business[]).map((b) => toFrontend(b, profile?.name));
+
+  const businessIds = (data as Business[]).map((b) => b.id);
+  let reviewsByBusinessId = new Map<string, Review[]>();
+
+  if (businessIds.length > 0) {
+    const { data: reviews } = await supabase
+      .from("reviews")
+      .select("*")
+      .in("business_id", businessIds)
+      .order("created_at", { ascending: false });
+
+    if (reviews) {
+      reviewsByBusinessId = reviews.reduce((acc, r: any) => {
+        const review: Review = {
+          id: r.id,
+          business_id: r.business_id,
+          user_id: r.user_id,
+          user_name: r.user_name || "Usuário",
+          rating: r.rating,
+          comment: r.comment,
+          created_at: r.created_at,
+        };
+        const list = acc.get(r.business_id) || [];
+        list.push(review);
+        acc.set(r.business_id, list);
+        return acc;
+      }, new Map<string, Review[]>());
+    }
+  }
+
+  return (data as Business[]).map((b) => {
+    const withReviews: Business = {
+      ...b,
+      reviews: reviewsByBusinessId.get(b.id) || [],
+    };
+    return toFrontend(withReviews, profile?.name);
+  });
 }
 
 export async function createBusiness(
@@ -591,26 +627,79 @@ export function getStateName(countryCode: string, stateCode: string): string {
 export async function getSearchSuggestions(): Promise<string[]> {
   const { data } = await supabase
     .from("businesses")
-    .select("name, category, keywords, services, city");
+    .select("name, keywords, services, city, menu");
 
   if (!data) return [];
 
-  const terms = new Set<string>();
+  const terms = new Map<string, number>();
+  const STOP_WORDS = new Set([
+    "un", "und", "unid", "unidade", "unidades",
+    "kg", "g", "gr", "grama", "gramas",
+    "ml", "l", "lt", "litro", "litros",
+    "porcao", "porcoes", "porção", "porções",
+    "combo", "kit",
+  ]);
+
+  const addRelevantTokens = (raw: string) => {
+    if (!raw) return;
+    const cleaned = raw
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ");
+
+    const tokens = cleaned
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .filter((t) => !/\d/.test(t))
+      .filter((t) => t.length >= 3)
+      .filter((t) => !STOP_WORDS.has(t));
+
+    tokens.forEach((t) => terms.set(t, (terms.get(t) || 0) + 1));
+  };
+
+  const addRawTerm = (raw: string) => {
+    const normalized = (raw || "").trim();
+    if (!normalized) return;
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const limited = words.slice(0, 5).join(" ").trim();
+    if (!limited || limited.length < 2) return;
+    if (/\d/.test(limited)) return; // evita "Coxinha 6 Unidades" como sugestão literal
+    terms.set(limited, (terms.get(limited) || 0) + 1);
+  };
+
   data.forEach((b: any) => {
-    if (b.city) terms.add(b.city);
+    if (b.city) addRawTerm(b.city);
     if (b.keywords && Array.isArray(b.keywords)) {
-      b.keywords.forEach((k: string) => terms.add(k));
+      b.keywords.forEach((k: string) => {
+        addRawTerm(k);
+        addRelevantTokens(k);
+      });
     }
     if (b.services && Array.isArray(b.services)) {
-      b.services.forEach((s: string) => terms.add(s));
+      b.services.forEach((s: string) => {
+        addRawTerm(s);
+        addRelevantTokens(s);
+      });
+    }
+    if (b.menu && Array.isArray(b.menu)) {
+      b.menu.forEach((item: any) => {
+        if (item?.name) {
+          addRawTerm(String(item.name));
+          addRelevantTokens(String(item.name));
+        }
+        if (item?.description) {
+          addRawTerm(String(item.description));
+          addRelevantTokens(String(item.description));
+        }
+      });
     }
   });
 
-  // Retornar lista anica, filtrando termos muito curtos
-  return Array.from(terms).filter((t) => t && t.length >= 2);
+  // Retornar por frequência (mais recorrentes primeiro)
+  return Array.from(terms.entries())
+    .filter(([t]) => t && t.length >= 2)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"))
+    .map(([t]) => t);
 }
-
-
-
-
-

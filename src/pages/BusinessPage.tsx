@@ -54,6 +54,10 @@ export default function BusinessPage() {
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
   const [requestingOwnership, setRequestingOwnership] = useState(false);
   const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>([]);
+  const activePromotions = (business?.promotions || []).filter((promotion) => {
+    if (!promotion?.expiresAt) return false;
+    return promotion.expiresAt >= new Date().toISOString().slice(0, 10);
+  });
 
   useEffect(() => {
     if (countryCode && stateCode && city && businessName) {
@@ -158,7 +162,7 @@ export default function BusinessPage() {
     
     if (session.userId === business.ownerId) {
       toast.info("Este é o seu próprio negócio!");
-      navigate("/dashboard?tab=mensagens");
+      navigate("/perfil?tab=mensagens");
       return;
     }
 
@@ -415,7 +419,7 @@ export default function BusinessPage() {
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="font-bold">{business.averageRating.toFixed(1)}</span>
-                    <span className="text-white/80 font-normal">({business.reviews.length} avaliações)</span>
+                    <span className="text-white/80 font-normal">({business.reviews.length} {business.reviews.length === 1 ? "avaliação" : "avaliações"})</span>
                   </div>
                 )}
               </div>
@@ -445,9 +449,11 @@ export default function BusinessPage() {
                 <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Fotos
                 </TabsTrigger>
-                <TabsTrigger value="promotions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
-                  Promoções
-                </TabsTrigger>
+                {activePromotions.length > 0 && (
+                  <TabsTrigger value="promotions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                    Promoções
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Avaliações
                 </TabsTrigger>
@@ -545,13 +551,11 @@ export default function BusinessPage() {
                 )}
               </TabsContent>
 
-              <TabsContent value="promotions" className="mt-6">
-                <h2 className="text-xl font-bold text-foreground mb-4">Promoções</h2>
-                {!business.promotions || business.promotions.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhuma promoção ativa no momento.</p>
-                ) : (
+              {activePromotions.length > 0 && (
+                <TabsContent value="promotions" className="mt-6">
+                  <h2 className="text-xl font-bold text-foreground mb-4">Promoções</h2>
                   <div className="space-y-3">
-                    {business.promotions.map((promotion, idx) => (
+                    {activePromotions.map((promotion, idx) => (
                       <Card key={`${promotion.code}-${idx}`} className="p-5 border-border">
                         <h3 className="font-semibold text-lg">{promotion.title}</h3>
                         <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{promotion.description}</p>
@@ -566,8 +570,8 @@ export default function BusinessPage() {
                       </Card>
                     ))}
                   </div>
-                )}
-              </TabsContent>
+                </TabsContent>
+              )}
 
               <TabsContent value="reviews" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-6">Avaliações</h2>
@@ -580,7 +584,7 @@ export default function BusinessPage() {
                           <Star key={i} className={`w-4 h-4 ${i < Math.round(business.averageRating) ? "fill-current" : "text-muted-foreground/20"}`} />
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} avaliações</p>
+                      <p className="text-xs text-muted-foreground mt-1">{business.reviews.length} {business.reviews.length === 1 ? "avaliação" : "avaliações"}</p>
                     </div>
                     <div className="flex-1 space-y-2">
                       {[5, 4, 3, 2, 1].map((rating) => (

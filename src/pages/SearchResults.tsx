@@ -323,7 +323,7 @@ export default function SearchResults() {
     const baseBusinesses = allBusinesses;
 
     if (query) {
-      const q = query.toLowerCase();
+      const q = normalizeText(query);
       // Buscar sinanimos e palavras-chave da categoria
       const relatedTerms = SEARCH_SYNONYMS[q] || [];
       
@@ -332,19 +332,12 @@ export default function SearchResults() {
           const catKeywords = CATEGORY_KEYWORDS[b.category] || [];
           
           return (
-            b.name.toLowerCase().includes(q) ||
-            b.description.toLowerCase().includes(q) ||
-            b.category.toLowerCase().includes(q) ||
-            b.services.some((s) => s.toLowerCase().includes(q)) ||
-            b.keywords?.some((k) => k.toLowerCase().includes(q)) ||
-            b.address.city.toLowerCase().includes(q) ||
+            matchesBusinessTextQuery(b, q) ||
             // Checar contra palavras-chave automaticas da categoria
-            catKeywords.some(kw => kw.toLowerCase().includes(q)) ||
+            catKeywords.some(kw => normalizeText(kw).includes(q)) ||
             // Checar contra o mapa de sinanimos (termo buscado -> termos relacionados)
             relatedTerms.some(term => 
-              b.category.toLowerCase().includes(term.toLowerCase()) ||
-              b.name.toLowerCase().includes(term.toLowerCase()) ||
-              b.keywords?.some(k => k.toLowerCase().includes(term.toLowerCase()))
+              matchesBusinessTextQuery(b, normalizeText(term))
             )
           );
         }
@@ -382,13 +375,7 @@ export default function SearchResults() {
     // Expansão progressiva quando zera: 50km (padrão) -> 150km -> estado/província.
     if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
       const baseScoped = baseBusinesses.filter((b) => {
-        const passesQuery = !query || (
-          b.name.toLowerCase().includes(query.toLowerCase()) ||
-          b.description.toLowerCase().includes(query.toLowerCase()) ||
-          b.category.toLowerCase().includes(query.toLowerCase()) ||
-          b.services.some((sv) => sv.toLowerCase().includes(query.toLowerCase())) ||
-          b.keywords?.some((k) => k.toLowerCase().includes(query.toLowerCase()))
-        );
+        const passesQuery = !query || matchesBusinessTextQuery(b, normalizeText(query));
         const passesCategory = !categoryFilter || matchesCategoryFilter(b.category, categoryFilter);
         const passesCountry = !countryFilter || b.address.countryCode.toLowerCase() === countryFilter.toLowerCase();
         const passesState = !stateFilter || b.address.stateCode.toLowerCase() === stateFilter.toLowerCase();
@@ -1042,9 +1029,30 @@ function cityMatches(businessCity: string, selectedCity: string): boolean {
   );
 }
 
+function getBusinessSearchBlob(b: BusinessFrontend): string {
+  const menuText = (b.menu || [])
+    .map((item) => `${item?.name || ""} ${item?.description || ""}`)
+    .join(" ");
 
+  return normalizeText(
+    [
+      b.name || "",
+      b.description || "",
+      b.category || "",
+      b.address?.city || "",
+      ...(b.services || []),
+      ...(b.keywords || []),
+      menuText,
+    ].join(" ")
+  );
+}
 
-
+function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string): boolean {
+  if (!normalizedQuery) return true;
+  const blob = getBusinessSearchBlob(b);
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  return terms.every((term) => blob.includes(term));
+}
 
 
 

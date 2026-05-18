@@ -145,6 +145,7 @@ export default function UserProfile() {
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [couponBusiness, setCouponBusiness] = useState<BusinessFrontend | null>(null);
   const [savingCoupon, setSavingCoupon] = useState(false);
+  const [couponItems, setCouponItems] = useState<Promotion[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<BusinessFrontend | null>(null);
   const [couponForm, setCouponForm] = useState<Promotion>({
     title: "",
@@ -222,6 +223,12 @@ export default function UserProfile() {
     reviewId: string;
     businessId: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     if (!session) {
@@ -747,25 +754,75 @@ export default function UserProfile() {
   };
 
   const handleOpenCouponModal = (biz: BusinessFrontend) => {
-    const current = biz.promotions?.[0];
+    const current = biz.promotions || [];
     setCouponForm({
-      title: current?.title || "",
-      description: current?.description || "",
-      code: current?.code || "",
-      expiresAt: current?.expiresAt || "",
+      title: "",
+      description: "",
+      code: "",
+      expiresAt: "",
     });
+    setCouponItems(current);
     setCouponBusiness(biz);
+  };
+
+  const handleAddCoupon = () => {
+    if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.code.trim() || !couponForm.expiresAt) {
+      toast.error("Preencha todos os campos do cupom antes de adicionar.");
+      return;
+    }
+    setCouponItems((prev) => [
+      ...prev,
+      {
+        title: couponForm.title.trim(),
+        description: couponForm.description.trim(),
+        code: couponForm.code.trim(),
+        expiresAt: couponForm.expiresAt,
+      },
+    ]);
+    setCouponForm({
+      title: "",
+      description: "",
+      code: "",
+      expiresAt: "",
+    });
+  };
+
+  const handleRemoveCoupon = (index: number) => {
+    setCouponItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveCoupon = async () => {
     if (!couponBusiness) return;
-    if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.code.trim() || !couponForm.expiresAt) {
-      toast.error("Preencha todos os campos da promoção.");
+    const hasDraftField =
+      !!couponForm.title.trim() ||
+      !!couponForm.description.trim() ||
+      !!couponForm.code.trim() ||
+      !!couponForm.expiresAt;
+
+    const isDraftComplete =
+      !!couponForm.title.trim() &&
+      !!couponForm.description.trim() &&
+      !!couponForm.code.trim() &&
+      !!couponForm.expiresAt;
+
+    if (hasDraftField && !isDraftComplete) {
+      toast.error("Complete todos os campos do cupom atual ou limpe-os antes de salvar.");
       return;
     }
+
+    const promotionsToSave = [...couponItems];
+    if (isDraftComplete) {
+      promotionsToSave.push({
+        title: couponForm.title.trim(),
+        description: couponForm.description.trim(),
+        code: couponForm.code.trim(),
+        expiresAt: couponForm.expiresAt,
+      });
+    }
+
     setSavingCoupon(true);
     const ok = await updateBusiness(couponBusiness.id, {
-      promotions: [{ ...couponForm, title: couponForm.title.trim(), description: couponForm.description.trim(), code: couponForm.code.trim() }],
+      promotions: promotionsToSave,
     });
     setSavingCoupon(false);
     if (!ok) {
@@ -774,7 +831,7 @@ export default function UserProfile() {
     }
     setMyBusinesses((prev) =>
       prev.map((b) =>
-        b.id === couponBusiness.id ? { ...b, promotions: [{ ...couponForm }] } : b
+        b.id === couponBusiness.id ? { ...b, promotions: promotionsToSave } : b
       )
     );
     toast.success("Promoção salva com sucesso.");
@@ -831,16 +888,27 @@ export default function UserProfile() {
                 <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
-            <div className="flex items-center gap-4">
-              {isAdmin && (
-                <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")} className="rounded-full">
-                  <Store className="w-3.5 h-3.5 mr-1.5" />
-                  Administração
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={logout} className="rounded-full text-muted-foreground">
-                Sair
-              </Button>
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2">
+                <Link to="/perfil?tab=mensagens" onClick={() => setActiveTab("mensagens")} className="relative group">
+                  <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary">
+                    <MessageCircle className="w-5 h-5" />
+                    {unreadMessages > 0 && (
+                      <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                        {unreadMessages > 9 ? "9+" : unreadMessages}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+                <Link to="/perfil">
+                  <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-2 px-4">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-3 h-3 text-primary" />
+                    </div>
+                    <span className="font-medium">{session?.name?.split(" ")[0] || "Perfil"}</span>
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -853,16 +921,6 @@ export default function UserProfile() {
             <div className="sticky top-24">
               <Card className="p-2 border border-border bg-card">
                 <TabsList className="flex flex-col h-auto bg-transparent gap-1">
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => navigate("/dashboard")}
-                      className="flex items-center justify-start gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-primary transition-all w-full"
-                    >
-                      <Store className="w-4 h-4" />
-                      Administração
-                    </button>
-                  )}
                   <TabsTrigger value="perfil" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <User className="w-4 h-4" />
                     Meu Perfil
@@ -896,6 +954,14 @@ export default function UserProfile() {
                     </div>
                     Mensagens
                   </TabsTrigger>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="flex items-center justify-start gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-primary transition-all w-full"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sair
+                  </button>
                 </TabsList>
               </Card>
             </div>
@@ -1025,7 +1091,7 @@ export default function UserProfile() {
           <TabsContent value="negocios">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold">Meus Negócios</h2>
-              <Button size="sm" onClick={() => navigate("/dashboard")}>
+              <Button size="sm" onClick={() => navigate("/cadastro")}>
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 Gerenciar Negócios
               </Button>
@@ -1035,7 +1101,7 @@ export default function UserProfile() {
               <Card className="p-8 text-center border-border">
                 <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
-                <Button onClick={() => navigate("/dashboard")}>
+                <Button onClick={() => navigate("/cadastro")}>
                   <Plus className="w-4 h-4 mr-2" />
                   Cadastrar Negócio
                 </Button>
@@ -1062,7 +1128,7 @@ export default function UserProfile() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Star className="w-3 h-3 text-amber-500" />
-                          {biz.averageRating.toFixed(1)} ({biz.reviews.length} avaliações)
+                          {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
                         </span>
                       </div>
                     </div>
@@ -1084,7 +1150,7 @@ export default function UserProfile() {
                           variant="outline"
                           asChild
                         >
-                          <Link to={buildBusinessUrl(biz)}>
+                          <Link to={buildBusinessUrl(biz)} target="_blank" rel="noreferrer">
                             <Eye className="w-3.5 h-3.5 mr-1.5" />
                             Ver
                           </Link>
@@ -2211,6 +2277,31 @@ export default function UserProfile() {
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
+                <div className="space-y-3">
+                  <Label>Cupons cadastrados</Label>
+                  {couponItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum cupom cadastrado ainda.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {couponItems.map((item, idx) => (
+                        <div key={`${item.code}-${idx}`} className="rounded-md border border-border p-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-sm">{item.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                            <p className="text-xs mt-1">
+                              <span className="font-medium">Cupom:</span> {item.code} · <span className="font-medium">Validade:</span> {new Date(`${item.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
+                            </p>
+                          </div>
+                          <Button type="button" size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleRemoveCoupon(idx)}>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <Label htmlFor="profile-coupon-title">Título da promoção</Label>
                   <Input
@@ -2250,6 +2341,12 @@ export default function UserProfile() {
                     value={couponForm.expiresAt}
                     onChange={(e) => setCouponForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
                   />
+                </div>
+                <div>
+                  <Button type="button" variant="outline" onClick={handleAddCoupon}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar cupom
+                  </Button>
                 </div>
               </div>
             </div>

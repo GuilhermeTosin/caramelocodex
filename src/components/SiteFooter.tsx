@@ -28,7 +28,7 @@ export default function SiteFooter() {
                 <MapPin className="w-4 h-4" />
                 Buscar negócios
               </Link>
-              <Link to="/dashboard" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/cadastro" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
                 Cadastrar negócio
               </Link>
@@ -59,7 +59,6 @@ export default function SiteFooter() {
     </footer>
   );
 }
-
 
 
 

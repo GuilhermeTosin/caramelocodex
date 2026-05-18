@@ -55,19 +55,21 @@ export default function SearchInputWithSuggestions({
   useGooglePlaces = false,
   locationBias = null,
 }: SearchInputWithSuggestionsProps) {
+  const suggestionsDisabled = true;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const canUseGooglePlaces = useGooglePlaces && icon === "location" && isMapsApiAvailable();
+  const canUseGooglePlaces = !suggestionsDisabled && useGooglePlaces && icon === "location" && isMapsApiAvailable();
 
   const filteredSuggestions = useMemo(() => {
+    if (suggestionsDisabled) return [];
     if (canUseGooglePlaces) return [];
     if (value.length < 2) return [];
     return suggestions
       .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
       .slice(0, 6);
-  }, [suggestions, value, canUseGooglePlaces]);
+  }, [suggestions, value, canUseGooglePlaces, suggestionsDisabled]);
 
   const showSuggestions = isOpen && filteredSuggestions.length > 0;
 
@@ -175,6 +177,8 @@ export default function SearchInputWithSuggestions({
       <Input
         ref={inputRef}
         value={value}
+        autoComplete="off"
+        spellCheck={false}
         onChange={(e) => {
           onChange(e.target.value);
           if (!canUseGooglePlaces) {
