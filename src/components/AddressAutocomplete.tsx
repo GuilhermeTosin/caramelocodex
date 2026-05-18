@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
@@ -29,34 +29,34 @@ interface AddressAutocompleteProps {
 const BR_STATE_NAMES: Record<string, string> = {
   "acre": "ac",
   "alagoas": "al",
-  "amapá": "ap",
+  "amapÃ¡": "ap",
   "amazonas": "am",
   "bahia": "ba",
-  "ceará": "ce",
+  "cearÃ¡": "ce",
   "distrito federal": "df",
-  "espírito santo": "es",
-  "goiás": "go",
-  "maranhão": "ma",
+  "espÃ­rito santo": "es",
+  "goiÃ¡s": "go",
+  "maranhÃ£o": "ma",
   "mato grosso": "mt",
   "mato grosso do sul": "ms",
   "minas gerais": "mg",
-  "pará": "pa",
-  "paraíba": "pb",
-  "paraná": "pr",
+  "parÃ¡": "pa",
+  "paraÃ­ba": "pb",
+  "paranÃ¡": "pr",
   "pernambuco": "pe",
-  "piauí": "pi",
+  "piauÃ­": "pi",
   "rio de janeiro": "rj",
   "rio grande do norte": "rn",
   "rio grande do sul": "rs",
-  "rondônia": "ro",
+  "rondÃ´nia": "ro",
   "roraima": "rr",
   "santa catarina": "sc",
-  "são paulo": "sp",
+  "sÃ£o paulo": "sp",
   "sergipe": "se",
   "tocantins": "to",
 };
 
-/** Tenta extrair sigla de estado (província) de um componente do Google Places.
+/** Tenta extrair sigla de estado (provÃ­ncia) de um componente do Google Places.
  * Recebe um array de address_components e retorna { stateCode, state }
  */
 function extractState(
@@ -67,7 +67,7 @@ function extractState(
   if (knownState) return knownState;
   const hasKnownStateList = !!COUNTRIES[countryCode.toLowerCase()]?.states;
 
-  // Prioridade 1: administrative_area_level_1 (Província/Estado)
+  // Prioridade 1: administrative_area_level_1 (ProvÃ­ncia/Estado)
   const level1 = components.find(c => c.types.includes("administrative_area_level_1"));
   if (level1) {
     const name = level1.short_name || level1.long_name;
@@ -89,7 +89,7 @@ function extractState(
     return { stateCode: "", state: "" };
   }
 
-  // Fallback para level 2 se não encontrar level 1
+  // Fallback para level 2 se nÃ£o encontrar level 1
   const level2 = components.find(c => c.types.includes("administrative_area_level_2"));
   if (level2) {
     const name = level2.short_name || level2.long_name;
@@ -102,7 +102,7 @@ function extractState(
   return { stateCode: "", state: "" };
 }
 
-/** Extrai país do address_components */
+/** Extrai paÃ­s do address_components */
 function extractCountry(
   components: google.maps.GeocoderAddressComponent[],
 ): { countryCode: string; country: string } {
@@ -168,7 +168,7 @@ function extractCity(
   const locality = components.find(c => c.types.includes("locality"));
   if (locality) return locality.long_name || "";
 
-  // Prioridade 2: administrative_area_level_2 (Muitas vezes a cidade em certos países)
+  // Prioridade 2: administrative_area_level_2 (Muitas vezes a cidade em certos paÃ­ses)
   const admin2 = components.find(c => c.types.includes("administrative_area_level_2"));
   if (admin2) return admin2.long_name || "";
 
@@ -203,7 +203,7 @@ function extractPostalCode(
   return "";
 }
 
-/** Extrai nome da rua + número */
+/** Extrai nome da rua + nÃºmero */
 function extractStreet(
   components: google.maps.GeocoderAddressComponent[],
 ): string {
@@ -241,13 +241,33 @@ export default function AddressAutocomplete({
   value,
   onChange,
   onPlaceSelected,
-  placeholder = "Digite o endereço do seu negócio…",
+  placeholder = "Digite o endereÃ§o do seu negÃ³cioâ€¦",
   disabled = false,
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const apiAvailable = isMapsApiAvailable();
   const [ready, setReady] = useState(false);
+
+  const hidePacContainers = () => {
+    const pacContainers = document.querySelectorAll(".pac-container");
+    pacContainers.forEach((container) => {
+      const el = container as HTMLElement;
+      el.style.display = "none";
+      el.style.visibility = "hidden";
+      el.style.pointerEvents = "none";
+    });
+  };
+
+  const showPacContainers = () => {
+    const pacContainers = document.querySelectorAll(".pac-container");
+    pacContainers.forEach((container) => {
+      const el = container as HTMLElement;
+      el.style.display = "";
+      el.style.visibility = "";
+      el.style.pointerEvents = "";
+    });
+  };
 
   useEffect(() => {
     if (!apiAvailable) return;
@@ -260,7 +280,7 @@ export default function AddressAutocomplete({
   useEffect(() => {
     if (!ready || !inputRef.current) return;
     
-    // Limpar se já existir (para evitar duplicidade em re-renders ou trocas de modal)
+    // Limpar se jÃ¡ existir (para evitar duplicidade em re-renders ou trocas de modal)
     if (autocompleteRef.current) {
       google.maps.event.clearInstanceListeners(autocompleteRef.current);
     }
@@ -292,10 +312,10 @@ export default function AddressAutocomplete({
       onChange(result.formattedAddress);
       onPlaceSelected(result);
 
-      // Esconder dropdown do Google imediatamente após seleção
-      const pacContainers = document.querySelectorAll(".pac-container");
-      pacContainers.forEach((container) => {
-        (container as HTMLElement).style.display = "none";
+      // Esconder dropdown do Google imediatamente apÃ³s seleÃ§Ã£o
+      window.requestAnimationFrame(() => {
+        inputRef.current?.blur();
+        hidePacContainers();
       });
     });
 
@@ -303,13 +323,35 @@ export default function AddressAutocomplete({
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
-      // Limpeza agressiva ao desmontar (mudar de página)
+      // Limpeza agressiva ao desmontar (mudar de pÃ¡gina)
       const pacContainers = document.querySelectorAll(".pac-container");
       pacContainers.forEach((container) => {
         container.remove();
       });
     };
   }, [ready]);
+
+  useEffect(() => {
+    const handleOutsidePointer = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const inputEl = inputRef.current;
+      if (!inputEl) return;
+
+      const clickedInput = inputEl.contains(target);
+      const clickedPac = (target as HTMLElement).closest?.(".pac-container");
+      if (!clickedInput && !clickedPac) {
+        hidePacContainers();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsidePointer);
+    document.addEventListener("touchstart", handleOutsidePointer, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointer);
+      document.removeEventListener("touchstart", handleOutsidePointer);
+    };
+  }, []);
 
   // Sincronizar valor externo com o input interno (importante para modais)
   useEffect(() => {
@@ -326,12 +368,13 @@ export default function AddressAutocomplete({
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
+            onFocus={showPacContainers}
+            placeholder={placeholder}
           disabled
           className="pl-10"
         />
         <p className="text-xs text-muted-foreground mt-1">
-          Configure a chave Google Maps para ativar o autocomplete de endereço.
+          Configure a chave Google Maps para ativar o autocomplete de endereÃ§o.
         </p>
       </div>
     );
@@ -346,6 +389,7 @@ export default function AddressAutocomplete({
             ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={showPacContainers}
             placeholder={placeholder}
             disabled
             className="pl-10"
@@ -359,6 +403,7 @@ export default function AddressAutocomplete({
             ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={showPacContainers}
             placeholder={placeholder}
             disabled={disabled}
             className="pl-10 google-places-input"
@@ -368,3 +413,6 @@ export default function AddressAutocomplete({
     </div>
   );
 }
+
+
+

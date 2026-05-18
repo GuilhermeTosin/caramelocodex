@@ -445,6 +445,9 @@ export default function BusinessPage() {
                 <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Fotos
                 </TabsTrigger>
+                <TabsTrigger value="promotions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  Promoções
+                </TabsTrigger>
                 <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Avaliações
                 </TabsTrigger>
@@ -538,6 +541,30 @@ export default function BusinessPage() {
                       alt="Foto ampliada"
                       className="max-w-full max-h-full rounded-lg object-contain"
                     />
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="promotions" className="mt-6">
+                <h2 className="text-xl font-bold text-foreground mb-4">Promoções</h2>
+                {!business.promotions || business.promotions.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Nenhuma promoção ativa no momento.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {business.promotions.map((promotion, idx) => (
+                      <Card key={`${promotion.code}-${idx}`} className="p-5 border-border">
+                        <h3 className="font-semibold text-lg">{promotion.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{promotion.description}</p>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 px-3 py-1 text-sm font-bold">
+                            Cupom: {promotion.code}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            Válido até: {new Date(`${promotion.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
                 )}
               </TabsContent>

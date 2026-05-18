@@ -248,6 +248,7 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     averageRating: b.average_rating || 0,
     ownerVerified: b.owner_verified || false,
     openingHours: b.opening_hours || [],
+    promotions: b.promotions || [],
     createdAt: b.created_at,
   };
 }
@@ -367,6 +368,7 @@ export async function createBusiness(
     keywords?: string[];
     photos?: string[];
     openingHours?: string[];
+    promotions?: { title: string; description: string; code: string; expiresAt: string }[];
   }
 ): Promise<BusinessFrontend | null> {
   const safeSlug = slugify(data.slug?.trim() || data.name);
@@ -607,8 +609,6 @@ export async function getSearchSuggestions(): Promise<string[]> {
   // Retornar lista anica, filtrando termos muito curtos
   return Array.from(terms).filter((t) => t && t.length >= 2);
 }
-
-
 
 
 

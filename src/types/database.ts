@@ -17,6 +17,13 @@ export interface MenuItem {
   description: string;
 }
 
+export interface Promotion {
+  title: string;
+  description: string;
+  code: string;
+  expiresAt: string; // YYYY-MM-DD
+}
+
 export interface Review {
   id: string;
   business_id: string;
@@ -63,6 +70,7 @@ export interface Business {
   average_rating: number;
   owner_verified?: boolean;
   opening_hours?: string[];
+  promotions?: Promotion[];
   created_at: string;
 }
 
@@ -129,6 +137,7 @@ export interface BusinessFrontend {
   averageRating: number;
   ownerVerified: boolean;
   openingHours: string[];
+  promotions: Promotion[];
   createdAt: string;
 }
 

@@ -19,6 +19,9 @@ import {
   ExternalLink,
   Trash2,
   X,
+  TicketPercent,
+  Eye,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -70,7 +73,7 @@ import {
 } from "@/services/businesses";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
-import type { BusinessFrontend, ConversationFrontend, MessageFrontend, Review } from "@/types/database";
+import type { BusinessFrontend, ConversationFrontend, MessageFrontend, Promotion, Review } from "@/types/database";
 
 export default function UserProfile() {
   type BusinessHour = {
@@ -115,6 +118,15 @@ export default function UserProfile() {
   // Businesses
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
+  const [couponBusiness, setCouponBusiness] = useState<BusinessFrontend | null>(null);
+  const [savingCoupon, setSavingCoupon] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BusinessFrontend | null>(null);
+  const [couponForm, setCouponForm] = useState<Promotion>({
+    title: "",
+    description: "",
+    code: "",
+    expiresAt: "",
+  });
   const [editFormData, setEditFormData] = useState({
     name: "",
     category: "",
@@ -460,8 +472,8 @@ export default function UserProfile() {
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
-    if (!editFormData.city || !editFormData.stateCode) {
-      toast.error("O endereço (Cidade e Estado) é obrigatório.");
+    if (!editFormData.street || !editFormData.city || !editFormData.stateCode) {
+      toast.error("O endereço completo (Rua, Cidade e Estado) é obrigatório.");
       return;
     }
     const services = editFormData.services
@@ -540,14 +552,54 @@ export default function UserProfile() {
   };
 
   const handleDeleteMyBusiness = async (biz: BusinessFrontend) => {
-    if (!confirm(`Tem certeza que deseja excluir "${biz.name}"?`)) return;
-    const ok = await deleteBusiness(biz.id);
+    setDeleteTarget(biz);
+  };
+
+  const handleConfirmDeleteMyBusiness = async () => {
+    if (!deleteTarget) return;
+    const ok = await deleteBusiness(deleteTarget.id);
     if (ok) {
-      setMyBusinesses((prev) => prev.filter((b) => b.id !== biz.id));
+      setMyBusinesses((prev) => prev.filter((b) => b.id !== deleteTarget.id));
       toast.success("Negócio removido com sucesso!");
+      setDeleteTarget(null);
       return;
     }
     toast.error("Erro ao remover negócio.");
+  };
+
+  const handleOpenCouponModal = (biz: BusinessFrontend) => {
+    const current = biz.promotions?.[0];
+    setCouponForm({
+      title: current?.title || "",
+      description: current?.description || "",
+      code: current?.code || "",
+      expiresAt: current?.expiresAt || "",
+    });
+    setCouponBusiness(biz);
+  };
+
+  const handleSaveCoupon = async () => {
+    if (!couponBusiness) return;
+    if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.code.trim() || !couponForm.expiresAt) {
+      toast.error("Preencha todos os campos da promoção.");
+      return;
+    }
+    setSavingCoupon(true);
+    const ok = await updateBusiness(couponBusiness.id, {
+      promotions: [{ ...couponForm, title: couponForm.title.trim(), description: couponForm.description.trim(), code: couponForm.code.trim() }],
+    });
+    setSavingCoupon(false);
+    if (!ok) {
+      toast.error("Não foi possível salvar a promoção. Verifique se a coluna 'promotions' existe na tabela businesses.");
+      return;
+    }
+    setMyBusinesses((prev) =>
+      prev.map((b) =>
+        b.id === couponBusiness.id ? { ...b, promotions: [{ ...couponForm }] } : b
+      )
+    );
+    toast.success("Promoção salva com sucesso.");
+    setCouponBusiness(null);
   };
 
   if (isLoading) {
@@ -828,6 +880,24 @@ export default function UserProfile() {
                         {getCategoryLabel(biz.category).split(" (")[0]}
                       </Badge>
                       <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenCouponModal(biz)}
+                        >
+                          <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
+                          Cupons de desconto
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                        >
+                          <Link to={buildBusinessUrl(biz)}>
+                            <Eye className="w-3.5 h-3.5 mr-1.5" />
+                            Ver
+                          </Link>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1188,7 +1258,7 @@ export default function UserProfile() {
         
         <Dialog open={!!editingBusiness} onOpenChange={(open) => !open && setEditingBusiness(null)}>
           <DialogContent
-            className="max-w-2xl max-h-[85vh] overflow-y-auto"
+            className="max-w-2xl h-[85vh] flex flex-col overflow-hidden"
             onPointerDownOutside={(e) => {
               const target = e.target as HTMLElement;
               if (target?.closest(".pac-container")) {
@@ -1205,6 +1275,7 @@ export default function UserProfile() {
             <DialogHeader>
               <DialogTitle>Editar {editFormData.name || "Negócio"}</DialogTitle>
             </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
             <div className="sm:col-span-2 border-b border-border pb-2">
               <h3 className="text-base font-semibold">Dados principais</h3>
@@ -1220,16 +1291,16 @@ export default function UserProfile() {
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <Label htmlFor="edit-category">Categoria *</Label>
               <Select
                 value={editFormData.category}
                 onValueChange={(val) => handleEditInputChange("category", val)}
               >
-                <SelectTrigger id="edit-category" className="mt-1.5">
+                <SelectTrigger id="edit-category" className="mt-1.5 w-full">
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
                   {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.label}
@@ -1337,12 +1408,20 @@ export default function UserProfile() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
+                  <div className="mt-1.5">
+                    <label
+                      htmlFor="edit-menu-pdf"
+                      className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
+                    >
+                      Escolher arquivo PDF
+                    </label>
+                  </div>
                   <Input
                     id="edit-menu-pdf"
                     type="file"
                     accept="application/pdf"
                     onChange={(e) => handleMenuPdfChange(e, true)}
-                    className="cursor-pointer"
+                    className="hidden"
                   />
                   {editFormData.menuPdfUrl && (
                     <a
@@ -1488,24 +1567,54 @@ export default function UserProfile() {
 
             <div>
               <Label htmlFor="edit-logo">Alterar Logo</Label>
+              <div className="mt-1.5">
+                <label htmlFor="edit-logo" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
+                  Escolher imagem
+                </label>
+              </div>
               <Input
                 id="edit-logo"
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, "logo", true)}
-                className="mt-1.5 cursor-pointer"
+                className="hidden"
               />
+              {editingBusiness?.logoUrl && (
+                <div className="mt-2">
+                  <div className="relative w-20 h-20 rounded-md overflow-hidden border border-border">
+                    <img src={editingBusiness.logoUrl} alt="Logo atual" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB.
+              </p>
             </div>
 
             <div>
               <Label htmlFor="edit-hero">Alterar Capa (Banner)</Label>
+              <div className="mt-1.5">
+                <label htmlFor="edit-hero" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
+                  Escolher imagem
+                </label>
+              </div>
               <Input
                 id="edit-hero"
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, "hero", true)}
-                className="mt-1.5 cursor-pointer"
+                className="hidden"
               />
+              {editingBusiness?.heroImage && (
+                <div className="mt-2">
+                  <div className="relative w-32 h-20 rounded-md overflow-hidden border border-border">
+                    <img src={editingBusiness.heroImage} alt="Capa atual" className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 5MB.
+              </p>
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
@@ -1514,13 +1623,18 @@ export default function UserProfile() {
 
             <div className="sm:col-span-2">
               <Label htmlFor="edit-photos">Adicionar Novas Fotos na Galeria</Label>
+              <div className="mt-1.5">
+                <label htmlFor="edit-photos" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
+                  Escolher arquivos
+                </label>
+              </div>
               <Input
                 id="edit-photos"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 multiple
                 onChange={(e) => handlePhotosChange(e, true)}
-                className="mt-1.5 cursor-pointer"
+                className="hidden"
               />
               <div className="text-xs text-muted-foreground mt-1 mb-2">
                 Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho máx: 5MB | Formatos: JPG, PNG, WEBP
@@ -1570,16 +1684,104 @@ export default function UserProfile() {
                 </div>
               )}
             </div>
-          </div>
+            </div>
+            </div>
 
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end border-t border-border bg-white px-1 pt-3 pb-1">
               <Button variant="outline" onClick={() => setEditingBusiness(null)} disabled={isUploading}>
                 Cancelar
               </Button>
-              <Button onClick={handleSaveBusiness} disabled={isUploading}>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveBusiness} disabled={isUploading}>
                 {isUploading ? "Enviando Imagens..." : "Salvar Alterações"}
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
+          <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Cupons de desconto - {couponBusiness?.name || "Negócio"}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-5 py-4">
+                <div>
+                  <Label htmlFor="profile-coupon-title">Título da promoção</Label>
+                  <Input
+                    id="profile-coupon-title"
+                    className="mt-1.5"
+                    value={couponForm.title}
+                    onChange={(e) => setCouponForm((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Ex: 15% OFF no fim de semana"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="profile-coupon-description">Descrição da promoção</Label>
+                  <Textarea
+                    id="profile-coupon-description"
+                    className="mt-1.5 min-h-[120px]"
+                    value={couponForm.description}
+                    onChange={(e) => setCouponForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Explique regras, itens participantes e condições."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="profile-coupon-code">Código promocional / cupom</Label>
+                  <Input
+                    id="profile-coupon-code"
+                    className="mt-1.5"
+                    value={couponForm.code}
+                    onChange={(e) => setCouponForm((prev) => ({ ...prev, code: e.target.value }))}
+                    placeholder="Ex: CARAMELINHO15"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="profile-coupon-expiry">Data limite da promoção</Label>
+                  <Input
+                    id="profile-coupon-expiry"
+                    type="date"
+                    className="mt-1.5"
+                    value={couponForm.expiresAt}
+                    onChange={(e) => setCouponForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="border-t border-border bg-white px-1 pt-3 pb-1">
+              <Button variant="outline" onClick={() => setCouponBusiness(null)} disabled={savingCoupon}>
+                Cancelar
+              </Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveCoupon} disabled={savingCoupon}>
+                {savingCoupon ? "Salvando..." : "Salvar promoção"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                ATENÇÃO
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <p>
+                Você está prestes a <strong>APAGAR DEFINITIVAMENTE</strong> o negócio{" "}
+                <strong>"{deleteTarget?.name}"</strong>.
+              </p>
+              <p className="text-red-600 font-semibold">Esta ação é IRREVERSÍVEL e todos os dados relacionados serão perdidos.</p>
+              <p>Deseja continuar mesmo assim?</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancelar
+              </Button>
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleConfirmDeleteMyBusiness}>
+                Sim, apagar negócio
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       <SiteFooter />
@@ -1627,4 +1829,7 @@ function parseBusinessHours(lines: string[]) {
   }
   return defaults;
 }
+
+
+
 
