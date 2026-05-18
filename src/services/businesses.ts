@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { Business, BusinessFrontend, Review } from "@/types/database";
+import type { CommunityEvent } from "@/types/database";
 
 export const BUSINESS_CATEGORY_OPTIONS = [
   { id: "food", label: "Alimentação (Restaurantes, Padarias, Cafés)" },
@@ -201,6 +202,10 @@ export const COUNTRIES: Record<string, { name: string; states: Record<string, st
 
 export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
   const categoryId = getCategoryId((b as any).category_id || "");
+  const verifiedUntil = b.owner_verified_until || null;
+  const isVerifiedByDate =
+    !!b.owner_verified &&
+    (!verifiedUntil || new Date(verifiedUntil).getTime() >= Date.now());
   return {
     id: b.id,
     ownerId: b.owner_id,
@@ -247,12 +252,56 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
       created_at: r.created_at || r.createdAt,
     })) as Review[],
     averageRating: b.average_rating || 0,
-    ownerVerified: b.owner_verified || false,
+    ownerVerified: isVerifiedByDate,
+    ownerVerifiedUntil: verifiedUntil || undefined,
     openingHours: b.opening_hours || [],
     promotions: b.promotions || [],
     events: b.events || [],
     createdAt: b.created_at,
   };
+}
+
+function mergeBusinessEvents(
+  legacyEvents: Business["events"] | undefined,
+  linkedEvents: CommunityEvent[]
+) {
+  const fromLinked = linkedEvents.map((evt) => ({
+    title: evt.title,
+    description: evt.description || "",
+    date: evt.date,
+    location: evt.location,
+    isFree: !!evt.is_free,
+    price: evt.price || "",
+    flyerUrl: evt.flyer_url || "",
+    ticketUrl: evt.ticket_url || "",
+  }));
+
+  const safeLegacy = (legacyEvents || []).filter(
+    (evt): evt is NonNullable<typeof evt> =>
+      !!evt && typeof evt === "object"
+  );
+  const merged = [...safeLegacy, ...fromLinked];
+  const seen = new Set<string>();
+  return merged
+    .filter((evt) => !!evt && typeof evt === "object")
+    .filter((evt) => {
+      const key = `${(evt.title || "").trim().toLowerCase()}|${evt.date || ""}|${(evt.location || "").trim().toLowerCase()}`;
+      if (!key.replace(/\|/g, "").trim()) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((evt) => ({
+      title: String(evt.title || "").trim(),
+      description: String(evt.description || "").trim(),
+      date: String(evt.date || "").trim(),
+      location: String(evt.location || "").trim(),
+      isFree: Boolean(evt.isFree),
+      price: String(evt.price || "").trim(),
+      flyerUrl: String(evt.flyerUrl || "").trim(),
+      ticketUrl: String(evt.ticketUrl || "").trim(),
+    }))
+    .filter((evt) => evt.title || evt.date || evt.location);
 }
 
 export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
@@ -274,8 +323,30 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  return (data as Business[]).map((b) =>
-    toFrontend(b, ownerNames.get(b.owner_id))
+  const businessRows = data as Business[];
+  const businessIds = businessRows.map((b) => b.id);
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .in("business_id", businessIds)
+    .eq("status", "published");
+
+  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
+    const key = evt.business_id as string;
+    const list = acc.get(key) || [];
+    list.push(evt as CommunityEvent);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  return businessRows.map((b) =>
+    toFrontend(
+      {
+        ...b,
+        events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
+      } as Business,
+      ownerNames.get(b.owner_id)
+    )
   );
 }
 
@@ -318,6 +389,14 @@ export async function getBusinessBySlug(
     comment: r.comment,
     created_at: r.created_at,
   })) as Review[];
+
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .eq("business_id", biz.id)
+    .eq("status", "published");
+
+  biz.events = mergeBusinessEvents(biz.events, (linkedEventsRows || []) as CommunityEvent[]);
 
   return toFrontend(biz, profile?.name);
 }
@@ -365,10 +444,24 @@ export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFro
     }
   }
 
-  return (data as Business[]).map((b) => {
+  const businessRows = data as Business[];
+  const { data: linkedEventsRows } = businessIds.length > 0
+    ? await supabase.from("events").select("*").in("business_id", businessIds)
+    : { data: [] as any[] };
+
+  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
+    const key = evt.business_id as string;
+    const list = acc.get(key) || [];
+    list.push(evt as CommunityEvent);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  return businessRows.map((b) => {
     const withReviews: Business = {
       ...b,
       reviews: reviewsByBusinessId.get(b.id) || [],
+      events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
     };
     return toFrontend(withReviews, profile?.name);
   });

@@ -22,6 +22,7 @@ import {
   TicketPercent,
   Eye,
   AlertTriangle,
+  BadgeCheck,
   Megaphone,
   ShieldCheck,
   CheckCircle,
@@ -29,6 +30,7 @@ import {
   Calendar,
   BookOpen,
   Flag,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -92,6 +94,14 @@ import {
 } from "@/services/ownership";
 import { archiveReport, getReportsForAdmin, unarchiveReport, updateReportStatus } from "@/services/reports";
 import { getCurrencyPrefixForCountry } from "@/lib/currency";
+import {
+  getVerificationRequestsByOwner,
+  getPendingVerificationRequestsForAdmin,
+  requestBusinessVerification,
+  setBusinessVerifiedFlag,
+  setVerificationRequestStatus,
+} from "@/services/verification";
+import { createCommunityEvent, deleteCommunityEvent, getCommunityEventsByOwner, getCommunityEventsByOwnerAndBusiness, replaceBusinessLinkedEvents, updateCommunityEvent } from "@/services/events";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type {
@@ -102,9 +112,11 @@ import type {
   MessageFrontend,
   OwnerClaimRequest,
   BusinessReport,
+  BusinessVerificationRequest,
   BusinessEvent,
   Promotion,
   Review,
+  CommunityEvent,
 } from "@/types/database";
 
 export default function UserProfile() {
@@ -120,6 +132,7 @@ export default function UserProfile() {
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(tabParam || "perfil");
+  const [showMissingProfileError, setShowMissingProfileError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
@@ -137,6 +150,7 @@ export default function UserProfile() {
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const couponDatePickerRef = useRef<HTMLInputElement>(null);
+  const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -219,6 +233,28 @@ export default function UserProfile() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsView, setReportsView] = useState<"active" | "archived">("active");
   const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [verificationBusiness, setVerificationBusiness] = useState<BusinessFrontend | null>(null);
+  const [verificationSubmitting, setVerificationSubmitting] = useState(false);
+  const [instagramPostUrl, setInstagramPostUrl] = useState("");
+  const [verificationRequests, setVerificationRequests] = useState<BusinessVerificationRequest[]>([]);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [myVerificationRequests, setMyVerificationRequests] = useState<BusinessVerificationRequest[]>([]);
+  const [myCommunityEvents, setMyCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [savingCommunityEvent, setSavingCommunityEvent] = useState(false);
+  const [editingCommunityEventId, setEditingCommunityEventId] = useState<string | null>(null);
+  const [communityEventFlyerFile, setCommunityEventFlyerFile] = useState<File | null>(null);
+  const [communityEventForm, setCommunityEventForm] = useState({
+    title: "",
+    description: "",
+    date: "",
+    location: "",
+    isFree: true,
+    price: "",
+    ticketUrl: "",
+    flyerUrl: "",
+    businessId: "none",
+  });
+  const [verificationAdminView, setVerificationAdminView] = useState<"pendentes" | "verificados">("pendentes");
   const [featuredForm, setFeaturedForm] = useState({
     businessId: "",
     scopeType: "city" as FeaturedScopeType,
@@ -257,6 +293,22 @@ export default function UserProfile() {
   }, [tabParam]);
 
   useEffect(() => {
+    if (!session || user || isLoading) {
+      setShowMissingProfileError(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowMissingProfileError(true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [session, user, isLoading]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
     if (!session) {
       navigate("/entrar?redirect=/perfil");
       return;
@@ -264,6 +316,7 @@ export default function UserProfile() {
 
     // Load conversations
     getConversationsForUser(session.userId).then(setConversations);
+    getVerificationRequestsByOwner(session.userId).then(setMyVerificationRequests);
 
     // Load businesses owned by user
     getBusinessesByOwner(session.userId).then((bizs) => {
@@ -278,12 +331,143 @@ export default function UserProfile() {
       );
       setMyReviews(reviews);
     });
+    getCommunityEventsByOwner(session.userId).then(setMyCommunityEvents);
 
     // Load reviews made by this user
     getReviewsByUser(session.userId).then((reviews) => {
       setGivenReviews(reviews as any);
     });
-  }, [session, user, navigate]);
+  }, [session, user, navigate, isLoading]);
+
+  const handleCreateCommunityEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.userId) return;
+    if (!communityEventForm.title.trim() || !communityEventForm.date || !communityEventForm.location.trim()) {
+      toast.error("Preencha título, data e local do evento.");
+      return;
+    }
+    const eventDateIso = parseBrDateToIso(communityEventForm.date);
+    if (!eventDateIso) {
+      toast.error("Data inválida. Use o formato dd-mm-yyyy.");
+      return;
+    }
+
+    setSavingCommunityEvent(true);
+    let flyerUrl = communityEventForm.flyerUrl || "";
+    if (communityEventFlyerFile) {
+      const ownerRef = communityEventForm.businessId !== "none" ? communityEventForm.businessId : session.userId;
+      const path = generateImagePath(ownerRef, "event-flyer", communityEventFlyerFile.name);
+      const uploaded = await uploadImage("business-images", path, communityEventFlyerFile);
+      if (uploaded) flyerUrl = uploaded;
+    }
+
+    const payload = {
+      title: communityEventForm.title,
+      description: communityEventForm.description,
+      date: eventDateIso,
+      location: communityEventForm.location,
+      isFree: communityEventForm.isFree,
+      price: communityEventForm.isFree ? "" : communityEventForm.price,
+      ticketUrl: communityEventForm.ticketUrl || null,
+      flyerUrl: flyerUrl || null,
+      businessId: communityEventForm.businessId === "none" ? null : communityEventForm.businessId,
+      status: "published",
+    };
+    const result = editingCommunityEventId
+      ? await updateCommunityEvent(editingCommunityEventId, payload)
+      : await createCommunityEvent(session.userId, payload);
+    setSavingCommunityEvent(false);
+
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível criar o evento.");
+      return;
+    }
+
+    toast.success(editingCommunityEventId ? "Evento atualizado com sucesso." : "Evento publicado com sucesso.");
+    setEditingCommunityEventId(null);
+    setCommunityEventForm({
+      title: "",
+      description: "",
+      date: "",
+      location: "",
+      isFree: true,
+      price: "",
+      ticketUrl: "",
+      flyerUrl: "",
+      businessId: "none",
+    });
+    setCommunityEventFlyerFile(null);
+    const events = await getCommunityEventsByOwner(session.userId);
+    setMyCommunityEvents(events);
+    if (payload.businessId) {
+      const linked = await getCommunityEventsByOwnerAndBusiness(session.userId, payload.businessId);
+      await replaceBusinessLinkedEvents(
+        session.userId,
+        payload.businessId,
+        linked.map((evt) => ({
+          title: evt.title,
+          description: evt.description || "",
+          date: evt.date,
+          location: evt.location,
+          isFree: !!evt.is_free,
+          price: evt.price || "",
+          flyerUrl: evt.flyer_url || "",
+          ticketUrl: evt.ticket_url || "",
+        }))
+      );
+    }
+    const businesses = await getBusinessesByOwner(session.userId);
+    setMyBusinesses(businesses);
+  };
+
+  const handleStartEditCommunityEvent = (evt: CommunityEvent) => {
+    setEditingCommunityEventId(evt.id);
+    setCommunityEventForm({
+      title: evt.title || "",
+      description: evt.description || "",
+      date: formatIsoToBr(evt.date || ""),
+      location: evt.location || "",
+      isFree: !!evt.is_free,
+      price: evt.price || "",
+      ticketUrl: evt.ticket_url || "",
+      flyerUrl: evt.flyer_url || "",
+      businessId: evt.business_id || "none",
+    });
+    setCommunityEventFlyerFile(null);
+    setActiveTab("eventos");
+  };
+
+  const handleDeleteCommunityEvent = async (event: CommunityEvent) => {
+    if (!confirm("Excluir este evento?")) return;
+    const result = await deleteCommunityEvent(event.id);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível excluir o evento.");
+      return;
+    }
+    toast.success("Evento excluído.");
+    setMyCommunityEvents((prev) => prev.filter((evt) => evt.id !== event.id));
+    if (session?.userId) {
+      if (event.business_id) {
+        const linked = await getCommunityEventsByOwnerAndBusiness(session.userId, event.business_id);
+        await replaceBusinessLinkedEvents(
+          session.userId,
+          event.business_id,
+          linked.map((evt) => ({
+            title: evt.title,
+            description: evt.description || "",
+            date: evt.date,
+            location: evt.location,
+            isFree: !!evt.is_free,
+            price: evt.price || "",
+            flyerUrl: evt.flyer_url || "",
+            ticketUrl: evt.ticket_url || "",
+          }))
+        );
+      }
+      const businesses = await getBusinessesByOwner(session.userId);
+      setMyBusinesses(businesses);
+    }
+  };
 
   const loadFeaturedAdminData = async () => {
     setFeaturedLoading(true);
@@ -314,11 +498,19 @@ export default function UserProfile() {
     setReportsLoading(false);
   };
 
+  const loadVerificationAdminData = async () => {
+    setVerificationLoading(true);
+    const data = await getPendingVerificationRequestsForAdmin();
+    setVerificationRequests(data);
+    setVerificationLoading(false);
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     loadFeaturedAdminData();
     loadOwnershipAdminData();
     loadReportsAdminData();
+    loadVerificationAdminData();
   }, [isAdmin]);
 
   useEffect(() => {
@@ -382,6 +574,101 @@ export default function UserProfile() {
     } else {
       toast.error(result.error || "Erro ao recusar solicitação.");
     }
+  };
+
+  const handleOpenVerificationModal = (biz: BusinessFrontend) => {
+    if (getMyVerificationStatusByBusiness(biz.id) === "pending") {
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
+      return;
+    }
+    setInstagramPostUrl("");
+    setVerificationBusiness(biz);
+  };
+
+  const handleSubmitVerificationRequest = async () => {
+    if (!verificationBusiness || !session?.userId) return;
+    if (getMyVerificationStatusByBusiness(verificationBusiness.id) === "pending") {
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
+      return;
+    }
+    if (verificationBusiness.reviews.length < 1) {
+      toast.error("Seu negócio precisa ter pelo menos 1 avaliação para solicitar verificação.");
+      return;
+    }
+    if (!verificationBusiness.instagram?.trim()) {
+      toast.error("Adicione o Instagram do negócio antes de solicitar verificação.");
+      return;
+    }
+    if (!instagramPostUrl.trim()) {
+      toast.error("Informe o link do post no Instagram marcando o Caramelinho.");
+      return;
+    }
+    setVerificationSubmitting(true);
+    const result = await requestBusinessVerification({
+      businessId: verificationBusiness.id,
+      ownerId: session.userId,
+      instagramPostUrl,
+    });
+    setVerificationSubmitting(false);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível enviar a solicitação de verificação.");
+      return;
+    }
+    if (session?.userId) {
+      getVerificationRequestsByOwner(session.userId).then(setMyVerificationRequests);
+    }
+    toast.success("Solicitação de verificação enviada para análise.");
+    setVerificationBusiness(null);
+  };
+
+  const getMyVerificationStatusByBusiness = (businessId: string): "pending" | "approved" | "rejected" | null => {
+    const req = myVerificationRequests.find((r) => r.business_id === businessId);
+    return req?.status || null;
+  };
+
+  const handleApproveVerification = async (request: BusinessVerificationRequest) => {
+    if (!session?.userId) return;
+    const statusResult = await setVerificationRequestStatus(request.id, "approved", session.userId);
+    if (!statusResult.ok || !statusResult.businessId) {
+      toast.error(statusResult.error || "Erro ao aprovar verificação.");
+      return;
+    }
+    const validUntil = new Date();
+    validUntil.setMonth(validUntil.getMonth() + 12);
+    const flagResult = await setBusinessVerifiedFlag(
+      statusResult.businessId,
+      true,
+      validUntil.toISOString()
+    );
+    if (!flagResult.ok) {
+      toast.error(flagResult.error || "Aprovado, mas falhou ao atualizar o badge de verificação.");
+      return;
+    }
+    toast.success("Negócio verificado com sucesso (validade de 12 meses).");
+    loadVerificationAdminData();
+  };
+
+  const handleRejectVerification = async (request: BusinessVerificationRequest) => {
+    if (!session?.userId) return;
+    const result = await setVerificationRequestStatus(request.id, "rejected", session.userId);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao rejeitar verificação.");
+      return;
+    }
+    toast.success("Solicitação de verificação rejeitada.");
+    loadVerificationAdminData();
+  };
+
+  const handleRemoveBusinessVerification = async (biz: BusinessFrontend) => {
+    if (!confirm(`Remover o selo de verificação de "${biz.name}"?`)) return;
+    const result = await setBusinessVerifiedFlag(biz.id, false);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível remover a verificação.");
+      return;
+    }
+    toast.success("Verificação removida com sucesso.");
+    const businesses = await getAllBusinesses();
+    setAllBusinesses(businesses);
   };
 
   const handleDirectTransfer = async (e: React.FormEvent) => {
@@ -990,7 +1277,7 @@ export default function UserProfile() {
   };
 
   const handleSaveEvents = async () => {
-    if (!eventsBusiness) return;
+    if (!eventsBusiness || !session?.userId) return;
     const normalizedEvents: BusinessEvent[] = [];
 
     setSavingEvents(true);
@@ -1045,8 +1332,9 @@ export default function UserProfile() {
     }
 
     const ok = await updateBusiness(eventsBusiness.id, { events: normalizedEvents });
+    const syncResult = await replaceBusinessLinkedEvents(session.userId, eventsBusiness.id, normalizedEvents);
     setSavingEvents(false);
-    if (!ok) {
+    if (!ok || !syncResult.ok) {
       toast.error("Não foi possível salvar os eventos.");
       return;
     }
@@ -1056,6 +1344,8 @@ export default function UserProfile() {
     toast.success("Eventos salvos com sucesso.");
     setEventsBusiness(null);
     setEventFlyerFiles({});
+    const refreshedEvents = await getCommunityEventsByOwner(session.userId);
+    setMyCommunityEvents(refreshedEvents);
   };
 
   const handleAddCoupon = () => {
@@ -1153,8 +1443,18 @@ export default function UserProfile() {
 
   if (!session) return null;
 
-  // Se tem sessão mas não tem perfil (ex: erro no banco), mostra erro
+  // Se tem sessão mas não tem perfil, aguarda um curto período antes de mostrar erro
   if (!user) {
+    if (!showMissingProfileError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center">
+            <PawPrint className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Carregando seu perfil...</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center p-6 max-w-sm">
@@ -1231,6 +1531,16 @@ export default function UserProfile() {
                     <Store className="w-4 h-4" />
                     Meus Negócios
                   </TabsTrigger>
+                  <TabsTrigger value="eventos" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                    <Calendar className="w-4 h-4" />
+                    Meus Eventos
+                  </TabsTrigger>
+                  {isAdmin && (
+                    <TabsTrigger value="verificacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <BadgeCheck className="w-4 h-4" />
+                      Verificações
+                    </TabsTrigger>
+                  )}
                   {isAdmin && (
                     <TabsTrigger value="ownership" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <ShieldCheck className="w-4 h-4" />
@@ -1435,9 +1745,28 @@ export default function UserProfile() {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground hover:text-primary transition-colors">
-                          {biz.name}
-                        </Link>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground hover:text-primary transition-colors">
+                            {biz.name}
+                          </Link>
+                          {(() => {
+                            const status = getMyVerificationStatusByBusiness(biz.id);
+                            if (!status) return null;
+                            if (status === "pending") return <Badge variant="outline">Verificação pendente</Badge>;
+                            if (status === "approved" && biz.ownerVerified) {
+                              return (
+                                <Badge className="bg-emerald-600 text-white inline-flex items-center gap-1.5">
+                                  <Lock className="w-3 h-3" />
+                                  Verificado
+                                </Badge>
+                              );
+                            }
+                            if (status === "approved" && !biz.ownerVerified) {
+                              return <Badge variant="outline">Verificação expirada</Badge>;
+                            }
+                            return <Badge variant="outline" className="text-destructive border-destructive/30">Verificação rejeitada</Badge>;
+                          })()}
+                        </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
@@ -1498,6 +1827,22 @@ export default function UserProfile() {
                           <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
                           Promoções
                         </Button>
+                        {!biz.ownerVerified && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenVerificationModal(biz)}
+                            disabled={getMyVerificationStatusByBusiness(biz.id) === "pending"}
+                            title={
+                              getMyVerificationStatusByBusiness(biz.id) === "pending"
+                                ? "Já existe uma solicitação pendente"
+                                : "Solicitar verificação"
+                            }
+                          >
+                            <BadgeCheck className="w-3.5 h-3.5 mr-1.5" />
+                            Solicitar verificação
+                          </Button>
+                        )}
                         <div className="ml-auto flex items-center gap-2">
                           <Button
                             size="sm"
@@ -1528,6 +1873,439 @@ export default function UserProfile() {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="eventos">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Meus Eventos</h2>
+              </div>
+
+              <Card className="p-5 border-border">
+                <h3 className="font-semibold mb-4">
+                  {editingCommunityEventId ? "Editar evento" : "Criar novo evento"}
+                </h3>
+                <form onSubmit={handleCreateCommunityEvent} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label>Título do evento *</Label>
+                    <Input
+                      className="mt-1.5"
+                      value={communityEventForm.title}
+                      onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                      placeholder="Ex: Noite de Samba Brasileira"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Descrição</Label>
+                    <Textarea
+                      className="mt-1.5 min-h-[90px]"
+                      value={communityEventForm.description}
+                      onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Detalhes do evento, atrações e informações importantes."
+                    />
+                  </div>
+                  <div>
+                    <Label>Data *</Label>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Input
+                        value={communityEventForm.date}
+                        onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, date: e.target.value }))}
+                        placeholder="dd-mm-yyyy"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          const el = communityEventDatePickerRef.current as HTMLInputElement & { showPicker?: () => void };
+                          if (!el) return;
+                          if (typeof el.showPicker === "function") el.showPicker();
+                          else el.click();
+                        }}
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </Button>
+                      <input
+                        ref={communityEventDatePickerRef}
+                        type="date"
+                        value={normalizeDateForInput(communityEventForm.date)}
+                        onChange={(e) =>
+                          setCommunityEventForm((prev) => ({ ...prev, date: formatIsoToBr(e.target.value) }))
+                        }
+                        className="sr-only"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Local *</Label>
+                    <div className="mt-1.5">
+                      <AddressAutocomplete
+                        value={communityEventForm.location}
+                        onChange={(val) => setCommunityEventForm((prev) => ({ ...prev, location: val }))}
+                        onPlaceSelected={(place) =>
+                          setCommunityEventForm((prev) => ({
+                            ...prev,
+                            location: place.formattedAddress || prev.location,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Vincular a negócio (opcional)</Label>
+                    <Select
+                      value={communityEventForm.businessId}
+                      onValueChange={(v) => {
+                        const selectedBusiness = myBusinesses.find((biz) => biz.id === v);
+                        const autoLocation =
+                          v !== "none" && selectedBusiness
+                            ? [
+                                selectedBusiness.address.street,
+                                selectedBusiness.address.city,
+                                selectedBusiness.address.state,
+                                selectedBusiness.address.country,
+                              ]
+                                .filter(Boolean)
+                                .join(", ")
+                            : "";
+                        const currencyPrefix =
+                          v !== "none" && selectedBusiness
+                            ? getCurrencyPrefixForCountry(selectedBusiness.address.countryCode || "")
+                            : "";
+
+                        setCommunityEventForm((prev) => ({
+                          ...prev,
+                          businessId: v,
+                          location: v === "none" ? "" : autoLocation || prev.location,
+                          price:
+                            v === "none"
+                              ? prev.price
+                              : (!prev.isFree && !prev.price.trim() ? currencyPrefix : prev.price),
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Selecionar negócio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem negócio vinculado</SelectItem>
+                        {myBusinesses.map((biz) => (
+                          <SelectItem key={biz.id} value={biz.id}>
+                            {biz.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tipo de entrada</Label>
+                    <Select
+                      value={communityEventForm.isFree ? "free" : "paid"}
+                      onValueChange={(v) =>
+                        setCommunityEventForm((prev) => {
+                          const nextIsFree = v === "free";
+                          if (nextIsFree) {
+                            return { ...prev, isFree: true, price: "" };
+                          }
+                          const selectedBusiness = myBusinesses.find((biz) => biz.id === prev.businessId);
+                          const currencyPrefix = selectedBusiness
+                            ? getCurrencyPrefixForCountry(selectedBusiness.address.countryCode || "")
+                            : "";
+                          return {
+                            ...prev,
+                            isFree: false,
+                            price: prev.price.trim() ? prev.price : currencyPrefix,
+                          };
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Entrada franca</SelectItem>
+                        <SelectItem value="paid">Evento pago</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!communityEventForm.isFree && (
+                    <div>
+                      <Label>Preço</Label>
+                      <Input
+                        className="mt-1.5"
+                        value={communityEventForm.price}
+                        onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, price: e.target.value }))}
+                        placeholder="Ex: CAD$ 25"
+                      />
+                    </div>
+                  )}
+                  <div className="md:col-span-2">
+                    <Label>Link de ingressos (opcional)</Label>
+                    <Input
+                      className="mt-1.5"
+                      value={communityEventForm.ticketUrl}
+                      onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, ticketUrl: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="community-event-flyer">Flyer do evento (opcional)</Label>
+                    <div className="mt-1.5 flex items-center gap-3 flex-wrap">
+                      <label
+                        htmlFor="community-event-flyer"
+                        className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
+                      >
+                        Escolher imagem
+                      </label>
+                      {communityEventFlyerFile ? (
+                        <span className="text-xs text-emerald-700">
+                          Arquivo selecionado: <strong>{communityEventFlyerFile.name}</strong>
+                        </span>
+                      ) : null}
+                    </div>
+                    <Input
+                      id="community-event-flyer"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setCommunityEventFlyerFile(file);
+                      }}
+                    />
+                    {(communityEventFlyerFile || communityEventForm.flyerUrl) && (
+                      <div className="mt-2 flex items-start gap-3">
+                        <img
+                          src={communityEventFlyerFile ? URL.createObjectURL(communityEventFlyerFile) : communityEventForm.flyerUrl}
+                          alt="Preview do flyer"
+                          className="h-24 w-24 rounded-md object-cover border border-border"
+                        />
+                        <div className="flex flex-col gap-2">
+                          {communityEventFlyerFile ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() => setCommunityEventFlyerFile(null)}
+                            >
+                              Remover arquivo selecionado
+                            </Button>
+                          ) : null}
+                          {communityEventForm.flyerUrl ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() =>
+                                setCommunityEventForm((prev) => ({
+                                  ...prev,
+                                  flyerUrl: "",
+                                }))
+                              }
+                            >
+                              Remover flyer atual
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" disabled={savingCommunityEvent}>
+                        {savingCommunityEvent
+                          ? (editingCommunityEventId ? "Salvando..." : "Publicando...")
+                          : (editingCommunityEventId ? "Salvar alterações" : "Publicar evento")}
+                      </Button>
+                      {editingCommunityEventId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingCommunityEventId(null);
+                            setCommunityEventForm({
+                              title: "",
+                              description: "",
+                              date: "",
+                              location: "",
+                              isFree: true,
+                              price: "",
+                              ticketUrl: "",
+                              flyerUrl: "",
+                              businessId: "none",
+                            });
+                            setCommunityEventFlyerFile(null);
+                          }}
+                        >
+                          Cancelar edição
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </form>
+              </Card>
+
+              <Card className="border-border overflow-hidden">
+                <div className="p-5 border-b border-border">
+                  <h3 className="font-semibold">Eventos publicados</h3>
+                </div>
+                {myCommunityEvents.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">Você ainda não publicou eventos.</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {myCommunityEvents.map((evt) => (
+                      <div key={evt.id} className="p-5 flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold">{evt.title}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {new Date(`${evt.date}T00:00:00`).toLocaleDateString("pt-BR")} · {evt.location}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Negócio vinculado:{" "}
+                            <strong>
+                              {evt.business_id
+                                ? (myBusinesses.find((b) => b.id === evt.business_id)?.name || "Negócio não encontrado")
+                                : "Não vinculado"}
+                            </strong>
+                          </p>
+                          {evt.description ? <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{evt.description}</p> : null}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStartEditCommunityEvent(evt)}
+                          >
+                            <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            onClick={() => handleDeleteCommunityEvent(evt)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="verificacoes">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Verificações</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Analise solicitações de negócios que querem o selo de verificado.
+                  </p>
+                </div>
+                <Card className="border-border overflow-hidden">
+                  <div className="p-5 border-b border-border flex items-center justify-between gap-4">
+                    <Tabs value={verificationAdminView} onValueChange={(v) => setVerificationAdminView(v as "pendentes" | "verificados")}>
+                      <TabsList>
+                        <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
+                        <TabsTrigger value="verificados">Verificados</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <Button variant="outline" size="sm" onClick={loadVerificationAdminData} disabled={verificationLoading}>
+                      Atualizar
+                    </Button>
+                  </div>
+
+                  {verificationAdminView === "pendentes" ? (
+                    verificationLoading ? (
+                      <div className="p-8 text-center text-muted-foreground">Carregando solicitações...</div>
+                    ) : verificationRequests.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">Nenhuma solicitação pendente.</div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {verificationRequests.map((request) => (
+                          <div key={request.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold">{request.business?.name || "Negócio"}</h4>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {request.business?.city || "Cidade não informada"}
+                                {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
+                              </p>
+                              <a
+                                href={request.instagram_post_url}
+                                target="_blank"
+                                rel="noopener noreferrer nofollow"
+                                className="text-sm text-primary underline mt-2 inline-block"
+                              >
+                                Ver post do Instagram
+                              </a>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                {new Date(request.created_at).toLocaleString("pt-BR")}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => handleApproveVerification(request)}>Aprovar</Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => handleRejectVerification(request)}
+                              >
+                                Rejeitar
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    (() => {
+                      const verifiedBusinesses = allBusinesses.filter((b) => b.ownerVerified);
+                      if (verifiedBusinesses.length === 0) {
+                        return <div className="p-8 text-center text-muted-foreground">Nenhum negócio verificado no momento.</div>;
+                      }
+                      return (
+                        <div className="divide-y divide-border">
+                          {verifiedBusinesses.map((biz) => (
+                            <div key={biz.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold">{biz.name}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {biz.address.city || "Cidade não informada"}
+                                  {biz.address.countryCode ? `, ${biz.address.countryCode.toUpperCase()}` : ""}
+                                </p>
+                                {biz.ownerVerifiedUntil ? (
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Válido até: {new Date(biz.ownerVerifiedUntil).toLocaleDateString("pt-BR")}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                  onClick={() => handleRemoveBusinessVerification(biz)}
+                                >
+                                  Remover verificação
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="ownership">
@@ -2866,6 +3644,11 @@ export default function UserProfile() {
                     }}
                     className="hidden"
                   />
+                  {menuPdfFile && (
+                    <p className="text-xs text-emerald-700">
+                      Arquivo selecionado: <strong>{menuPdfFile.name}</strong> ({(menuPdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </p>
+                  )}
                   {menuPdfUrl && (
                     <div className="flex items-center gap-3">
                       <a href={menuPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
@@ -3301,6 +4084,42 @@ export default function UserProfile() {
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveEvents} disabled={savingEvents}>
                 {savingEvents ? "Salvando..." : "Salvar eventos"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!verificationBusiness} onOpenChange={(open) => !open && setVerificationBusiness(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Solicitar Negócio Verificado</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Requisitos: mínimo de 1 avaliação e Instagram do negócio configurado.
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Negócio: <strong>{verificationBusiness?.name}</strong><br />
+                Avaliações atuais: <strong>{verificationBusiness?.reviews.length || 0}</strong><br />
+                Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "Não"}</strong>
+              </div>
+              <div>
+                <Label htmlFor="verification-instagram-post">Link do post no Instagram marcando o Caramelinho *</Label>
+                <Input
+                  id="verification-instagram-post"
+                  className="mt-1.5"
+                  value={instagramPostUrl}
+                  onChange={(e) => setInstagramPostUrl(e.target.value)}
+                  placeholder="https://www.instagram.com/p/..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setVerificationBusiness(null)} disabled={verificationSubmitting}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSubmitVerificationRequest} disabled={verificationSubmitting}>
+                {verificationSubmitting ? "Enviando..." : "Enviar solicitação"}
               </Button>
             </DialogFooter>
           </DialogContent>

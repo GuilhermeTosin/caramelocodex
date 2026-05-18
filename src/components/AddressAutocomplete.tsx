@@ -241,7 +241,7 @@ export default function AddressAutocomplete({
   value,
   onChange,
   onPlaceSelected,
-  placeholder = "Digite o endereÃ§o do seu negÃ³cioâ€¦",
+  placeholder = "Digite o endereço...",
   disabled = false,
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -374,7 +374,7 @@ export default function AddressAutocomplete({
           className="pl-10"
         />
         <p className="text-xs text-muted-foreground mt-1">
-          Configure a chave Google Maps para ativar o autocomplete de endereÃ§o.
+          Configure a chave Google Maps para ativar o autocomplete de endereço.
         </p>
       </div>
     );

@@ -7,6 +7,8 @@ import BusinessPage from "@/pages/BusinessPage";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
 import UserProfile from "@/pages/UserProfile";
+import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
+import EventPage from "@/pages/EventPage";
 import NotFound from "@/pages/NotFound";
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/cadastro" element={<Register />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/perfil" element={<UserProfile />} />
+          <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
+          <Route path="/eventos/:eventId" element={<EventPage />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

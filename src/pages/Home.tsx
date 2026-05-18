@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -342,7 +342,7 @@ export default function Home() {
                 to={buildBusinessUrl(biz)}
                 className="group"
               >
-                <Card className="overflow-hidden border-border card-hover h-full">
+                <Card className="overflow-hidden border-border h-full">
                   <div className="aspect-[16/9] bg-muted relative overflow-hidden">
                     <img
                       src={biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"}
@@ -365,6 +365,12 @@ export default function Home() {
                         {calculateDistance(userCoords.lat, userCoords.lng, biz.address.lat, biz.address.lng).toFixed(1)} km
                       </div>
                     )}
+                    {biz.ownerVerified ? (
+                      <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" />
+                        Verificado
+                      </div>
+                    ) : null}
                   </div>
                   <div className="p-5">
                     <div className="flex items-center gap-3 mb-3">
@@ -373,7 +379,7 @@ export default function Home() {
                       )}
                       <div className="min-w-0">
                         <h3 className="font-semibold text-foreground truncate group-hover:text-amber-600 transition-colors">
-                          {biz.name}
+                          <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
                           {biz.address.city}, {biz.address.country}
@@ -488,11 +494,6 @@ function normalizeText(value: string): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
-
-
-
-
-
 
 
 

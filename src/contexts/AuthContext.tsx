@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+﻿import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import { getProfileById, updateProfile } from "@/services/profiles";
 import { getUnreadCount } from "@/services/messages";
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
   
-  // Ref para evitar múltiplas chamadas simultâneas de carregamento de perfil
+  // Ref para evitar mÃºltiplas chamadas simultÃ¢neas de carregamento de perfil
   const loadingUserIdRef = useRef<string | null>(null);
 
   const buildSession = useCallback(
@@ -32,14 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         userId: supaSession.user.id,
         email: supaSession.user.email || "",
-        name: supaSession.user.user_metadata?.name || supaSession.user.email?.split("@")[0] || "Usuário",
+        name: supaSession.user.user_metadata?.name || supaSession.user.email?.split("@")[0] || "UsuÃ¡rio",
       };
     },
     []
   );
 
   const loadUserAndUnread = useCallback(async (userId: string, email: string) => {
-    // Se já estiver carregando ESTE usuário, ignora mas garante que o loading termine
+    // Se jÃ¡ estiver carregando ESTE usuÃ¡rio, ignora mas garante que o loading termine
     if (loadingUserIdRef.current === userId) {
       setIsLoading(false);
       return;
@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let profile = await getProfileById(userId);
       
       if (!profile) {
-        console.log("AuthContext: Perfil não encontrado, tentando criar...");
-        const defaultName = email.split("@")[0] || "Usuário";
+        console.log("AuthContext: Perfil nÃ£o encontrado, tentando criar...");
+        const defaultName = email.split("@")[0] || "UsuÃ¡rio";
         const success = await updateProfile(userId, { name: defaultName });
         if (success) {
           profile = await getProfileById(userId);
@@ -104,15 +104,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   useEffect(() => {
-    // Escutar mudanças de auth em tempo real
+    let active = true;
+
+    const bootstrapSession = async () => {
+      try {
+        const { data: { session: supaSession } } = await supabase.auth.getSession();
+        if (!active) return;
+        const s = buildSession(supaSession);
+        setSession(s);
+
+        if (s && supaSession) {
+          setIsLoading(true);
+          await loadUserAndUnread(s.userId, supaSession.user.email || "");
+        } else {
+          setUser(null);
+          setUnreadMessages(0);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("AuthContext: erro ao inicializar sessão:", error);
+        if (!active) return;
+        setSession(null);
+        setUser(null);
+        setUnreadMessages(0);
+        setIsLoading(false);
+      }
+    };
+
+    bootstrapSession();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, supaSession) => {
         console.log("AuthContext: Evento Supabase:", event);
         const s = buildSession(supaSession);
         setSession(s);
-        
+
         if (s && supaSession) {
-          // Garante que ficamos no estado de loading enquanto buscamos o perfil
           setIsLoading(true);
           loadUserAndUnread(s.userId, supaSession.user.email || "");
         } else {
@@ -123,10 +150,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Válvula de escape
     const timeout = setTimeout(() => setIsLoading(false), 8000);
 
     return () => {
+      active = false;
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
@@ -151,3 +178,4 @@ export function useAuth(): AuthContextType {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

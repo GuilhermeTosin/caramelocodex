@@ -1,7 +1,8 @@
 ﻿import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
+  ShieldCheck,
   Clock,
   MapPin,
   Navigation,
@@ -30,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { getAllBusinesses, getBusinessBySlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
@@ -44,6 +46,7 @@ import { setSeoMeta } from "@/lib/seo";
 
 export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { session, user, refreshUnread, unreadMessages } = useAuth();
 
@@ -80,9 +83,21 @@ export default function BusinessPage() {
       return evt.date >= new Date().toISOString().slice(0, 10);
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+  const requestedTab = searchParams.get("tab");
+  const initialTab =
+    requestedTab === "about" ||
+    requestedTab === "services" ||
+    requestedTab === "menu" ||
+    requestedTab === "photos" ||
+    requestedTab === "promotions" ||
+    requestedTab === "events" ||
+    requestedTab === "reviews"
+      ? requestedTab
+      : "about";
 
   useEffect(() => {
     if (countryCode && stateCode && city && businessName) {
+      window.scrollTo({ top: 0, behavior: "auto" });
       getBusinessBySlug(countryCode, stateCode, city, businessName).then((biz) => {
         setBusiness(biz);
         setLoading(false);
@@ -453,12 +468,6 @@ export default function BusinessPage() {
               <Badge className="mb-3 bg-white/20 text-white border-0 hover:bg-white/30 rounded-lg px-3 py-1">
                 {getCategoryLabel(business.category)}
               </Badge>
-              {business.ownerVerified && (
-                <Badge className="mb-3 ml-2 bg-blue-600 text-white border-0 rounded-lg px-3 py-1">
-                  <BadgeCheck className="w-3.5 h-3.5 mr-1" />
-                  Verificado
-                </Badge>
-              )}
               <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-2">{business.name}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
                 <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full border border-white/10">
@@ -481,7 +490,7 @@ export default function BusinessPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <Tabs defaultValue="about" className="w-full">
+            <Tabs key={initialTab} defaultValue={initialTab} className="w-full">
               <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent h-auto p-0">
                 <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Sobre
@@ -523,12 +532,6 @@ export default function BusinessPage() {
               <TabsContent value="about" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-3">Sobre {business.name}</h2>
                 <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{business.description}</p>
-                {business.ownerVerified && (
-                  <div className="mt-5 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                    <BadgeCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                    <p>Este negócio foi reivindicado e confirmado pelo proprietário.</p>
-                  </div>
-                )}
               </TabsContent>
 
               {getCategoryId(business.category) !== "food" && hasServiceItems && (
@@ -885,6 +888,27 @@ export default function BusinessPage() {
 
           <aside className="lg:col-span-1">
             <div className="sticky top-24 space-y-6">
+              {business.ownerVerified && (
+                <Card className="p-3 border-emerald-200 bg-emerald-50">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2 cursor-help">
+                          <div className="rounded-full bg-emerald-100 p-1.5">
+                            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-emerald-900">Negócio Verificado</h3>
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
+                        Selo de Autenticidade: este negócio foi validado pela equipe Caramelinho. Verificamos a presença real e a veracidade das informações para garantir uma experiência segura e livre de perfis enganosos.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Card>
+              )}
               {/* Contact Card */}
               <Card className="p-5 border-border">
                 <h3 className="font-semibold mb-4">Informações de Contato</h3>

@@ -35,6 +35,23 @@ export interface BusinessEvent {
   ticketUrl?: string;
 }
 
+export interface CommunityEvent {
+  id: string;
+  owner_id: string;
+  business_id: string | null;
+  title: string;
+  description: string;
+  date: string; // YYYY-MM-DD
+  location: string;
+  is_free: boolean;
+  price: string;
+  flyer_url: string | null;
+  ticket_url: string | null;
+  status: "draft" | "published" | "archived";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Review {
   id: string;
   business_id: string;
@@ -81,6 +98,7 @@ export interface Business {
   reviews: Review[];
   average_rating: number;
   owner_verified?: boolean;
+  owner_verified_until?: string | null;
   opening_hours?: string[];
   promotions?: Promotion[];
   events?: BusinessEvent[];
@@ -150,6 +168,7 @@ export interface BusinessFrontend {
   reviews: Review[];
   averageRating: number;
   ownerVerified: boolean;
+  ownerVerifiedUntil?: string;
   openingHours: string[];
   promotions: Promotion[];
   events: BusinessEvent[];
@@ -235,6 +254,27 @@ export interface BusinessReport {
     city: string | null;
     state_code?: string | null;
     country_code: string | null;
+  } | null;
+}
+
+export interface BusinessVerificationRequest {
+  id: string;
+  business_id: string;
+  owner_id: string;
+  instagram_post_url: string;
+  status: "pending" | "approved" | "rejected";
+  notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  business?: {
+    id: string;
+    name: string;
+    city: string | null;
+    country_code: string | null;
+    owner_verified?: boolean;
+    owner_verified_until?: string | null;
   } | null;
 }
 

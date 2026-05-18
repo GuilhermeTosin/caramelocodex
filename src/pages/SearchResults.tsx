@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -33,44 +33,46 @@ import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { getPublishedCommunityEvents } from "@/services/events";
+import type { CommunityEvent } from "@/types/database";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
-  dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
-  mecanico: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  mecanica: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  comida: ["Alimentação", "Restaurante", "Lanche", "Marmita"],
-  restaurante: ["Alimentação"],
-  padaria: ["Alimentação"],
-  doce: ["Alimentação", "Confeitaria"],
-  advogado: ["Advocacia & Consultoria", "Jurídico", "Lei"],
-  tradutor: ["Advocacia & Consultoria", "Tradução", "Imigração"],
-  traducao: ["Advocacia & Consultoria", "Tradução", "Imigração"],
-  imigracao: ["Advocacia & Consultoria", "Imigração", "Visto"],
-  obra: ["Construção & Reformas"],
-  reforma: ["Construção & Reformas"],
-  pintor: ["Construção & Reformas"],
-  casa: ["Construção & Reformas", "Imobiliária"],
-  aluguel: ["Imobiliária"],
-  venda: ["Comércio & Varejo", "Imobiliária"],
-  medico: ["Saúde & Beleza"],
-  unha: ["Saúde & Beleza", "Manicure"],
-  cabelo: ["Saúde & Beleza", "Cabeleireiro"],
+  dentista: ["SaÃºde & Beleza", "ClÃ­nica Dental", "Odontologia", "Dente"],
+  mecanico: ["ServiÃ§os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  mecanica: ["ServiÃ§os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  comida: ["AlimentaÃ§Ã£o", "Restaurante", "Lanche", "Marmita"],
+  restaurante: ["AlimentaÃ§Ã£o"],
+  padaria: ["AlimentaÃ§Ã£o"],
+  doce: ["AlimentaÃ§Ã£o", "Confeitaria"],
+  advogado: ["Advocacia & Consultoria", "JurÃ­dico", "Lei"],
+  tradutor: ["Advocacia & Consultoria", "TraduÃ§Ã£o", "ImigraÃ§Ã£o"],
+  traducao: ["Advocacia & Consultoria", "TraduÃ§Ã£o", "ImigraÃ§Ã£o"],
+  imigracao: ["Advocacia & Consultoria", "ImigraÃ§Ã£o", "Visto"],
+  obra: ["ConstruÃ§Ã£o & Reformas"],
+  reforma: ["ConstruÃ§Ã£o & Reformas"],
+  pintor: ["ConstruÃ§Ã£o & Reformas"],
+  casa: ["ConstruÃ§Ã£o & Reformas", "ImobiliÃ¡ria"],
+  aluguel: ["ImobiliÃ¡ria"],
+  venda: ["ComÃ©rcio & Varejo", "ImobiliÃ¡ria"],
+  medico: ["SaÃºde & Beleza"],
+  unha: ["SaÃºde & Beleza", "Manicure"],
+  cabelo: ["SaÃºde & Beleza", "Cabeleireiro"],
 };
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  "Alimentação (Restaurantes, Padarias, Cafés)": [
+  "AlimentaÃ§Ã£o (Restaurantes, Padarias, CafÃ©s)": [
     "restaurante", "lanchonete", "lanches", "padaria", "comida", 
     "gastronomia", "cafe", "almoco", "jantar", "marmita"
   ],
-  "Serviços Automotivos": [
+  "ServiÃ§os Automotivos": [
     "mecanico", "oficina", "carro", "conserto", "pneu", 
     "oleo", "auto", "manutencao", "reparo"
   ],
-  "Saúde & Beleza": [
+  "SaÃºde & Beleza": [
     "dentista", "medico", "clinica", "estetica", "salao", 
     "cabelo", "unha", "manicure", "pedicure", "terapia", "psicologo"
   ],
-  "Construção & Reformas": [
+  "ConstruÃ§Ã£o & Reformas": [
     "obra", "reforma", "pintor", "pedreiro", "eletricista", 
     "encanador", "casa", "apartamento", "telhado"
   ],
@@ -78,11 +80,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "advogado", "juridico", "lei", "processo", "visto", 
     "imigracao", "consultor", "tradutor", "traducao", "traducoes", "documentos"
   ],
-  "Contabilidade & Finanças": [
+  "Contabilidade & FinanÃ§as": [
     "contador", "imposto", "tax", "financas", "investimento", 
     "dinheiro", "empresa"
   ],
-  "Educação & Idiomas": [
+  "EducaÃ§Ã£o & Idiomas": [
     "escola", "curso", "professor", "aula", "ingles", 
     "frances", "portugues", "aprendizado"
   ],
@@ -90,13 +92,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "programador", "software", "computador", "celular", 
     "site", "desenvolvimento", "suporte"
   ],
-  "Comércio & Varejo": [
+  "ComÃ©rcio & Varejo": [
     "loja", "venda", "produto", "mercado", "roupa", "acessorios"
   ],
-  "Transporte & Mudança": [
+  "Transporte & MudanÃ§a": [
     "mudanca", "frete", "entrega", "logistica", "caminhao", "envio"
   ],
-  "Serviços para Pets": [
+  "ServiÃ§os para Pets": [
     "pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario"
   ],
   "Cuidados Infantis e de Idosos": [
@@ -105,7 +107,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "Diaristas": [
     "diarista", "faxina", "limpeza", "limpar", "casa"
   ],
-  "Imobiliária": [
+  "ImobiliÃ¡ria": [
     "casa", "apartamento", "aluguel", "venda", "imovel", "corretor"
   ],
   "Turismo & Viagens": [
@@ -114,44 +116,44 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 };
 
 const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
-  "alimentacao": ["Alimentação", "Alimentacao"],
-  "alimentacao (restaurantes, padarias, cafes)": ["Alimentação", "Alimentacao"],
-  "saude & beleza": ["Saúde & Beleza", "Saude e Beleza"],
-  "saude e beleza": ["Saúde & Beleza", "Saude e Beleza"],
-  "automotivo": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
-  "servicos automotivos": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
-  "construcao": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
-  "construcao & reformas": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
+  "alimentacao": ["AlimentaÃ§Ã£o", "Alimentacao"],
+  "alimentacao (restaurantes, padarias, cafes)": ["AlimentaÃ§Ã£o", "Alimentacao"],
+  "saude & beleza": ["SaÃºde & Beleza", "Saude e Beleza"],
+  "saude e beleza": ["SaÃºde & Beleza", "Saude e Beleza"],
+  "automotivo": ["Automotivo", "ServiÃ§os Automotivos", "Servicos Automotivos"],
+  "servicos automotivos": ["Automotivo", "ServiÃ§os Automotivos", "Servicos Automotivos"],
+  "construcao": ["ConstruÃ§Ã£o", "Construcao", "ConstruÃ§Ã£o & Reformas", "Construcao & Reformas"],
+  "construcao & reformas": ["ConstruÃ§Ã£o", "Construcao", "ConstruÃ§Ã£o & Reformas", "Construcao & Reformas"],
   "advocacia": ["Advocacia", "Advocacia & Consultoria"],
   "advocacia & consultoria": ["Advocacia", "Advocacia & Consultoria"],
-  "educacao": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
-  "educacao & idiomas": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
-  "transporte & mudanca": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
-  "transporte & mudancas": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
-  "servicos para pets": ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"],
-  "cuidados infantis e de idosos": ["Cuidados Infantis e de Idosos", "Babás & Acompanhantes", "Babá", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
+  "educacao": ["EducaÃ§Ã£o", "Educacao", "EducaÃ§Ã£o & Idiomas", "Educacao & Idiomas"],
+  "educacao & idiomas": ["EducaÃ§Ã£o", "Educacao", "EducaÃ§Ã£o & Idiomas", "Educacao & Idiomas"],
+  "transporte & mudanca": ["Transporte & MudanÃ§a", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "transporte & mudancas": ["Transporte & MudanÃ§a", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "servicos para pets": ["ServiÃ§os para Pets", "Servicos para Pets", "Pet", "Pets"],
+  "cuidados infantis e de idosos": ["Cuidados Infantis e de Idosos", "BabÃ¡s & Acompanhantes", "BabÃ¡", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
   "diaristas": ["Diaristas", "Diarista", "Faxina", "Limpeza"],
 };
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
-  "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
-  "Serviços Automotivos": "oficinas e serviços automotivos",
-  "Saúde & Beleza": "serviços de saúde e beleza",
-  "Construção & Reformas": "serviços de construção e reformas",
-  "Advocacia & Consultoria": "advocacia, traduções e consultoria de imigração",
-  "Contabilidade & Finanças": "contabilidade e finanças",
-  "Educação & Idiomas": "educação e idiomas",
+  "AlimentaÃ§Ã£o (Restaurantes, Padarias, CafÃ©s)": "restaurantes, padarias e cafÃ©s",
+  "ServiÃ§os Automotivos": "oficinas e serviÃ§os automotivos",
+  "SaÃºde & Beleza": "serviÃ§os de saÃºde e beleza",
+  "ConstruÃ§Ã£o & Reformas": "serviÃ§os de construÃ§Ã£o e reformas",
+  "Advocacia & Consultoria": "advocacia, traduÃ§Ãµes e consultoria de imigraÃ§Ã£o",
+  "Contabilidade & FinanÃ§as": "contabilidade e finanÃ§as",
+  "EducaÃ§Ã£o & Idiomas": "educaÃ§Ã£o e idiomas",
   "Tecnologia & TI": "tecnologia e TI",
-  "Comércio & Varejo": "comércio e varejo",
-  "Transporte & Mudança": "transporte e mudança",
-  "Serviços para Pets": "serviços para pets",
+  "ComÃ©rcio & Varejo": "comÃ©rcio e varejo",
+  "Transporte & MudanÃ§a": "transporte e mudanÃ§a",
+  "ServiÃ§os para Pets": "serviÃ§os para pets",
   "Cuidados Infantis e de Idosos": "cuidados infantis e de idosos",
-  "Diaristas": "diaristas e serviços de limpeza",
-  "Imobiliária": "imobiliárias e corretores",
+  "Diaristas": "diaristas e serviÃ§os de limpeza",
+  "ImobiliÃ¡ria": "imobiliÃ¡rias e corretores",
   "Turismo & Viagens": "turismo e viagens",
-  "Outros": "serviços diversos",
+  "Outros": "serviÃ§os diversos",
 };
 
 export default function SearchResults() {
@@ -165,6 +167,8 @@ export default function SearchResults() {
   const countryFilter = searchParams.get("pais") || "";
   const stateFilter = searchParams.get("estado") || "";
   const radiusFilter = searchParams.get("raio") || "";
+  const eventsFilter = searchParams.get("eventos") || "";
+  const isEventMode = eventsFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -184,6 +188,7 @@ export default function SearchResults() {
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [locatingMe, setLocatingMe] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
 
   useEffect(() => {
     getAllBusinesses().then(setAllBusinesses);
@@ -198,6 +203,7 @@ export default function SearchResults() {
       setCitySuggestions(Array.from(cities));
     });
     getSearchSuggestions().then(setSearchSuggestions);
+    getPublishedCommunityEvents().then(setCommunityEvents);
     getCurrentPosition().then(async (coords) => {
       if (coords) {
         setUserCoords(coords);
@@ -287,7 +293,7 @@ export default function SearchResults() {
   // 2) Se nao definiu cidade, usamos a localizacao atual do usuario.
   const hasTypedLocation = !!locationFilter.trim();
   const distanceOrigin = hasTypedLocation ? (selectedOriginCoords || locationCoords) : userCoords;
-  const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter);
+  const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter || eventsFilter);
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilter) {
@@ -307,14 +313,14 @@ export default function SearchResults() {
 
 
   useEffect(() => {
-    const baseTitle = "Buscar negócios brasileiros";
+    const baseTitle = "Buscar negÃ³cios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negócios e serviços";
+    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negÃ³cios e serviÃ§os";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
+      `Encontre ${categoryText}${cityText}${queryPart}. Compare opÃ§Ãµes perto de vocÃª e fale direto com os negÃ³cios.`
     );
   }, [query, categoryFilter, cityFilter]);
 
@@ -348,6 +354,13 @@ export default function SearchResults() {
       filtered = filtered.filter((b) => matchesCategoryFilter(b.category, categoryFilter));
     }
 
+    if (eventsFilter === "1") {
+      const today = new Date().toISOString().slice(0, 10);
+      filtered = filtered.filter((b) =>
+        (b.events || []).some((event) => !!event?.date && event.date >= today)
+      );
+    }
+
     // Se ha referencia geografica (origem + raio efetivo), a cidade vira ponto de origem
     // e nao filtro estrito por nome. Sem origem, mantemos o filtro por cidade.
     if (cityFilter && !(distanceOrigin && effectiveRadiusKm)) {
@@ -372,7 +385,7 @@ export default function SearchResults() {
       });
     }
 
-    // Expansão progressiva quando zera: 50km (padrão) -> 150km -> estado/província.
+    // ExpansÃ£o progressiva quando zera: 50km (padrÃ£o) -> 150km -> estado/provÃ­ncia.
     if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
       const baseScoped = baseBusinesses.filter((b) => {
         const passesQuery = !query || matchesBusinessTextQuery(b, normalizeText(query));
@@ -442,7 +455,45 @@ export default function SearchResults() {
     }
 
     return filtered;
-  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin]);
+  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter]);
+
+  const eventResults = useMemo(() => {
+    if (!isEventMode) return [];
+    const today = new Date().toISOString().slice(0, 10);
+    const q = normalizeText(query);
+    const matchesEventQuery = (evt: { title: string; description: string; location: string }) => {
+      if (!q) return true;
+      const blob = normalizeText(`${evt.title || ""} ${evt.description || ""} ${evt.location || ""}`);
+      return q.split(/\s+/).filter(Boolean).every((term) => blob.includes(term));
+    };
+
+    const businessBacked = results.flatMap((biz) =>
+      (biz.events || [])
+        .filter((evt) => !!evt?.date && evt.date >= today)
+        .filter(matchesEventQuery)
+        .map((evt, idx) => ({
+          type: "business" as const,
+          biz,
+          evt,
+          key: `${biz.id}-${evt.title}-${evt.date}-${idx}`,
+        }))
+    );
+
+    const standalone = communityEvents
+      .filter((evt) => !evt.business_id)
+      .filter((evt) => !!evt?.date && evt.date >= today)
+      .filter((evt) => matchesEventQuery({ title: evt.title, description: evt.description, location: evt.location }))
+      .map((evt) => ({
+        type: "community" as const,
+        evt,
+        linkedBiz: evt.business_id ? allBusinesses.find((b) => b.id === evt.business_id) || null : null,
+        key: `community-${evt.id}`,
+      }));
+
+    return [...businessBacked, ...standalone].sort((a, b) =>
+      a.evt.date.localeCompare(b.evt.date)
+    );
+  }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,26 +566,26 @@ export default function SearchResults() {
         params.set("raio", "50");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("Localização exata bloqueada. Usei localização aproximada por IP.");
+        window.alert("LocalizaÃ§Ã£o exata bloqueada. Usei localizaÃ§Ã£o aproximada por IP.");
         return;
       }
       if (!window.isSecureContext) {
-        window.alert("Geolocalização exige contexto seguro. Abra em localhost ou HTTPS.");
+        window.alert("GeolocalizaÃ§Ã£o exige contexto seguro. Abra em localhost ou HTTPS.");
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("Permissão de localização negada pelo navegador/dispositivo.");
+        window.alert("PermissÃ£o de localizaÃ§Ã£o negada pelo navegador/dispositivo.");
         return;
       }
       if (geoError?.code === 2) {
-        window.alert("Localização indisponível no momento. Tente novamente em alguns segundos.");
+        window.alert("LocalizaÃ§Ã£o indisponÃ­vel no momento. Tente novamente em alguns segundos.");
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localização. Tente novamente.");
+        window.alert("Tempo esgotado para obter localizaÃ§Ã£o. Tente novamente.");
         return;
       }
-      window.alert("Não consegui acessar sua localização. Verifique bloqueadores/extensões e permissões do navegador.");
+      window.alert("NÃ£o consegui acessar sua localizaÃ§Ã£o. Verifique bloqueadores/extensÃµes e permissÃµes do navegador.");
       return;
     }
 
@@ -584,6 +635,13 @@ export default function SearchResults() {
     return params;
   }, [searchParams, cityFilter, locationInput, locationFilter]);
 
+  const handleToggleEventsMode = (enabled: boolean) => {
+    const params = getParamsWithCurrentLocation();
+    if (enabled) params.set("eventos", "1");
+    else params.delete("eventos");
+    setSearchParams(params);
+  };
+
   const renderFilterControls = () => (
     <div className="space-y-3">
       <Select
@@ -625,10 +683,10 @@ export default function SearchResults() {
         }}
       >
         <SelectTrigger className="w-full h-9 text-sm">
-          <SelectValue placeholder="Paí­s" />
+          <SelectValue placeholder="País" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos os paí­ses</SelectItem>
+          <SelectItem value="all">Todos os países</SelectItem>
           {availableLocations.map((loc) => (
             <SelectItem key={loc.countryCode} value={loc.countryCode}>{loc.countryName}</SelectItem>
           ))}
@@ -704,7 +762,32 @@ export default function SearchResults() {
           ))}
         </SelectContent>
       </Select>
-
+      <div
+        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+          isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
+        }`}
+      >
+        <div className="inline-flex items-center gap-2 text-sm">
+          <PartyPopper className={`w-3.5 h-3.5 ${isEventMode ? "text-amber-700" : "text-amber-600"}`} />
+          <span>Buscar festas e eventos</span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isEventMode}
+          onClick={() => handleToggleEventsMode(!isEventMode)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isEventMode ? "bg-amber-500" : "bg-muted"
+          }`}
+          title={isEventMode ? "Filtro de eventos ativo" : "Filtro de eventos desativado"}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+              isEventMode ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
       {hasActiveFilters && (
         <Button type="button" variant="ghost" size="sm" className="h-9 w-full justify-start text-muted-foreground" onClick={handleClearFilters}>
           <X className="w-4 h-4 mr-1" />
@@ -868,12 +951,14 @@ export default function SearchResults() {
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
-          {results.length} negacio{results.length !== 1 ? "s" : ""} encontrado{results.length !== 1 ? "s" : ""}
+          {isEventMode
+            ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
+            : `${results.length} negacio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em ata <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localização para usar raio</>}
-          {resolvingLocation && <> localizando referência...</>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localizaÃ§Ã£o para usar raio</>}
+          {resolvingLocation && <> localizando referÃªncia...</>}
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
@@ -884,7 +969,7 @@ export default function SearchResults() {
           </aside>
 
           <div>
-            {results.length === 0 ? (
+            {(isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -900,7 +985,7 @@ export default function SearchResults() {
                       )}
                       <Button onClick={() => navigate("/")}>
                         <PawPrint className="w-4 h-4 mr-2" />
-                        Voltar ao Início
+                        Voltar ao InÃ­cio
                       </Button>
                     </div>
                   </div>
@@ -923,10 +1008,75 @@ export default function SearchResults() {
               </div>
             )}
 
+            {isEventMode ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {eventResults.map((item) => (
+                  <Link
+                    key={item.key}
+                    to={
+                      item.type === "business"
+                        ? `${buildBusinessUrl(item.biz)}?tab=events`
+                        : item.linkedBiz
+                          ? `${buildBusinessUrl(item.linkedBiz)}?tab=events`
+                          : `/eventos/${item.evt.id}`
+                    }
+                    onClick={(e) => {
+                      if (item.type === "community" && !item.evt.id) e.preventDefault();
+                    }}
+                    className="group h-full"
+                  >
+                    <Card className="overflow-hidden border-border h-full">
+                      <div className="aspect-[16/10] bg-muted relative overflow-hidden">
+                        <img
+                          src={
+                            (item.type === "business"
+                              ? item.evt.flyerUrl || item.biz.heroImage
+                              : item.evt.flyer_url) || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"
+                          }
+                          alt={item.evt.title}
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+                        <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
+                          Evento
+                        </Badge>
+                      </div>
+                      <div className="p-5">
+                        <h3 className="font-bold text-foreground text-lg line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+                          {item.evt.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.evt.description || "Sem descrição."}</p>
+                        <div className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                          <p className="inline-flex items-center gap-1.5">
+                            <CalendarDays className="w-4 h-4 text-amber-600" />
+                            {new Date(`${item.evt.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                          </p>
+                          <p className="inline-flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-amber-600" />
+                            {item.evt.location}
+                          </p>
+                          <p className="inline-flex items-center gap-1.5">
+                            <Ticket className="w-4 h-4 text-amber-600" />
+                            {item.type === "business"
+                              ? (item.evt.isFree ? "Entrada franca" : (item.evt.price || "Evento pago"))
+                              : (item.evt.is_free ? "Entrada franca" : (item.evt.price || "Evento pago"))}
+                          </p>
+                        </div>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Organizado por{" "}
+                          <strong>{item.type === "business" ? item.biz.name : "Membro da comunidade"}</strong>
+                        </p>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {results.map((biz) => (
                 <Link key={biz.id} to={buildBusinessUrl(biz)} className="group h-full">
-                  <Card className="overflow-hidden border-border card-hover h-full">
+                  <Card className="overflow-hidden border-border h-full">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       <img
                         src={biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"}
@@ -950,6 +1100,12 @@ export default function SearchResults() {
                           {getDistanceLabel(biz)}
                         </div>
                       )}
+                      {biz.ownerVerified ? (
+                        <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          Verificado
+                        </div>
+                      ) : null}
                     </div>
                     <div className="p-5">
                       <div className="flex items-center gap-3 mb-4">
@@ -958,7 +1114,7 @@ export default function SearchResults() {
                         )}
                         <div className="min-w-0">
                           <h3 className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors leading-tight">
-                            {biz.name}
+                            <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
                             {biz.address.city}, {biz.address.country}
@@ -983,6 +1139,7 @@ export default function SearchResults() {
                 </Link>
               ))}
             </div>
+            )}
             </>
             )}
           </div>
@@ -1053,15 +1210,6 @@ function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string):
   const terms = normalizedQuery.split(/\s+/).filter(Boolean);
   return terms.every((term) => blob.includes(term));
 }
-
-
-
-
-
-
-
-
-
 
 
 
