@@ -498,6 +498,19 @@ export async function addReview(
     comment: string;
   }
 ): Promise<boolean> {
+  if (review.userId) {
+    const { data: existing } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("user_id", review.userId)
+      .maybeSingle();
+
+    if (existing) {
+      return false;
+    }
+  }
+
   const { error } = await supabase
     .from("reviews")
     .insert({

@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   CheckCircle,
   Ban,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -129,6 +130,7 @@ export default function UserProfile() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const couponDatePickerRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -770,13 +772,18 @@ export default function UserProfile() {
       toast.error("Preencha todos os campos do cupom antes de adicionar.");
       return;
     }
+    const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
+    if (!expiresAtIso) {
+      toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
+      return;
+    }
     setCouponItems((prev) => [
       ...prev,
       {
         title: couponForm.title.trim(),
         description: couponForm.description.trim(),
         code: couponForm.code.trim(),
-        expiresAt: couponForm.expiresAt,
+        expiresAt: expiresAtIso,
       },
     ]);
     setCouponForm({
@@ -812,11 +819,16 @@ export default function UserProfile() {
 
     const promotionsToSave = [...couponItems];
     if (isDraftComplete) {
+      const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
+      if (!expiresAtIso) {
+        toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
+        return;
+      }
       promotionsToSave.push({
         title: couponForm.title.trim(),
         description: couponForm.description.trim(),
         code: couponForm.code.trim(),
-        expiresAt: couponForm.expiresAt,
+        expiresAt: expiresAtIso,
       });
     }
 
@@ -1016,13 +1028,21 @@ export default function UserProfile() {
                     </div>
                     <div className="flex-1 space-y-1">
                       <Label htmlFor="avatar" className="text-sm font-medium">Foto de Perfil</Label>
+                      <div className="mt-1.5">
+                        <label htmlFor="avatar" className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary">
+                          Escolher imagem
+                        </label>
+                      </div>
                       <Input
                         id="avatar"
                         type="file"
                         accept="image/*"
                         onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
-                        className="text-xs h-9"
+                        className="hidden"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Formatos aceitos: JPG, PNG e WEBP. Tamanho recomendado: 512x512 px. Tamanho máximo: 5MB.
+                      </p>
                     </div>
                   </div>
 
@@ -1884,6 +1904,14 @@ export default function UserProfile() {
 
             <div className="sm:col-span-2">
               <Label htmlFor="edit-description">Descrição *</Label>
+              <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
+                <p className="text-sm text-amber-900/90 leading-relaxed">
+                  Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender
+                  rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara,
+                  objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos
+                  fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
+                </p>
+              </div>
               <Textarea
                 id="edit-description"
                 value={editFormData.description}
@@ -1898,13 +1926,20 @@ export default function UserProfile() {
             </div>
 
             {getCategoryId(editFormData.category) === "food" ? (
-              <div className="sm:col-span-2 space-y-4 rounded-lg border border-border bg-secondary/10 p-4">
+              <div className="sm:col-span-2 space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
                 <div className="flex items-center justify-between">
-                  <Label>Cardápio</Label>
+                  <div>
+                    <Label className="text-emerald-900">🍽️ Cardápio (destaque seus produtos)</Label>
+                    <p className="text-sm text-emerald-900/80 mt-1 max-w-3xl">
+                      Preencha os itens com nomes claros, descrição objetiva e preço. Um cardápio bem escrito aumenta sua chance
+                      de aparecer nas buscas e ajuda o cliente a decidir mais rápido.
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                     onClick={() => setEditFormData(prev => ({
                       ...prev,
                       menu: [...prev.menu, { name: "", description: "", price: "" }]
@@ -1916,7 +1951,7 @@ export default function UserProfile() {
                 </div>
                 <div className="space-y-3">
                   {editFormData.menu.map((item, index) => (
-                    <div key={index} className="p-4 border border-border rounded-lg bg-secondary/10 space-y-3 relative group">
+                    <div key={index} className="p-4 border border-border rounded-lg bg-white space-y-3 relative group">
                       <Button
                         type="button"
                         variant="ghost"
@@ -2021,14 +2056,22 @@ export default function UserProfile() {
               </div>
             )}
 
-            <div className="sm:col-span-2">
-              <Label htmlFor="edit-keywords">Palavras-Chave (para busca, separadas por vírgula)</Label>
-              <Input
+            <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
+              <h3 className="text-base font-semibold text-amber-900">⚠️ Palavras-chave para busca (muito importante)</h3>
+              <p className="text-sm text-amber-900/80 mt-2 leading-relaxed">
+                Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais
+                que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para <strong>mecânico</strong>, também use
+                <strong> oficina</strong>, <strong>manutenção automotiva</strong>, <strong>troca de óleo</strong>. Para <strong>restaurante brasileiro</strong>, adicione <strong>comida brasileira</strong>,
+                <strong> prato feito</strong>, <strong>almoço</strong>, <strong>jantar</strong>, <strong>delivery</strong>. Separe por vírgula e evite termos muito genéricos.
+              </p>
+              <Label htmlFor="edit-keywords" className="mt-3 block">Palavras-chave (separadas por vírgula)</Label>
+              <Textarea
                 id="edit-keywords"
                 value={editFormData.keywords}
                 onChange={(e) => handleEditInputChange("keywords", e.target.value)}
                 placeholder="Ex: dentista, clareamento, odontologia, aparelhos"
-                className="mt-1.5"
+                className="mt-1.5 bg-white"
+                rows={3}
               />
             </div>
 
@@ -2334,13 +2377,39 @@ export default function UserProfile() {
                 </div>
                 <div>
                   <Label htmlFor="profile-coupon-expiry">Data limite da promoção</Label>
-                  <Input
-                    id="profile-coupon-expiry"
-                    type="date"
-                    className="mt-1.5"
-                    value={couponForm.expiresAt}
-                    onChange={(e) => setCouponForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                  />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Input
+                      id="profile-coupon-expiry"
+                      type="text"
+                      value={formatIsoToBr(couponForm.expiresAt)}
+                      onChange={(e) => setCouponForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
+                      placeholder="dd-mm-yyyy"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const el = couponDatePickerRef.current as HTMLInputElement & { showPicker?: () => void };
+                        if (!el) return;
+                        if (typeof el.showPicker === "function") el.showPicker();
+                        else el.click();
+                      }}
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </Button>
+                    <input
+                      ref={couponDatePickerRef}
+                      type="date"
+                      value={normalizeDateForInput(couponForm.expiresAt)}
+                      onChange={(e) =>
+                        setCouponForm((prev) => ({ ...prev, expiresAt: formatIsoToBr(e.target.value) }))
+                      }
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
                 </div>
                 <div>
                   <Button type="button" variant="outline" onClick={handleAddCoupon}>
@@ -2446,6 +2515,39 @@ function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
     return `${placement.countryCode.toUpperCase()}/${placement.stateCode.toUpperCase()}`;
   }
   return `${placement.city}, ${placement.stateCode.toUpperCase()}`;
+}
+
+function parseBrDateToIso(value: string): string | null {
+  const v = (value || "").trim().replace(/\//g, "-");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function normalizeDateForInput(value: string): string {
+  return parseBrDateToIso(value) || "";
+}
+
+function formatIsoToBr(value: string): string {
+  const v = (value || "").trim();
+  const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return v;
+  return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
 

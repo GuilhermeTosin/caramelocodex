@@ -121,6 +121,10 @@ export default function BusinessPage() {
       navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
       return;
     }
+    if ((business.reviews || []).some((r) => r.user_id === session.userId)) {
+      toast.error("Você já avaliou este negócio. Edite sua avaliação existente.");
+      return;
+    }
 
     setSendingReview(true);
 
@@ -315,6 +319,9 @@ export default function BusinessPage() {
     !business.ownerVerified;
   const reviewBreakdown = getReviewBreakdown(business?.reviews || []);
   const primaryCta = business?.whatsapp ? "whatsapp" : "message";
+  const hasUserReview =
+    !!session?.userId &&
+    (business?.reviews || []).some((r) => r.user_id === session.userId);
 
   if (loading) {
     return (
@@ -369,7 +376,9 @@ export default function BusinessPage() {
                   </Link>
                   <Link to="/perfil">
                     <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-2 px-4">
-                      <User className="w-3.5 h-3.5 text-primary" />
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-3 h-3 text-primary" />
+                      </div>
                       <span className="font-medium">{session.name.split(" ")[0]}</span>
                     </Button>
                   </Link>
@@ -608,6 +617,11 @@ export default function BusinessPage() {
 
                 <Card className="p-5 mb-6 border-border bg-secondary/30">
                   <h3 className="font-semibold text-sm mb-3">Deixe sua avaliação</h3>
+                  {hasUserReview && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Você já avaliou este negócio. Para alterar, use "Editar minha avaliação" na sua avaliação abaixo.
+                    </p>
+                  )}
                   <form onSubmit={handleReviewSubmit}>
                     <div className="flex items-center gap-1 mb-3">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -615,9 +629,10 @@ export default function BusinessPage() {
                           key={star}
                           type="button"
                           onClick={() => setReviewRating(star)}
+                          disabled={hasUserReview}
                           className={`p-1 transition-colors ${
                             star <= reviewRating ? "text-amber-500" : "text-muted-foreground/30"
-                          } hover:text-amber-400`}
+                          } hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed`}
                           aria-label={`${star} estrelas`}
                         >
                           <Star className="w-6 h-6 fill-current" />
@@ -634,8 +649,9 @@ export default function BusinessPage() {
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                       className="mb-3 min-h-[80px]"
+                      disabled={hasUserReview}
                     />
-                    <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview}>
+                    <Button type="submit" size="sm" className="caramelo-gradient text-white border-0" disabled={sendingReview || hasUserReview}>
                       {sendingReview ? "Enviando..." : "Enviar Avaliação"}
                     </Button>
                   </form>
