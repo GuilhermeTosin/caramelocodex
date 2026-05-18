@@ -224,6 +224,7 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
       lng: b.lng,
     },
     services: b.services || [],
+    serviceItems: b.service_items || [],
     keywords: b.keywords || [],
     menu: b.menu || [],
     menuPdfUrl: b.menu_pdf_url || "",
@@ -249,6 +250,7 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     ownerVerified: b.owner_verified || false,
     openingHours: b.opening_hours || [],
     promotions: b.promotions || [],
+    events: b.events || [],
     createdAt: b.created_at,
   };
 }
@@ -391,6 +393,7 @@ export async function createBusiness(
     lat?: number;
     lng?: number;
     services?: string[];
+    serviceItems?: { name: string; description: string; price: string }[];
     phone?: string;
     email?: string;
     website?: string;
@@ -405,8 +408,12 @@ export async function createBusiness(
     photos?: string[];
     openingHours?: string[];
     promotions?: { title: string; description: string; code: string; expiresAt: string }[];
+    events?: { title: string; description: string; date: string; location: string; isFree: boolean; price: string; flyerUrl?: string; ticketUrl?: string }[];
   }
 ): Promise<BusinessFrontend | null> {
+  if (!data.phone?.trim() || !data.email?.trim()) {
+    return null;
+  }
   const safeSlug = slugify(data.slug?.trim() || data.name);
 
   const { data: newBiz, error } = await supabase
@@ -429,6 +436,7 @@ export async function createBusiness(
       lat: data.lat || 0,
       lng: data.lng || 0,
       services: data.services || [],
+      service_items: data.serviceItems || [],
       phone: data.phone || null,
       email: data.email || null,
       website: data.website || null,
@@ -442,6 +450,7 @@ export async function createBusiness(
       keywords: data.keywords || [],
       photos: data.photos || [],
       opening_hours: data.openingHours || [],
+      events: data.events || [],
     })
     .select()
     .maybeSingle();

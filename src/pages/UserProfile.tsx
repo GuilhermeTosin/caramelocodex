@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Ban,
   Calendar,
+  BookOpen,
   Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ import {
   transferBusinessOwnershipByEmail,
 } from "@/services/ownership";
 import { archiveReport, getReportsForAdmin, unarchiveReport, updateReportStatus } from "@/services/reports";
+import { getCurrencyPrefixForCountry } from "@/lib/currency";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type {
@@ -100,6 +102,7 @@ import type {
   MessageFrontend,
   OwnerClaimRequest,
   BusinessReport,
+  BusinessEvent,
   Promotion,
   Review,
 } from "@/types/database";
@@ -149,8 +152,21 @@ export default function UserProfile() {
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [couponBusiness, setCouponBusiness] = useState<BusinessFrontend | null>(null);
+  const [menuBusiness, setMenuBusiness] = useState<BusinessFrontend | null>(null);
+  const [serviceBusiness, setServiceBusiness] = useState<BusinessFrontend | null>(null);
+  const [eventsBusiness, setEventsBusiness] = useState<BusinessFrontend | null>(null);
   const [savingCoupon, setSavingCoupon] = useState(false);
+  const [savingMenu, setSavingMenu] = useState(false);
+  const [savingServices, setSavingServices] = useState(false);
+  const [savingEvents, setSavingEvents] = useState(false);
   const [couponItems, setCouponItems] = useState<Promotion[]>([]);
+  const [menuItems, setMenuItems] = useState<{ name: string; description: string; price: string }[]>([]);
+  const [serviceItems, setServiceItems] = useState<{ name: string; description: string; price: string }[]>([]);
+  const [menuNameErrors, setMenuNameErrors] = useState<Record<number, boolean>>({});
+  const [serviceNameErrors, setServiceNameErrors] = useState<Record<number, boolean>>({});
+  const [menuPdfUrl, setMenuPdfUrl] = useState("");
+  const [menuPdfFile, setMenuPdfFile] = useState<File | null>(null);
+  const [eventItems, setEventItems] = useState<BusinessEvent[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<BusinessFrontend | null>(null);
   const [couponForm, setCouponForm] = useState<Promotion>({
     title: "",
@@ -189,6 +205,8 @@ export default function UserProfile() {
   const [editHeroFile, setEditHeroFile] = useState<File | null>(null);
   const [editPhotoFiles, setEditPhotoFiles] = useState<File[]>([]);
   const [editMenuPdfFile, setEditMenuPdfFile] = useState<File | null>(null);
+  const [eventFlyerFiles, setEventFlyerFiles] = useState<Record<number, File>>({});
+  const eventDatePickerRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
   const [myReviews, setMyReviews] = useState<(BusinessFrontend["reviews"][0] & { businessName: string; businessSlug: string; businessId: string })[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
@@ -717,6 +735,10 @@ export default function UserProfile() {
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
+    if (!editFormData.phone.trim() || !editFormData.email.trim()) {
+      toast.error("Telefone e Email são obrigatórios.");
+      return;
+    }
     if (!editFormData.street || !editFormData.city || !editFormData.stateCode) {
       toast.error("O endereço completo (Rua, Cidade e Estado) é obrigatório.");
       return;
@@ -753,6 +775,7 @@ export default function UserProfile() {
       keywords: editFormData.keywords.split(",").map(k => k.trim()).filter(Boolean),
       openingHours: serializeBusinessHours(editBusinessHours),
     };
+
     setIsUploading(true);
     if (editLogoFile) {
       const path = generateImagePath(editingBusiness.id, "logo", editLogoFile.name);
@@ -824,9 +847,220 @@ export default function UserProfile() {
     setCouponBusiness(biz);
   };
 
+  const handleOpenMenuModal = (biz: BusinessFrontend) => {
+    setMenuItems(biz.menu || []);
+    setMenuPdfUrl(biz.menuPdfUrl || "");
+    setMenuPdfFile(null);
+    setMenuNameErrors({});
+    setMenuBusiness(biz);
+  };
+
+  const handleSaveMenu = async () => {
+    if (!menuBusiness) return;
+    const nextErrors: Record<number, boolean> = {};
+    const normalizedMenu: { name: string; description: string; price: string }[] = [];
+    for (let i = 0; i < menuItems.length; i += 1) {
+      const item = menuItems[i];
+      const normalized = {
+        name: (item.name || "").trim(),
+        description: (item.description || "").trim(),
+        price: (item.price || "").trim(),
+      };
+      const hasAnyData = !!normalized.name || !!normalized.description || !!normalized.price;
+      if (!hasAnyData) continue;
+      if (!normalized.name) {
+        nextErrors[i] = true;
+        continue;
+      }
+      normalizedMenu.push(normalized);
+    }
+    setMenuNameErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error("No cardápio, o nome do item é obrigatório.");
+      return;
+    }
+
+    setSavingMenu(true);
+    let nextMenuPdfUrl = menuPdfUrl || "";
+    if (menuPdfFile) {
+      const path = generateImagePath(menuBusiness.id, "menu", menuPdfFile.name);
+      const uploaded = await uploadImage("business-images", path, menuPdfFile);
+      if (uploaded) nextMenuPdfUrl = uploaded;
+    }
+
+    const ok = await updateBusiness(menuBusiness.id, {
+      menu: normalizedMenu,
+      menuPdfUrl: nextMenuPdfUrl,
+    });
+    setSavingMenu(false);
+    if (!ok) {
+      toast.error("Não foi possível salvar o cardápio.");
+      return;
+    }
+
+    setMyBusinesses((prev) =>
+      prev.map((b) => (b.id === menuBusiness.id ? { ...b, menu: normalizedMenu, menuPdfUrl: nextMenuPdfUrl } : b))
+    );
+    toast.success("Cardápio salvo com sucesso.");
+    setMenuBusiness(null);
+  };
+
+  const handleOpenServicesModal = (biz: BusinessFrontend) => {
+    setServiceItems(biz.serviceItems || []);
+    setServiceNameErrors({});
+    setServiceBusiness(biz);
+  };
+
+  const handleSaveServices = async () => {
+    if (!serviceBusiness) return;
+    const nextErrors: Record<number, boolean> = {};
+    const normalized: { name: string; description: string; price: string }[] = [];
+    for (let i = 0; i < serviceItems.length; i += 1) {
+      const item = serviceItems[i];
+      const row = {
+        name: (item.name || "").trim(),
+        description: (item.description || "").trim(),
+        price: (item.price || "").trim(),
+      };
+      const hasAnyData = !!row.name || !!row.description || !!row.price;
+      if (!hasAnyData) continue;
+      if (!row.name) {
+        nextErrors[i] = true;
+        continue;
+      }
+      normalized.push(row);
+    }
+    setServiceNameErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error("Em serviços, o nome do serviço é obrigatório.");
+      return;
+    }
+
+    const legacyServices = normalized
+      .map((item) => item.name)
+      .filter(Boolean);
+
+    setSavingServices(true);
+    const ok = await updateBusiness(serviceBusiness.id, {
+      serviceItems: normalized,
+      services: legacyServices,
+    });
+    setSavingServices(false);
+    if (!ok) {
+      toast.error("Não foi possível salvar os serviços.");
+      return;
+    }
+
+    setMyBusinesses((prev) =>
+      prev.map((b) =>
+        b.id === serviceBusiness.id
+          ? { ...b, serviceItems: normalized, services: legacyServices }
+          : b
+      )
+    );
+    toast.success("Serviços salvos com sucesso.");
+    setServiceBusiness(null);
+  };
+
+  const handleOpenEventsModal = (biz: BusinessFrontend) => {
+    const current = biz.events || [];
+    setEventItems(current);
+    setEventFlyerFiles({});
+    setEventsBusiness(biz);
+  };
+
+  const handleAddEvent = () => {
+    setEventItems((prev) => [
+      ...prev,
+      {
+        title: "",
+        description: "",
+        date: "",
+        location: "",
+        isFree: true,
+        price: "",
+        flyerUrl: "",
+        ticketUrl: "",
+      },
+    ]);
+  };
+
+  const handleRemoveEvent = (index: number) => {
+    setEventItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveEvents = async () => {
+    if (!eventsBusiness) return;
+    const normalizedEvents: BusinessEvent[] = [];
+
+    setSavingEvents(true);
+    for (let i = 0; i < eventItems.length; i += 1) {
+      const evt = eventItems[i];
+      const hasAnyData =
+        !!evt.title?.trim() ||
+        !!evt.description?.trim() ||
+        !!evt.date?.trim() ||
+        !!evt.location?.trim() ||
+        !!evt.price?.trim() ||
+        !!evt.flyerUrl?.trim() ||
+        !!evt.ticketUrl?.trim() ||
+        !!eventFlyerFiles[i];
+      if (!hasAnyData) continue;
+
+      if (!evt.title?.trim() || !evt.date?.trim() || !evt.location?.trim()) {
+        toast.error("Nos eventos, preencha pelo menos título, data e local.");
+        setSavingEvents(false);
+        return;
+      }
+      const eventDateIso = parseBrDateToIso(evt.date || "");
+      if (!eventDateIso) {
+        toast.error(`Data inválida no evento "${evt.title}". Use dd-mm-yyyy.`);
+        setSavingEvents(false);
+        return;
+      }
+      if (!evt.isFree && !evt.price?.trim()) {
+        toast.error(`Informe o preço do evento "${evt.title}" ou marque entrada franca.`);
+        setSavingEvents(false);
+        return;
+      }
+
+      let flyerUrl = evt.flyerUrl?.trim() || "";
+      const flyerFile = eventFlyerFiles[i];
+      if (flyerFile) {
+        const path = generateImagePath(eventsBusiness.id, `event-${i}`, flyerFile.name);
+        const uploadedUrl = await uploadImage("business-images", path, flyerFile);
+        if (uploadedUrl) flyerUrl = uploadedUrl;
+      }
+
+      normalizedEvents.push({
+        title: evt.title.trim(),
+        description: evt.description?.trim() || "",
+        date: eventDateIso,
+        location: evt.location.trim(),
+        isFree: !!evt.isFree,
+        price: evt.isFree ? "" : (evt.price?.trim() || ""),
+        flyerUrl,
+        ticketUrl: evt.ticketUrl?.trim() || "",
+      });
+    }
+
+    const ok = await updateBusiness(eventsBusiness.id, { events: normalizedEvents });
+    setSavingEvents(false);
+    if (!ok) {
+      toast.error("Não foi possível salvar os eventos.");
+      return;
+    }
+    setMyBusinesses((prev) =>
+      prev.map((b) => (b.id === eventsBusiness.id ? { ...b, events: normalizedEvents } : b))
+    );
+    toast.success("Eventos salvos com sucesso.");
+    setEventsBusiness(null);
+    setEventFlyerFiles({});
+  };
+
   const handleAddCoupon = () => {
-    if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.code.trim() || !couponForm.expiresAt) {
-      toast.error("Preencha todos os campos do cupom antes de adicionar.");
+    if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.expiresAt) {
+      toast.error("Preencha título, descrição e data limite antes de adicionar.");
       return;
     }
     const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
@@ -866,11 +1100,10 @@ export default function UserProfile() {
     const isDraftComplete =
       !!couponForm.title.trim() &&
       !!couponForm.description.trim() &&
-      !!couponForm.code.trim() &&
       !!couponForm.expiresAt;
 
     if (hasDraftField && !isDraftComplete) {
-      toast.error("Complete todos os campos do cupom atual ou limpe-os antes de salvar.");
+      toast.error("Complete título, descrição e data limite da promoção atual ou limpe-os antes de salvar.");
       return;
     }
 
@@ -1192,52 +1425,36 @@ export default function UserProfile() {
             ) : (
               <div className="space-y-4">
                 {myBusinesses.map((biz) => (
-                  <Card key={biz.id} className="p-4 border-border flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
-                      <img
-                        src={biz.logoUrl || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=60"}
-                        alt={biz.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground hover:text-primary transition-colors">
-                        {biz.name}
-                      </Link>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {biz.address.city}, {biz.address.countryCode.toUpperCase()}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Star className="w-3 h-3 text-amber-500" />
-                          {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
-                        </span>
+                  <Card key={biz.id} className="p-4 border-border">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
+                        <img
+                          src={biz.logoUrl || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=60"}
+                          alt={biz.name}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex-1 min-w-0">
+                        <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground hover:text-primary transition-colors">
+                          {biz.name}
+                        </Link>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {biz.address.city}, {biz.address.countryCode.toUpperCase()}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Star className="w-3 h-3 text-amber-500" />
+                            {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
+                          </span>
+                        </div>
+                      </div>
                       <Badge variant="secondary" className="flex-shrink-0">
                         {getCategoryLabel(biz.category).split(" (")[0]}
                       </Badge>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenCouponModal(biz)}
-                        >
-                          <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
-                          Cupons de desconto
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          asChild
-                        >
-                          <Link to={buildBusinessUrl(biz)} target="_blank" rel="noreferrer">
-                            <Eye className="w-3.5 h-3.5 mr-1.5" />
-                            Ver
-                          </Link>
-                        </Button>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-border/60">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -1246,15 +1463,64 @@ export default function UserProfile() {
                           <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                           Editar
                         </Button>
+                        {getCategoryId(biz.category) === "food" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenMenuModal(biz)}
+                          >
+                            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                            Cardápio
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenServicesModal(biz)}
+                          >
+                            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                            Serviços
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => handleDeleteMyBusiness(biz)}
+                          onClick={() => handleOpenEventsModal(biz)}
                         >
-                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                          Excluir
+                          <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                          Eventos
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenCouponModal(biz)}
+                        >
+                          <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
+                          Promoções
+                        </Button>
+                        <div className="ml-auto flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            aria-label={`Ver ${biz.name}`}
+                            title="Ver negócio"
+                          >
+                            <Link to={buildBusinessUrl(biz)} target="_blank" rel="noreferrer">
+                              <Eye className="w-3.5 h-3.5" />
+                            </Link>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            onClick={() => handleDeleteMyBusiness(biz)}
+                            aria-label={`Excluir ${biz.name}`}
+                            title="Excluir negócio"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -2091,136 +2357,7 @@ export default function UserProfile() {
               <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
             </div>
 
-            {getCategoryId(editFormData.category) === "food" ? (
-              <div className="sm:col-span-2 space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-emerald-900">🍽️ Cardápio (destaque seus produtos)</Label>
-                    <p className="text-sm text-emerald-900/80 mt-1 max-w-3xl">
-                      Preencha os itens com nomes claros, descrição objetiva e preço. Um cardápio bem escrito aumenta sua chance
-                      de aparecer nas buscas e ajuda o cliente a decidir mais rápido.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => setEditFormData(prev => ({
-                      ...prev,
-                      menu: [...prev.menu, { name: "", description: "", price: "" }]
-                    }))}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    Adicionar Item
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {editFormData.menu.map((item, index) => (
-                    <div key={index} className="p-4 border border-border rounded-lg bg-white space-y-3 relative group">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => setEditFormData(prev => ({
-                          ...prev,
-                          menu: prev.menu.filter((_, i) => i !== index)
-                        }))}
-                      >
-                        <X className="w-4 h-4 text-destructive" />
-                      </Button>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs">Nome do Item</Label>
-                          <Input
-                            value={item.name}
-                            onChange={(e) => {
-                              const newMenu = [...editFormData.menu];
-                              newMenu[index].name = e.target.value;
-                              setEditFormData(prev => ({ ...prev, menu: newMenu }));
-                            }}
-                            placeholder="Ex: Pão de Queijo"
-                            className="h-8 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Preço</Label>
-                          <Input
-                            value={item.price}
-                            onChange={(e) => {
-                              const newMenu = [...editFormData.menu];
-                              newMenu[index].price = e.target.value;
-                              setEditFormData(prev => ({ ...prev, menu: newMenu }));
-                            }}
-                            placeholder="Ex: $5.00"
-                            className="h-8 text-sm mt-1"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Descrição</Label>
-                        <Input
-                          value={item.description}
-                          onChange={(e) => {
-                            const newMenu = [...editFormData.menu];
-                            newMenu[index].description = e.target.value;
-                            setEditFormData(prev => ({ ...prev, menu: newMenu }));
-                          }}
-                          placeholder="Ex: Porção com 6 unidades"
-                          className="h-8 text-sm mt-1"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {editFormData.menu.length === 0 && (
-                    <div className="text-center py-6 border border-dashed border-border rounded-lg">
-                      <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro!</p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-menu-pdf">Cardápio completo (PDF, opcional)</Label>
-                  <div className="mt-1.5">
-                    <label
-                      htmlFor="edit-menu-pdf"
-                      className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
-                    >
-                      Escolher arquivo PDF
-                    </label>
-                  </div>
-                  <Input
-                    id="edit-menu-pdf"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => handleMenuPdfChange(e, true)}
-                    className="hidden"
-                  />
-                  {editFormData.menuPdfUrl && (
-                    <a
-                      href={editFormData.menuPdfUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline"
-                    >
-                      Ver PDF atual
-                    </a>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-                <Label htmlFor="edit-services">Serviços Oferecidos (um por linha)</Label>
-                <Textarea
-                  id="edit-services"
-                  value={editFormData.services}
-                  onChange={(e) => handleEditInputChange("services", e.target.value)}
-                  placeholder="Padaria&#10;Confeitaria&#10;Delivery"
-                  className="mt-1.5"
-                  rows={4}
-                />
-              </div>
-            )}
+            {null}
 
             <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
               <h3 className="text-base font-semibold text-amber-900">⚠️ Palavras-chave para busca (muito importante)</h3>
@@ -2482,14 +2619,14 @@ export default function UserProfile() {
         <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
           <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
-              <DialogTitle>Cupons de desconto - {couponBusiness?.name || "Negócio"}</DialogTitle>
+              <DialogTitle>Promoções - {couponBusiness?.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
                 <div className="space-y-3">
                   <Label>Cupons cadastrados</Label>
                   {couponItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum cupom cadastrado ainda.</p>
+                    <p className="text-sm text-muted-foreground">Nenhuma promoção cadastrada ainda.</p>
                   ) : (
                     <div className="space-y-2">
                       {couponItems.map((item, idx) => (
@@ -2532,7 +2669,7 @@ export default function UserProfile() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="profile-coupon-code">Código promocional / cupom</Label>
+                  <Label htmlFor="profile-coupon-code">Código promocional</Label>
                   <Input
                     id="profile-coupon-code"
                     className="mt-1.5"
@@ -2580,7 +2717,7 @@ export default function UserProfile() {
                 <div>
                   <Button type="button" variant="outline" onClick={handleAddCoupon}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Adicionar cupom
+                    Adicionar promoção
                   </Button>
                 </div>
               </div>
@@ -2591,6 +2728,579 @@ export default function UserProfile() {
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveCoupon} disabled={savingCoupon}>
                 {savingCoupon ? "Salvando..." : "Salvar promoção"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!menuBusiness} onOpenChange={(open) => !open && setMenuBusiness(null)}>
+          <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Cardápio - {menuBusiness?.name || "Negócio"}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-5 py-4">
+                <div className="space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-emerald-900">🍽️ Itens do cardápio</Label>
+                      <p className="text-sm text-emerald-900/80 mt-1">
+                        Adicione itens com nome, descrição e preço para facilitar a busca e conversão.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                      onClick={() =>
+                        setMenuItems((prev) => [
+                          ...prev,
+                          {
+                            name: "",
+                            description: "",
+                            price: getCurrencyPrefixForCountry(menuBusiness?.address.countryCode || ""),
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Adicionar item
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {menuItems.map((item, index) => (
+                      <div key={index} className="p-4 border border-border rounded-lg bg-white space-y-3 relative group">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setMenuItems((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs">Nome do Item</Label>
+                            <Input
+                              value={item.name}
+                              onChange={(e) =>
+                                setMenuItems((prev) => {
+                                  const next = [...prev];
+                                  next[index].name = e.target.value;
+                                  return next;
+                                })
+                              }
+                              placeholder="Ex: Pão de Queijo"
+                              className={`h-8 text-sm mt-1 ${menuNameErrors[index] ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Preço (opcional)</Label>
+                            <Input
+                              value={item.price}
+                              onChange={(e) =>
+                                setMenuItems((prev) => {
+                                  const next = [...prev];
+                                  next[index].price = e.target.value;
+                                  return next;
+                                })
+                              }
+                              placeholder="Ex: CA$ 5.00"
+                              className="h-8 text-sm mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Descrição</Label>
+                          <Input
+                            value={item.description}
+                            onChange={(e) =>
+                              setMenuItems((prev) => {
+                                const next = [...prev];
+                                next[index].description = e.target.value;
+                                return next;
+                              })
+                            }
+                            placeholder="Ex: Porção com 6 unidades"
+                            className="h-8 text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {menuItems.length === 0 && (
+                      <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
+                        <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="menu-modal-pdf">Cardápio completo (PDF, opcional)</Label>
+                  <div className="mt-1.5">
+                    <label
+                      htmlFor="menu-modal-pdf"
+                      className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
+                    >
+                      Escolher arquivo PDF
+                    </label>
+                  </div>
+                  <Input
+                    id="menu-modal-pdf"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (!file) {
+                        setMenuPdfFile(null);
+                        return;
+                      }
+                      if (file.type !== "application/pdf") {
+                        toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
+                        return;
+                      }
+                      setMenuPdfFile(file);
+                    }}
+                    className="hidden"
+                  />
+                  {menuPdfUrl && (
+                    <div className="flex items-center gap-3">
+                      <a href={menuPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+                        Ver PDF atual
+                      </a>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => {
+                          setMenuPdfUrl("");
+                          setMenuPdfFile(null);
+                        }}
+                      >
+                        Remover PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="border-t border-border bg-white px-1 pt-3 pb-1">
+              <Button variant="outline" onClick={() => setMenuBusiness(null)} disabled={savingMenu}>
+                Cancelar
+              </Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveMenu} disabled={savingMenu}>
+                {savingMenu ? "Salvando..." : "Salvar cardápio"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!serviceBusiness} onOpenChange={(open) => !open && setServiceBusiness(null)}>
+          <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Serviços - {serviceBusiness?.name || "Negócio"}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-5 py-4">
+                <div className="space-y-4 rounded-lg border border-sky-300/70 bg-sky-50/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sky-900">🛠️ Itens de serviço</Label>
+                      <p className="text-sm text-sky-900/80 mt-1">
+                        Cadastre nome, descrição e preço (opcional) de cada serviço.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-sky-300 text-sky-700 hover:bg-sky-50"
+                      onClick={() =>
+                        setServiceItems((prev) => [
+                          ...prev,
+                          {
+                            name: "",
+                            description: "",
+                            price: getCurrencyPrefixForCountry(serviceBusiness?.address.countryCode || ""),
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Adicionar serviço
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {serviceItems.map((item, index) => (
+                      <div key={index} className="p-4 border border-border rounded-lg bg-white space-y-3 relative group">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setServiceItems((prev) => prev.filter((_, i) => i !== index))}
+                        >
+                          <X className="w-4 h-4 text-destructive" />
+                        </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs">Nome do Serviço</Label>
+                            <Input
+                              value={item.name}
+                              onChange={(e) =>
+                                setServiceItems((prev) => {
+                                  const next = [...prev];
+                                  next[index].name = e.target.value;
+                                  return next;
+                                })
+                              }
+                              placeholder="Ex: Troca de óleo"
+                              className={`h-8 text-sm mt-1 ${serviceNameErrors[index] ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Preço (opcional)</Label>
+                            <Input
+                              value={item.price}
+                              onChange={(e) =>
+                                setServiceItems((prev) => {
+                                  const next = [...prev];
+                                  next[index].price = e.target.value;
+                                  return next;
+                                })
+                              }
+                              placeholder="Ex: CAD$ 49.90"
+                              className="h-8 text-sm mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Descrição</Label>
+                          <Input
+                            value={item.description}
+                            onChange={(e) =>
+                              setServiceItems((prev) => {
+                                const next = [...prev];
+                                next[index].description = e.target.value;
+                                return next;
+                              })
+                            }
+                            placeholder="Ex: Serviço com mão de obra inclusa"
+                            className="h-8 text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {serviceItems.length === 0 && (
+                      <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
+                        <p className="text-xs text-muted-foreground">Nenhum serviço cadastrado ainda.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="border-t border-border bg-white px-1 pt-3 pb-1">
+              <Button variant="outline" onClick={() => setServiceBusiness(null)} disabled={savingServices}>
+                Cancelar
+              </Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveServices} disabled={savingServices}>
+                {savingServices ? "Salvando..." : "Salvar serviços"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!eventsBusiness} onOpenChange={(open) => !open && setEventsBusiness(null)}>
+          <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Eventos - {eventsBusiness?.name || "Negócio"}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-5 py-4">
+                <div className="rounded-lg border border-violet-300/70 bg-violet-50/70 p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-violet-900">Agenda de eventos</h3>
+                      <p className="text-sm text-violet-900/80 mt-1">
+                        Divulgue datas, local, flyer e preço para atrair mais público.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                      onClick={handleAddEvent}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Adicionar evento
+                    </Button>
+                  </div>
+
+                  {eventItems.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-violet-300 rounded-lg bg-white/70">
+                      <p className="text-sm text-muted-foreground">Nenhum evento cadastrado.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                    {eventItems.map((event, index) => {
+                      const businessAddress = [eventsBusiness?.address.street, eventsBusiness?.address.city, eventsBusiness?.address.stateCode?.toUpperCase()]
+                        .filter(Boolean)
+                        .join(", ");
+                      const isAtBusiness = businessAddress.length > 0 && (event.location || "").trim() === businessAddress;
+                      return (
+                      <div key={index} className="rounded-lg border border-violet-200 bg-white p-4 space-y-3 relative">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-7 w-7"
+                            onClick={() => handleRemoveEvent(index)}
+                          >
+                            <X className="w-4 h-4 text-destructive" />
+                          </Button>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Título do evento *</Label>
+                              <Input
+                                className="mt-1"
+                                value={event.title}
+                                onChange={(e) =>
+                                  setEventItems((prev) => {
+                                    const next = [...prev];
+                                    next[index] = { ...next[index], title: e.target.value };
+                                    return next;
+                                  })
+                                }
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Data *</Label>
+                              <div className="mt-1 flex items-center gap-2">
+                                <Input
+                                  type="text"
+                                  value={formatIsoToBr(event.date)}
+                                  onChange={(e) =>
+                                    setEventItems((prev) => {
+                                      const next = [...prev];
+                                      next[index] = { ...next[index], date: e.target.value };
+                                      return next;
+                                    })
+                                  }
+                                  placeholder="dd-mm-yyyy"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    const el = eventDatePickerRefs.current[index] as (HTMLInputElement & { showPicker?: () => void }) | undefined;
+                                    if (!el) return;
+                                    if (typeof el.showPicker === "function") el.showPicker();
+                                    else el.click();
+                                  }}
+                                >
+                                  <Calendar className="w-4 h-4" />
+                                </Button>
+                                <input
+                                  ref={(el) => {
+                                    eventDatePickerRefs.current[index] = el;
+                                  }}
+                                  type="date"
+                                  value={normalizeDateForInput(event.date)}
+                                  onChange={(e) =>
+                                    setEventItems((prev) => {
+                                      const next = [...prev];
+                                      next[index] = { ...next[index], date: formatIsoToBr(e.target.value) };
+                                      return next;
+                                    })
+                                  }
+                                  className="sr-only"
+                                  tabIndex={-1}
+                                  aria-hidden="true"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Local *</Label>
+                            {businessAddress ? (
+                              <div className="mt-1 mb-1">
+                                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                                  <input
+                                    type="checkbox"
+                                    checked={isAtBusiness}
+                                    onChange={(e) =>
+                                      setEventItems((prev) => {
+                                        const next = [...prev];
+                                        next[index] = {
+                                          ...next[index],
+                                          location: e.target.checked ? businessAddress : "",
+                                        };
+                                        return next;
+                                      })
+                                    }
+                                  />
+                                  No próprio estabelecimento
+                                </label>
+                              </div>
+                            ) : null}
+                            <Input
+                              className="mt-2"
+                              value={event.location}
+                              onChange={(e) =>
+                                setEventItems((prev) => {
+                                  const next = [...prev];
+                                  next[index] = { ...next[index], location: e.target.value };
+                                  return next;
+                                })
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Descrição</Label>
+                            <Textarea
+                              className="mt-1"
+                              rows={2}
+                              value={event.description}
+                              onChange={(e) =>
+                                setEventItems((prev) => {
+                                  const next = [...prev];
+                                  next[index] = { ...next[index], description: e.target.value };
+                                  return next;
+                                })
+                              }
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Entrada</Label>
+                              <Select
+                                value={event.isFree ? "free" : "paid"}
+                                onValueChange={(value) =>
+                                  setEventItems((prev) => {
+                                    const next = [...prev];
+                                    const isFree = value === "free";
+                                    const currentPrice = (next[index].price || "").trim();
+                                    const hasNumber = /\d/.test(currentPrice);
+                                    next[index] = {
+                                      ...next[index],
+                                      isFree,
+                                      price: isFree
+                                        ? ""
+                                        : (hasNumber
+                                            ? next[index].price
+                                            : getCurrencyPrefixForCountry(eventsBusiness?.address.countryCode || "")),
+                                    };
+                                    return next;
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="mt-1 w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="free">Entrada franca</SelectItem>
+                                  <SelectItem value="paid">Evento pago</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {!event.isFree && (
+                              <div>
+                                <Label className="text-xs">Preço</Label>
+                                <Input
+                                  className="mt-1"
+                                  value={event.price}
+                                  onChange={(e) =>
+                                    setEventItems((prev) => {
+                                      const next = [...prev];
+                                      next[index] = { ...next[index], price: e.target.value };
+                                      return next;
+                                    })
+                                  }
+                                  placeholder="Ex: CA$ 25"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Flyer do evento</Label>
+                            <div className="mt-1">
+                              <label
+                                htmlFor={`events-flyer-${index}`}
+                                className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-secondary"
+                              >
+                                Escolher imagem do flyer
+                              </label>
+                            </div>
+                            <Input
+                              id={`events-flyer-${index}`}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                                  toast.error("Formato inválido para flyer. Use JPG, PNG ou WEBP.");
+                                  return;
+                                }
+                                if (file.size > 5 * 1024 * 1024) {
+                                  toast.error("Flyer muito grande. Limite de 5MB.");
+                                  return;
+                                }
+                                setEventFlyerFiles((prev) => ({ ...prev, [index]: file }));
+                              }}
+                            />
+                            {(event.flyerUrl || eventFlyerFiles[index]) && (
+                              <img
+                                src={eventFlyerFiles[index] ? URL.createObjectURL(eventFlyerFiles[index]) : (event.flyerUrl || "")}
+                                alt="Preview do flyer"
+                                className="h-24 w-24 rounded-md object-cover border border-border mt-2"
+                              />
+                            )}
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Link para compra de ingressos (opcional)</Label>
+                            <Input
+                              className="mt-1"
+                              value={event.ticketUrl || ""}
+                              onChange={(e) =>
+                                setEventItems((prev) => {
+                                  const next = [...prev];
+                                  next[index] = { ...next[index], ticketUrl: e.target.value };
+                                  return next;
+                                })
+                              }
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="border-t border-border bg-white px-1 pt-3 pb-1">
+              <Button variant="outline" onClick={() => setEventsBusiness(null)} disabled={savingEvents}>
+                Cancelar
+              </Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveEvents} disabled={savingEvents}>
+                {savingEvents ? "Salvando..." : "Salvar eventos"}
               </Button>
             </DialogFooter>
           </DialogContent>

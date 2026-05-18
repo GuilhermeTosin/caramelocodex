@@ -24,6 +24,17 @@ export interface Promotion {
   expiresAt: string; // YYYY-MM-DD
 }
 
+export interface BusinessEvent {
+  title: string;
+  description: string;
+  date: string; // YYYY-MM-DD
+  location: string;
+  isFree: boolean;
+  price: string;
+  flyerUrl?: string;
+  ticketUrl?: string;
+}
+
 export interface Review {
   id: string;
   business_id: string;
@@ -54,6 +65,7 @@ export interface Business {
   lat: number;
   lng: number;
   services: string[];
+  service_items?: MenuItem[];
   keywords: string[];
   menu: MenuItem[];
   menu_pdf_url?: string | null;
@@ -71,6 +83,7 @@ export interface Business {
   owner_verified?: boolean;
   opening_hours?: string[];
   promotions?: Promotion[];
+  events?: BusinessEvent[];
   created_at: string;
 }
 
@@ -121,6 +134,7 @@ export interface BusinessFrontend {
     lng: number;
   };
   services: string[];
+  serviceItems: MenuItem[];
   keywords: string[];
   menu: MenuItem[];
   menuPdfUrl?: string;
@@ -138,6 +152,7 @@ export interface BusinessFrontend {
   ownerVerified: boolean;
   openingHours: string[];
   promotions: Promotion[];
+  events: BusinessEvent[];
   createdAt: string;
 }
 

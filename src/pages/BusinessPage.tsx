@@ -19,6 +19,8 @@ import {
   User,
   Share2,
   Link2,
+  CalendarDays,
+  Ticket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,18 @@ export default function BusinessPage() {
     if (!promotion?.expiresAt) return false;
     return promotion.expiresAt >= new Date().toISOString().slice(0, 10);
   });
+  const hasServiceItems =
+    !!business &&
+    (
+      (business.serviceItems && business.serviceItems.length > 0) ||
+      (business.services && business.services.length > 0)
+    );
+  const upcomingEvents = (business?.events || [])
+    .filter((evt) => {
+      if (!evt?.date) return false;
+      return evt.date >= new Date().toISOString().slice(0, 10);
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   useEffect(() => {
     if (countryCode && stateCode && city && businessName) {
@@ -472,7 +486,7 @@ export default function BusinessPage() {
                 <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Sobre
                 </TabsTrigger>
-                {getCategoryId(business.category) !== "food" && (
+                {getCategoryId(business.category) !== "food" && hasServiceItems && (
                   <TabsTrigger value="services" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     Serviços
                   </TabsTrigger>
@@ -488,6 +502,17 @@ export default function BusinessPage() {
                 {activePromotions.length > 0 && (
                   <TabsTrigger value="promotions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     Promoções
+                  </TabsTrigger>
+                )}
+                {upcomingEvents.length > 0 && (
+                  <TabsTrigger value="events" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                    <span className="inline-flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-amber-600" />
+                      Eventos
+                      <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                        Novo
+                      </span>
+                    </span>
                   </TabsTrigger>
                 )}
                 <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
@@ -506,21 +531,29 @@ export default function BusinessPage() {
                 )}
               </TabsContent>
 
-              {getCategoryId(business.category) !== "food" && (
+              {getCategoryId(business.category) !== "food" && hasServiceItems && (
                 <TabsContent value="services" className="mt-6">
                   <h2 className="text-xl font-bold text-foreground mb-4">Serviços</h2>
-                  {business.services.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum serviço listado.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {business.services.map((service) => (
-                        <div key={service} className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
-                          <ThumbsUp className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                          <span className="text-sm font-medium">{service}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(business.serviceItems?.length ? business.serviceItems : business.services.map((name) => ({ name, description: "", price: "" }))).map((service, idx) => (
+                      <div key={`${service.name}-${idx}`} className="p-4 rounded-lg bg-secondary/50 border border-border">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <ThumbsUp className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium">{service.name}</p>
+                              {service.description ? (
+                                <p className="text-xs text-muted-foreground mt-1">{service.description}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          {hasMeaningfulPrice(service.price) ? (
+                            <span className="text-sm font-bold text-primary">{service.price}</span>
+                          ) : null}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </TabsContent>
               )}
 
@@ -542,7 +575,9 @@ export default function BusinessPage() {
                             <h3 className="font-semibold">{item.name}</h3>
                             <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                           </div>
-                          <span className="font-bold text-primary ml-4 flex-shrink-0">{item.price}</span>
+                          {hasMeaningfulPrice(item.price) ? (
+                            <span className="font-bold text-primary ml-4 flex-shrink-0">{item.price}</span>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -573,18 +608,6 @@ export default function BusinessPage() {
                   </div>
                 )}
 
-                {selectedPhoto && (
-                  <div
-                    className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-                    onClick={() => setSelectedPhoto(null)}
-                  >
-                    <img
-                      src={selectedPhoto}
-                      alt="Foto ampliada"
-                      className="max-w-full max-h-full rounded-lg object-contain"
-                    />
-                  </div>
-                )}
               </TabsContent>
 
               {activePromotions.length > 0 && (
@@ -596,12 +619,79 @@ export default function BusinessPage() {
                         <h3 className="font-semibold text-lg">{promotion.title}</h3>
                         <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{promotion.description}</p>
                         <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 px-3 py-1 text-sm font-bold">
-                            Cupom: {promotion.code}
-                          </span>
+                          {promotion.code?.trim() ? (
+                            <span className="inline-flex items-center rounded-md bg-amber-100 text-amber-900 px-3 py-1 text-sm font-bold">
+                              Cupom: {promotion.code}
+                            </span>
+                          ) : null}
                           <span className="text-sm text-muted-foreground">
                             Válido até: {new Date(`${promotion.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
                           </span>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+              )}
+
+              {upcomingEvents.length > 0 && (
+                <TabsContent value="events" className="mt-6">
+                  <h2 className="text-xl font-bold text-foreground mb-4">Próximos eventos</h2>
+                  <div className="space-y-4">
+                    {upcomingEvents.map((event, idx) => (
+                      <Card key={`${event.title}-${event.date}-${idx}`} className="p-5 border-border">
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {event.flyerUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPhoto(event.flyerUrl || null)}
+                              title="Abrir flyer em tamanho real"
+                              className="block"
+                            >
+                              <img
+                                src={event.flyerUrl}
+                                alt={`Flyer do evento ${event.title}`}
+                                className="w-full sm:w-40 h-32 rounded-lg object-cover border border-border cursor-zoom-in"
+                              />
+                            </button>
+                          ) : null}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{event.title}</h3>
+                            {event.description ? (
+                              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{event.description}</p>
+                            ) : null}
+                            <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 text-amber-900 px-2.5 py-1">
+                                <CalendarDays className="w-4 h-4" />
+                                {new Date(`${event.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                              </span>
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1 hover:bg-secondary/80"
+                                title="Abrir no Google Maps"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                {event.location}
+                              </a>
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 text-emerald-900 px-2.5 py-1 font-medium">
+                                <Ticket className="w-4 h-4" />
+                                {event.isFree ? "Entrada franca" : (event.price || "Evento pago")}
+                              </span>
+                              {event.ticketUrl?.trim() ? (
+                                <a
+                                  href={event.ticketUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer nofollow"
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 font-medium hover:opacity-90"
+                                >
+                                  <Ticket className="w-4 h-4" />
+                                  Comprar ingressos
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
                         </div>
                       </Card>
                     ))}
@@ -778,6 +868,19 @@ export default function BusinessPage() {
                 </div>
               </TabsContent>
             </Tabs>
+
+            {selectedPhoto && (
+              <div
+                className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                onClick={() => setSelectedPhoto(null)}
+              >
+                <img
+                  src={selectedPhoto}
+                  alt="Imagem ampliada"
+                  className="max-w-full max-h-full rounded-lg object-contain"
+                />
+              </div>
+            )}
           </div>
 
           <aside className="lg:col-span-1">
@@ -836,11 +939,10 @@ export default function BusinessPage() {
                   )}
                   <Button 
                     onClick={handleSendMessage} 
-                    variant={primaryCta === "message" ? "default" : "outline"}
-                    className={`w-full gap-2 font-bold h-11 ${primaryCta === "message" ? "caramelo-gradient text-white border-0" : "border-border hover:bg-secondary"}`}
+                    className="w-full gap-2 font-bold h-11 bg-amber-500 hover:bg-amber-400 text-white border-0"
                   >
                     <Send className="w-4 h-4" />
-                    Mensagem Interna
+                    Enviar mensagem
                   </Button>
                   <Button onClick={handleRoute} variant="outline" className="w-full border-border hover:bg-secondary gap-2 h-11">
                     <Car className="w-4 h-4" />
@@ -1046,6 +1148,12 @@ function getReviewBreakdown(reviews: BusinessFrontend["reviews"]): Record<number
     },
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   );
+}
+
+function hasMeaningfulPrice(value: string | null | undefined): boolean {
+  const v = (value || "").trim();
+  if (!v) return false;
+  return /\d/.test(v);
 }
 
 function normalizeSocialValue(value: string): string {
