@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,19 +15,19 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 
 const CATEGORIES = [
-  { name: "AlimentaÃ§Ã£o", icon: Utensils, aliases: ["AlimentaÃ§Ã£o", "Alimentacao"] },
-  { name: "SaÃºde & Beleza", icon: HeartPulse, aliases: ["SaÃºde & Beleza", "Saude e Beleza"] },
-  { name: "Automotivo", icon: Car, aliases: ["Automotivo", "ServiÃ§os Automotivos", "Servicos Automotivos"] },
-  { name: "ConstruÃ§Ã£o", icon: Hammer, aliases: ["ConstruÃ§Ã£o", "Construcao", "ConstruÃ§Ã£o & Reformas", "Construcao & Reformas"] },
-  { name: "Advocacia & TraduÃ§Ãµes", icon: Scale, aliases: ["Advocacia", "Advocacia & Consultoria"] },
-  { name: "EducaÃ§Ã£o", icon: GraduationCap, aliases: ["EducaÃ§Ã£o", "Educacao", "EducaÃ§Ã£o & Idiomas", "Educacao & Idiomas"] },
-  { name: "Contabilidade", icon: Landmark, aliases: ["Contabilidade & FinanÃ§as", "Contabilidade", "FinanÃ§as", "Financas"] },
-  { name: "ComÃ©rcio", icon: ShoppingBag, aliases: ["ComÃ©rcio & Varejo", "Comercio & Varejo", "ComÃ©rcio", "Comercio"] },
-  { name: "Transporte & MudanÃ§a", icon: Truck, aliases: ["Transporte & MudanÃ§a", "Transporte & Mudancas", "Transporte & MudanÃ§as", "Transporte"] },
-  { name: "ImobiliÃ¡ria", icon: Building2, aliases: ["ImobiliÃ¡ria", "Imobiliaria"] },
-  { name: "Artistas", icon: Music, aliases: ["Artistas", "Arte", "MÃºsica", "Musica"] },
-  { name: "ServiÃ§os para Pets", icon: PawPrint, aliases: ["ServiÃ§os para Pets", "Servicos para Pets", "Pet", "Pets"] },
-  { name: "Cuidados Infantis e de Idosos", icon: User, aliases: ["Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "BabÃ¡", "Baba", "Acompanhante", "Cuidadora", "Cuidador"] },
+  { name: "Alimentação", icon: Utensils, aliases: ["Alimentação", "Alimentacao"] },
+  { name: "Saúde & Beleza", icon: HeartPulse, aliases: ["Saúde & Beleza", "Saude e Beleza"] },
+  { name: "Automotivo", icon: Car, aliases: ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"] },
+  { name: "Construção", icon: Hammer, aliases: ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"] },
+  { name: "Advocacia & Traduções", icon: Scale, aliases: ["Advocacia", "Advocacia & Consultoria"] },
+  { name: "Educação", icon: GraduationCap, aliases: ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"] },
+  { name: "Contabilidade", icon: Landmark, aliases: ["Contabilidade & Finanças", "Contabilidade", "Finanças", "Financas"] },
+  { name: "Comércio", icon: ShoppingBag, aliases: ["Comércio & Varejo", "Comercio & Varejo", "Comércio", "Comercio"] },
+  { name: "Transporte & Mudança", icon: Truck, aliases: ["Transporte & Mudança", "Transporte & Mudancas", "Transporte & Mudanças", "Transporte"] },
+  { name: "Imobiliária", icon: Building2, aliases: ["Imobiliária", "Imobiliaria"] },
+  { name: "Artistas", icon: Music, aliases: ["Artistas", "Arte", "Música", "Musica"] },
+  { name: "Serviços para Pets", icon: PawPrint, aliases: ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"] },
+  { name: "Cuidados Infantis e de Idosos", icon: User, aliases: ["Cuidados Infantis e de Idosos", "Babas & Acompanhantes", "Babá", "Baba", "Acompanhante", "Cuidadora", "Cuidador"] },
   { name: "Diaristas", icon: SprayCan, aliases: ["Diaristas", "Diarista", "Faxina", "Limpeza"] },
   { name: "Outros", icon: MoreHorizontal, aliases: ["Outros"] },
 ];
@@ -54,8 +54,8 @@ export default function Home() {
 
   useEffect(() => {
     setSeoMeta(
-      "Caramelinho.com | Encontre negÃ³cios brasileiros no exterior",
-      "Encontre negÃ³cios brasileiros no mundo todo: alimentaÃ§Ã£o, saÃºde, advocacia, educaÃ§Ã£o e muito mais perto de vocÃª."
+      "Caramelinho.com | Encontre negócios brasileiros no exterior",
+      "Encontre negócios brasileiros no mundo todo: alimentação, saúde, advocacia, educação e muito mais perto de você."
     );
   }, []);
 
@@ -68,7 +68,7 @@ export default function Home() {
       
       if (coords) {
         setUserCoords(coords);
-        // Ordenar por distÃ¢ncia
+        // Ordenar por distância
         regionalBusinesses = [...businesses].sort((a, b) => {
           const distA = calculateDistance(coords.lat, coords.lng, a.address.lat, a.address.lng);
           const distB = calculateDistance(coords.lat, coords.lng, b.address.lat, b.address.lng);
@@ -109,7 +109,7 @@ export default function Home() {
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
     if (locationQuery.trim()) params.set("cidade", locationQuery.trim());
     
-    // Se o usuÃ¡rio selecionou uma cidade que sabemos o paÃ­s/estado, podemos ser mais especÃ­ficos
+    // Se o usuário selecionou uma cidade que sabemos o país/estado, podemos ser mais específicos
     // Mas por simplicidade no momento, passamos apenas como query de cidade
     navigate(`/buscar?${params.toString()}`);
   };
@@ -197,7 +197,7 @@ export default function Home() {
                   </Link>
                   <Link to="/cadastro">
                     <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
-                      Cadastrar negÃ³cio
+                      Cadastrar negócio
                     </Button>
                   </Link>
                 </div>
@@ -223,7 +223,7 @@ export default function Home() {
                 className="bg-clip-text text-transparent"
                 style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
               >
-                negÃ³cios brasileiros
+                negócios brasileiros
               </span>
               <span> no mundo todo</span>
             </h1>
@@ -239,7 +239,7 @@ export default function Home() {
                   value={searchQuery}
                   onChange={setSearchQuery}
                   suggestions={searchSuggestions}
-                  placeholder="O que vocÃª procura? (ex: Padaria)"
+                  placeholder="O que você procura? (ex: Padaria)"
                   icon="search"
                   inputClassName="text-xl sm:text-2xl placeholder:text-xs sm:placeholder:text-sm"
                 />
@@ -263,7 +263,7 @@ export default function Home() {
 
             {/* Quick tags */}
             <div className="mt-6 flex flex-wrap gap-2 justify-center">
-              {["Padaria", "MecÃ¢nico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
+              {["Padaria", "Mecânico", "Dentista", "Advogado", "Restaurante", "Cabeleireiro"].map((tag) => (
                 <button
                   key={tag}
                   onClick={() => {
@@ -285,10 +285,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { label: "NegÃ³cios Cadastrados", value: "350+", icon: Store },
+              { label: "Negócios Cadastrados", value: "350+", icon: Store },
               { label: "Cidades Atendidas", value: "120+", icon: MapPin },
-              { label: "PaÃ­ses", value: "15+", icon: Briefcase },
-              { label: "AvaliaÃ§Ãµes", value: "2.5K+", icon: Star },
+              { label: "Países", value: "15+", icon: Briefcase },
+              { label: "Avaliações", value: "2.5K+", icon: Star },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
                 <stat.icon className="w-5 h-5 text-amber-600" />
@@ -327,7 +327,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-10">
             <div>
-              <h2 className="text-3xl font-bold text-foreground">NegÃ³cios em Destaque</h2>
+              <h2 className="text-3xl font-bold text-foreground">Negócios em Destaque</h2>
               <p className="mt-2 text-muted-foreground">Recomendados pelo Caramelinho</p>
             </div>
             <Button variant="outline" onClick={() => navigate("/buscar")}>
@@ -410,7 +410,7 @@ export default function Home() {
           {featuredBusinesses.length === 0 && (
             <div className="text-center py-12">
               <PawPrint className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground">Nenhum negÃ³cio encontrado ainda.</p>
+              <p className="text-muted-foreground">Nenhum negócio encontrado ainda.</p>
               <p className="text-sm text-muted-foreground mt-1">Seja o primeiro a cadastrar!</p>
             </div>
           )}
@@ -422,7 +422,7 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-foreground">Cidades Populares</h2>
-          <p className="mt-3 text-muted-foreground">Descubra negÃ³cios brasileiros pelo mundo</p>
+          <p className="mt-3 text-muted-foreground">Descubra negócios brasileiros pelo mundo</p>
         </div>
         <div className="w-full flex flex-wrap justify-center gap-4">
           {popularCities.map((city) => (
@@ -456,7 +456,7 @@ export default function Home() {
           <div className="flex items-center justify-center mx-auto mb-6">
             <img
               src="/brazil-map-pin.png"
-              alt="Ãcone de localizaÃ§Ã£o com bandeira do Brasil"
+              alt="Ícone de localização com bandeira do Brasil"
               className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
             />
           </div>
@@ -466,12 +466,12 @@ export default function Home() {
               className="bg-clip-text text-transparent"
               style={{ backgroundImage: "linear-gradient(90deg, #15803d 0%, #eab308 50%, #1d4ed8 100%)" }}
             >
-              negÃ³cio brasileiro
+              negócio brasileiro
             </span>
             <span className="text-foreground"> no exterior?</span>
           </h2>
           <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-            Cadastre seu negÃ³cio no Caramelinho e seja encontrado por milhares de brasileiros espalhados pelo mundo!
+            Cadastre seu negócio no Caramelinho e seja encontrado por milhares de brasileiros espalhados pelo mundo!
           </p>
           <div className="flex justify-center">
             <Button size="lg" className="caramelo-gradient text-white border-0 font-bold" onClick={() => navigate("/cadastro")}>
