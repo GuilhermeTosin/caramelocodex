@@ -1,4 +1,4 @@
-﻿import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import type { BusinessReport } from "@/types/database";
 
 export async function createBusinessReport(payload: {

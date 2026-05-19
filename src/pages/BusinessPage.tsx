@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
@@ -301,6 +301,20 @@ export default function BusinessPage() {
     trackBusinessClick(business.id, type, session?.userId);
   };
 
+  const handleOpenPdfPrivately = async (pdfUrl: string) => {
+    try {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error("Falha ao carregar PDF");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      console.error("Erro ao abrir PDF privado:", error);
+      toast.error("Não foi possível abrir o PDF agora.");
+    }
+  };
+
   const handleRequestOwnership = async () => {
     if (!session) {
       toast.info("Crie uma conta ou entre para reivindicar este negócio.");
@@ -565,9 +579,12 @@ export default function BusinessPage() {
                   <h2 className="text-xl font-bold text-foreground mb-4">Cardápio</h2>
                   {business.menuPdfUrl && (
                     <div className="mb-4">
-                      <a href={business.menuPdfUrl} target="_blank" rel="noreferrer">
-                        <Button variant="outline">Acessar cardápio completo</Button>
-                      </a>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenPdfPrivately(business.menuPdfUrl!)}
+                      >
+                        Acessar cardápio completo
+                      </Button>
                     </div>
                   )}
                   {business.menu && business.menu.length > 0 ? (

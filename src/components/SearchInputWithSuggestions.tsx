@@ -55,7 +55,7 @@ export default function SearchInputWithSuggestions({
   useGooglePlaces = false,
   locationBias = null,
 }: SearchInputWithSuggestionsProps) {
-  const suggestionsDisabled = true;
+  const suggestionsDisabled = false;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);

@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ export default function VerifiedBusinessInfo() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" />
-                Ter pelo menos <strong>1 avaliação</strong> na página do negócio.
+                Ter pelo menos <strong>5 avaliações</strong> na página do negócio.
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" />

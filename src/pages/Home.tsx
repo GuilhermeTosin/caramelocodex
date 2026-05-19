@@ -431,16 +431,18 @@ export default function Home() {
               onClick={() => navigate(`/buscar?cidade=${encodeURIComponent(city.name)}`)}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
-                            {city.countryCode.toLowerCase() === "ca" ? (
-                <img
-                  src="https://flagcdn.com/w40/ca.png"
-                  alt="Bandeira do Canadá"
-                  className="h-5 w-7 object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <span className="text-2xl">{city.flag}</span>
-              )}
+              <img
+                src={`https://flagcdn.com/w40/${city.countryCode.toLowerCase()}.png`}
+                alt={`Bandeira de ${city.countryCode.toUpperCase()}`}
+                className="h-5 w-7 object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = "inline";
+                }}
+              />
+              <span className="text-2xl hidden">{city.flag}</span>
               <span className="font-medium text-sm">{city.name}</span>
               <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
             </button>
@@ -494,6 +496,8 @@ function normalizeText(value: string): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
+
+
 
 
 

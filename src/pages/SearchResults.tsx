@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,42 +37,42 @@ import { getPublishedCommunityEvents } from "@/services/events";
 import type { CommunityEvent } from "@/types/database";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
-  dentista: ["SaÃºde & Beleza", "ClÃ­nica Dental", "Odontologia", "Dente"],
-  mecanico: ["ServiÃ§os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  mecanica: ["ServiÃ§os Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
-  comida: ["AlimentaÃ§Ã£o", "Restaurante", "Lanche", "Marmita"],
-  restaurante: ["AlimentaÃ§Ã£o"],
-  padaria: ["AlimentaÃ§Ã£o"],
-  doce: ["AlimentaÃ§Ã£o", "Confeitaria"],
-  advogado: ["Advocacia & Consultoria", "JurÃ­dico", "Lei"],
-  tradutor: ["Advocacia & Consultoria", "TraduÃ§Ã£o", "ImigraÃ§Ã£o"],
-  traducao: ["Advocacia & Consultoria", "TraduÃ§Ã£o", "ImigraÃ§Ã£o"],
-  imigracao: ["Advocacia & Consultoria", "ImigraÃ§Ã£o", "Visto"],
-  obra: ["ConstruÃ§Ã£o & Reformas"],
-  reforma: ["ConstruÃ§Ã£o & Reformas"],
-  pintor: ["ConstruÃ§Ã£o & Reformas"],
-  casa: ["ConstruÃ§Ã£o & Reformas", "ImobiliÃ¡ria"],
-  aluguel: ["ImobiliÃ¡ria"],
-  venda: ["ComÃ©rcio & Varejo", "ImobiliÃ¡ria"],
-  medico: ["SaÃºde & Beleza"],
-  unha: ["SaÃºde & Beleza", "Manicure"],
-  cabelo: ["SaÃºde & Beleza", "Cabeleireiro"],
+  dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
+  mecanico: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  mecanica: ["Serviços Automotivos", "Oficina", "Centro Automotivo", "Carro", "Auto"],
+  comida: ["Alimentação", "Restaurante", "Lanche", "Marmita"],
+  restaurante: ["Alimentação"],
+  padaria: ["Alimentação"],
+  doce: ["Alimentação", "Confeitaria"],
+  advogado: ["Advocacia & Consultoria", "Jurídico", "Lei"],
+  tradutor: ["Advocacia & Consultoria", "Tradução", "Imigração"],
+  traducao: ["Advocacia & Consultoria", "Tradução", "Imigração"],
+  imigracao: ["Advocacia & Consultoria", "Imigração", "Visto"],
+  obra: ["Construção & Reformas"],
+  reforma: ["Construção & Reformas"],
+  pintor: ["Construção & Reformas"],
+  casa: ["Construção & Reformas", "Imobiliária"],
+  aluguel: ["Imobiliária"],
+  venda: ["Comércio & Varejo", "Imobiliária"],
+  medico: ["Saúde & Beleza"],
+  unha: ["Saúde & Beleza", "Manicure"],
+  cabelo: ["Saúde & Beleza", "Cabeleireiro"],
 };
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  "AlimentaÃ§Ã£o (Restaurantes, Padarias, CafÃ©s)": [
+  "Alimentação (Restaurantes, Padarias, Cafés)": [
     "restaurante", "lanchonete", "lanches", "padaria", "comida", 
     "gastronomia", "cafe", "almoco", "jantar", "marmita"
   ],
-  "ServiÃ§os Automotivos": [
+  "Serviços Automotivos": [
     "mecanico", "oficina", "carro", "conserto", "pneu", 
     "oleo", "auto", "manutencao", "reparo"
   ],
-  "SaÃºde & Beleza": [
+  "Saúde & Beleza": [
     "dentista", "medico", "clinica", "estetica", "salao", 
     "cabelo", "unha", "manicure", "pedicure", "terapia", "psicologo"
   ],
-  "ConstruÃ§Ã£o & Reformas": [
+  "Construção & Reformas": [
     "obra", "reforma", "pintor", "pedreiro", "eletricista", 
     "encanador", "casa", "apartamento", "telhado"
   ],
@@ -80,11 +80,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "advogado", "juridico", "lei", "processo", "visto", 
     "imigracao", "consultor", "tradutor", "traducao", "traducoes", "documentos"
   ],
-  "Contabilidade & FinanÃ§as": [
+  "Contabilidade & Finanças": [
     "contador", "imposto", "tax", "financas", "investimento", 
     "dinheiro", "empresa"
   ],
-  "EducaÃ§Ã£o & Idiomas": [
+  "Educação & Idiomas": [
     "escola", "curso", "professor", "aula", "ingles", 
     "frances", "portugues", "aprendizado"
   ],
@@ -92,13 +92,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "programador", "software", "computador", "celular", 
     "site", "desenvolvimento", "suporte"
   ],
-  "ComÃ©rcio & Varejo": [
+  "Comércio & Varejo": [
     "loja", "venda", "produto", "mercado", "roupa", "acessorios"
   ],
-  "Transporte & MudanÃ§a": [
+  "Transporte & Mudança": [
     "mudanca", "frete", "entrega", "logistica", "caminhao", "envio"
   ],
-  "ServiÃ§os para Pets": [
+  "Serviços para Pets": [
     "pet", "pets", "cachorro", "gato", "banho", "tosa", "veterinario"
   ],
   "Cuidados Infantis e de Idosos": [
@@ -107,7 +107,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   "Diaristas": [
     "diarista", "faxina", "limpeza", "limpar", "casa"
   ],
-  "ImobiliÃ¡ria": [
+  "Imobiliária": [
     "casa", "apartamento", "aluguel", "venda", "imovel", "corretor"
   ],
   "Turismo & Viagens": [
@@ -116,44 +116,44 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 };
 
 const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
-  "alimentacao": ["AlimentaÃ§Ã£o", "Alimentacao"],
-  "alimentacao (restaurantes, padarias, cafes)": ["AlimentaÃ§Ã£o", "Alimentacao"],
-  "saude & beleza": ["SaÃºde & Beleza", "Saude e Beleza"],
-  "saude e beleza": ["SaÃºde & Beleza", "Saude e Beleza"],
-  "automotivo": ["Automotivo", "ServiÃ§os Automotivos", "Servicos Automotivos"],
-  "servicos automotivos": ["Automotivo", "ServiÃ§os Automotivos", "Servicos Automotivos"],
-  "construcao": ["ConstruÃ§Ã£o", "Construcao", "ConstruÃ§Ã£o & Reformas", "Construcao & Reformas"],
-  "construcao & reformas": ["ConstruÃ§Ã£o", "Construcao", "ConstruÃ§Ã£o & Reformas", "Construcao & Reformas"],
+  "alimentacao": ["Alimentação", "Alimentacao"],
+  "alimentacao (restaurantes, padarias, cafes)": ["Alimentação", "Alimentacao"],
+  "saude & beleza": ["Saúde & Beleza", "Saude e Beleza"],
+  "saude e beleza": ["Saúde & Beleza", "Saude e Beleza"],
+  "automotivo": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
+  "servicos automotivos": ["Automotivo", "Serviços Automotivos", "Servicos Automotivos"],
+  "construcao": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
+  "construcao & reformas": ["Construção", "Construcao", "Construção & Reformas", "Construcao & Reformas"],
   "advocacia": ["Advocacia", "Advocacia & Consultoria"],
   "advocacia & consultoria": ["Advocacia", "Advocacia & Consultoria"],
-  "educacao": ["EducaÃ§Ã£o", "Educacao", "EducaÃ§Ã£o & Idiomas", "Educacao & Idiomas"],
-  "educacao & idiomas": ["EducaÃ§Ã£o", "Educacao", "EducaÃ§Ã£o & Idiomas", "Educacao & Idiomas"],
-  "transporte & mudanca": ["Transporte & MudanÃ§a", "Transporte & Mudanca", "Transporte & Mudancas"],
-  "transporte & mudancas": ["Transporte & MudanÃ§a", "Transporte & Mudanca", "Transporte & Mudancas"],
-  "servicos para pets": ["ServiÃ§os para Pets", "Servicos para Pets", "Pet", "Pets"],
-  "cuidados infantis e de idosos": ["Cuidados Infantis e de Idosos", "BabÃ¡s & Acompanhantes", "BabÃ¡", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
+  "educacao": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
+  "educacao & idiomas": ["Educação", "Educacao", "Educação & Idiomas", "Educacao & Idiomas"],
+  "transporte & mudanca": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "transporte & mudancas": ["Transporte & Mudança", "Transporte & Mudanca", "Transporte & Mudancas"],
+  "servicos para pets": ["Serviços para Pets", "Servicos para Pets", "Pet", "Pets"],
+  "cuidados infantis e de idosos": ["Cuidados Infantis e de Idosos", "Babás & Acompanhantes", "Babá", "Acompanhante", "Cuidadora", "Cuidador", "Idosos", "Infantil"],
   "diaristas": ["Diaristas", "Diarista", "Faxina", "Limpeza"],
 };
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
-  "AlimentaÃ§Ã£o (Restaurantes, Padarias, CafÃ©s)": "restaurantes, padarias e cafÃ©s",
-  "ServiÃ§os Automotivos": "oficinas e serviÃ§os automotivos",
-  "SaÃºde & Beleza": "serviÃ§os de saÃºde e beleza",
-  "ConstruÃ§Ã£o & Reformas": "serviÃ§os de construÃ§Ã£o e reformas",
-  "Advocacia & Consultoria": "advocacia, traduÃ§Ãµes e consultoria de imigraÃ§Ã£o",
-  "Contabilidade & FinanÃ§as": "contabilidade e finanÃ§as",
-  "EducaÃ§Ã£o & Idiomas": "educaÃ§Ã£o e idiomas",
+  "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
+  "Serviços Automotivos": "oficinas e serviços automotivos",
+  "Saúde & Beleza": "serviços de saúde e beleza",
+  "Construção & Reformas": "serviços de construção e reformas",
+  "Advocacia & Consultoria": "advocacia, traduções e consultoria de imigração",
+  "Contabilidade & Finanças": "contabilidade e finanças",
+  "Educação & Idiomas": "educação e idiomas",
   "Tecnologia & TI": "tecnologia e TI",
-  "ComÃ©rcio & Varejo": "comÃ©rcio e varejo",
-  "Transporte & MudanÃ§a": "transporte e mudanÃ§a",
-  "ServiÃ§os para Pets": "serviÃ§os para pets",
+  "Comércio & Varejo": "comércio e varejo",
+  "Transporte & Mudança": "transporte e mudança",
+  "Serviços para Pets": "serviços para pets",
   "Cuidados Infantis e de Idosos": "cuidados infantis e de idosos",
-  "Diaristas": "diaristas e serviÃ§os de limpeza",
-  "ImobiliÃ¡ria": "imobiliÃ¡rias e corretores",
+  "Diaristas": "diaristas e serviços de limpeza",
+  "Imobiliária": "imobiliárias e corretores",
   "Turismo & Viagens": "turismo e viagens",
-  "Outros": "serviÃ§os diversos",
+  "Outros": "serviços diversos",
 };
 
 export default function SearchResults() {
@@ -189,29 +189,54 @@ export default function SearchResults() {
   const [locatingMe, setLocatingMe] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    getAllBusinesses().then(setAllBusinesses);
-    getAvailableLocations().then(locations => {
-      setAvailableLocations(locations);
-      const cities = new Set<string>();
-      locations.forEach(l => {
-        l.states.forEach((s: any) => {
-          s.cities.forEach((c: string) => cities.add(c));
-        });
-      });
-      setCitySuggestions(Array.from(cities));
-    });
-    getSearchSuggestions().then(setSearchSuggestions);
-    getPublishedCommunityEvents().then(setCommunityEvents);
-    getCurrentPosition().then(async (coords) => {
-      if (coords) {
-        setUserCoords(coords);
-        return;
+    const loadInitialData = async () => {
+      try {
+        const [businessesRes, locationsRes, suggestionsRes, eventsRes] = await Promise.allSettled([
+          getAllBusinesses(),
+          getAvailableLocations(),
+          getSearchSuggestions(),
+          getPublishedCommunityEvents(),
+        ]);
+
+        if (businessesRes.status === "fulfilled") {
+          setAllBusinesses(businessesRes.value);
+        }
+
+        if (locationsRes.status === "fulfilled") {
+          const locations = locationsRes.value;
+          setAvailableLocations(locations);
+          const cities = new Set<string>();
+          locations.forEach((l) => {
+            l.states.forEach((s: any) => {
+              s.cities.forEach((c: string) => cities.add(c));
+            });
+          });
+          setCitySuggestions(Array.from(cities));
+        }
+
+        if (suggestionsRes.status === "fulfilled") {
+          setSearchSuggestions(suggestionsRes.value);
+        }
+
+        if (eventsRes.status === "fulfilled") {
+          setCommunityEvents(eventsRes.value);
+        }
+
+        const coords = await getCurrentPosition();
+        if (coords) {
+          setUserCoords(coords);
+          return;
+        }
+        const approx = await getApproxPositionByIp();
+        if (approx) setUserCoords(approx);
+      } finally {
+        setInitialLoading(false);
       }
-      const approx = await getApproxPositionByIp();
-      if (approx) setUserCoords(approx);
-    });
+    };
+    loadInitialData();
   }, []);
 
   useEffect(() => {
@@ -313,14 +338,14 @@ export default function SearchResults() {
 
 
   useEffect(() => {
-    const baseTitle = "Buscar negÃ³cios brasileiros";
+    const baseTitle = "Buscar negócios brasileiros";
     const cityText = cityFilter ? ` em ${cityFilter}` : "";
-    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negÃ³cios e serviÃ§os";
+    const categoryText = categoryFilter ? (CATEGORY_SEO_TEXT[categoryFilter] || categoryFilter.toLowerCase()) : "negócios e serviços";
     const queryPart = query ? ` para ${query}` : "";
 
     setSeoMeta(
       `${baseTitle}${cityText} | Caramelinho.com`,
-      `Encontre ${categoryText}${cityText}${queryPart}. Compare opÃ§Ãµes perto de vocÃª e fale direto com os negÃ³cios.`
+      `Encontre ${categoryText}${cityText}${queryPart}. Compare opções perto de você e fale direto com os negócios.`
     );
   }, [query, categoryFilter, cityFilter]);
 
@@ -385,7 +410,7 @@ export default function SearchResults() {
       });
     }
 
-    // ExpansÃ£o progressiva quando zera: 50km (padrÃ£o) -> 150km -> estado/provÃ­ncia.
+    // Expansão progressiva quando zera: 50km (padrão) -> 150km -> estado/província.
     if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
       const baseScoped = baseBusinesses.filter((b) => {
         const passesQuery = !query || matchesBusinessTextQuery(b, normalizeText(query));
@@ -566,26 +591,26 @@ export default function SearchResults() {
         params.set("raio", "50");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("LocalizaÃ§Ã£o exata bloqueada. Usei localizaÃ§Ã£o aproximada por IP.");
+        window.alert("Localização exata bloqueada. Usei localização aproximada por IP.");
         return;
       }
       if (!window.isSecureContext) {
-        window.alert("GeolocalizaÃ§Ã£o exige contexto seguro. Abra em localhost ou HTTPS.");
+        window.alert("Geolocalização exige contexto seguro. Abra em localhost ou HTTPS.");
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("PermissÃ£o de localizaÃ§Ã£o negada pelo navegador/dispositivo.");
+        window.alert("Permissão de localização negada pelo navegador/dispositivo.");
         return;
       }
       if (geoError?.code === 2) {
-        window.alert("LocalizaÃ§Ã£o indisponÃ­vel no momento. Tente novamente em alguns segundos.");
+        window.alert("Localização indisponível no momento. Tente novamente em alguns segundos.");
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localizaÃ§Ã£o. Tente novamente.");
+        window.alert("Tempo esgotado para obter localização. Tente novamente.");
         return;
       }
-      window.alert("NÃ£o consegui acessar sua localizaÃ§Ã£o. Verifique bloqueadores/extensÃµes e permissÃµes do navegador.");
+      window.alert("Não consegui acessar sua localização. Verifique bloqueadores/extensões e permissões do navegador.");
       return;
     }
 
@@ -951,14 +976,16 @@ export default function SearchResults() {
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
-          {isEventMode
+          {initialLoading
+            ? "Carregando resultados..."
+            : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
-            : `${results.length} negacio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
+            : `${results.length} neg?cio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
-          {effectiveRadiusKm && <> em ata <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localizaÃ§Ã£o para usar raio</>}
-          {resolvingLocation && <> localizando referÃªncia...</>}
+          {effectiveRadiusKm && <> em at? <strong>{effectiveRadiusKm} km</strong></>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localização para usar raio</>}
+          {resolvingLocation && <> localizando referência...</>}
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
@@ -969,7 +996,7 @@ export default function SearchResults() {
           </aside>
 
           <div>
-            {(isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!initialLoading && (isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -985,9 +1012,19 @@ export default function SearchResults() {
                       )}
                       <Button onClick={() => navigate("/")}>
                         <PawPrint className="w-4 h-4 mr-2" />
-                        Voltar ao InÃ­cio
+                        Voltar ao Início
                       </Button>
                     </div>
+                  </div>
+                </div>
+              </div>
+            ) : initialLoading ? (
+              <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                  <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0 animate-pulse" />
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-foreground mb-2">Carregando resultados...</h2>
+                    <p className="text-muted-foreground">Aguarde um instante enquanto preparamos os negócios para você.</p>
                   </div>
                 </div>
               </div>

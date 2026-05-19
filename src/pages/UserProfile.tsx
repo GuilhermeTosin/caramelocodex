@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   PawPrint,
@@ -67,6 +67,7 @@ import {
   deleteConversation,
 } from "@/services/messages";
 import {
+  createBusiness,
   getBusinessesByOwner,
   getAllBusinesses,
   getReviewsByUser,
@@ -164,6 +165,7 @@ export default function UserProfile() {
 
   // Businesses
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
+  const [creatingBusiness, setCreatingBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [couponBusiness, setCouponBusiness] = useState<BusinessFrontend | null>(null);
   const [menuBusiness, setMenuBusiness] = useState<BusinessFrontend | null>(null);
@@ -591,8 +593,8 @@ export default function UserProfile() {
       toast.info("Este negócio já possui uma solicitação de verificação pendente.");
       return;
     }
-    if (verificationBusiness.reviews.length < 1) {
-      toast.error("Seu negócio precisa ter pelo menos 1 avaliação para solicitar verificação.");
+    if (verificationBusiness.reviews.length < 5) {
+      toast.error("Seu negócio precisa ter pelo menos 5 avaliações para solicitar verificação.");
       return;
     }
     if (!verificationBusiness.instagram?.trim()) {
@@ -927,6 +929,43 @@ export default function UserProfile() {
     setExistingPhotos(biz.photos || []);
   };
 
+  const handleOpenCreateBusiness = () => {
+    setCreatingBusiness(true);
+    setEditingBusiness(null);
+    setEditFormData({
+      name: "",
+      category: "",
+      description: "",
+      phone: "",
+      email: "",
+      website: "",
+      street: "",
+      city: "",
+      state: "",
+      stateCode: "",
+      country: "",
+      countryCode: "",
+      postalCode: "",
+      services: "",
+      lat: 0,
+      lng: 0,
+      instagram: "",
+      facebook: "",
+      whatsapp: "",
+      menu: [],
+      menuPdfUrl: "",
+      isBrazilianOwned: false,
+      servesPortuguese: true,
+      keywords: "",
+    });
+    setEditBusinessHours(createDefaultBusinessHours());
+    setExistingPhotos([]);
+    setEditLogoFile(null);
+    setEditHeroFile(null);
+    setEditPhotoFiles([]);
+    setEditMenuPdfFile(null);
+  };
+
   const handleEditInputChange = (field: string, value: string) => {
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -1017,7 +1056,9 @@ export default function UserProfile() {
   };
 
   const handleSaveBusiness = async () => {
-    if (!editingBusiness || !session) return;
+    if (!session) return;
+    const isCreateMode = creatingBusiness;
+    if (!isCreateMode && !editingBusiness) return;
     if (!editFormData.name || !editFormData.category || !editFormData.description) {
       toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
@@ -1064,36 +1105,62 @@ export default function UserProfile() {
     };
 
     setIsUploading(true);
-    if (editLogoFile) {
-      const path = generateImagePath(editingBusiness.id, "logo", editLogoFile.name);
+    let targetBusinessId = editingBusiness?.id || "";
+    let ok = false;
+
+    if (isCreateMode) {
+      const created = await createBusiness(session.userId, {
+        ...updates,
+        photos: existingPhotos,
+      });
+      if (!created) {
+        toast.error("Erro ao criar negócio.");
+        setIsUploading(false);
+        return;
+      }
+      targetBusinessId = created.id;
+      ok = true;
+    }
+
+    if (editLogoFile && targetBusinessId) {
+      const path = generateImagePath(targetBusinessId, "logo", editLogoFile.name);
       const url = await uploadImage("business-images", path, editLogoFile);
       if (url) updates.logoUrl = url;
     }
-    if (editHeroFile) {
-      const path = generateImagePath(editingBusiness.id, "hero", editHeroFile.name);
+    if (editHeroFile && targetBusinessId) {
+      const path = generateImagePath(targetBusinessId, "hero", editHeroFile.name);
       const url = await uploadImage("business-images", path, editHeroFile);
       if (url) updates.heroImage = url;
     }
     updates.photos = existingPhotos;
-    if (editPhotoFiles.length > 0) {
+    if (editPhotoFiles.length > 0 && targetBusinessId) {
       const uploadedPhotos: string[] = [];
       for (const file of editPhotoFiles) {
-        const path = generateImagePath(editingBusiness.id, "photo", file.name);
+        const path = generateImagePath(targetBusinessId, "photo", file.name);
         const url = await uploadImage("business-images", path, file);
         if (url) uploadedPhotos.push(url);
       }
       updates.photos = [...existingPhotos, ...uploadedPhotos];
     }
-    if (getCategoryId(editFormData.category) === "food" && editMenuPdfFile) {
-      const path = generateImagePath(editingBusiness.id, "menu", editMenuPdfFile.name);
+    if (getCategoryId(editFormData.category) === "food" && editMenuPdfFile && targetBusinessId) {
+      const path = generateImagePath(targetBusinessId, "menu", editMenuPdfFile.name);
       const url = await uploadImage("business-images", path, editMenuPdfFile);
       if (url) updates.menuPdfUrl = url;
     }
-    const ok = await updateBusiness(editingBusiness.id, {
-      ...updates,
-    });
+
+    if (isCreateMode) {
+      ok = await updateBusiness(targetBusinessId, { ...updates });
+    } else if (editingBusiness) {
+      ok = await updateBusiness(editingBusiness.id, { ...updates });
+    }
+
     if (ok) {
-      toast.success(`"${editFormData.name}" atualizado com sucesso!`);
+      toast.success(
+        isCreateMode
+          ? `"${editFormData.name}" criado com sucesso!`
+          : `"${editFormData.name}" atualizado com sucesso!`
+      );
+      setCreatingBusiness(false);
       setEditingBusiness(null);
       setEditLogoFile(null);
       setEditHeroFile(null);
@@ -1101,7 +1168,7 @@ export default function UserProfile() {
       setEditMenuPdfFile(null);
       getBusinessesByOwner(session.userId).then(setMyBusinesses);
     } else {
-      toast.error("Erro ao atualizar negócio.");
+      toast.error(isCreateMode ? "Erro ao criar negócio." : "Erro ao atualizar negócio.");
     }
     setIsUploading(false);
   };
@@ -1430,6 +1497,20 @@ export default function UserProfile() {
     setCouponBusiness(null);
   };
 
+  const handleOpenPdfPrivately = async (pdfUrl: string) => {
+    try {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error("Falha ao carregar PDF");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      console.error("Erro ao abrir PDF privado:", error);
+      toast.error("Não foi possível abrir o PDF agora.");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1717,9 +1798,12 @@ export default function UserProfile() {
           <TabsContent value="negocios">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold">Meus Negócios</h2>
-              <Button size="sm" onClick={() => navigate("/cadastro")}>
+              <Button
+                size="sm"
+                onClick={handleOpenCreateBusiness}
+              >
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Gerenciar Negócios
+                Adicionar Novo Negócio
               </Button>
             </div>
 
@@ -1727,13 +1811,13 @@ export default function UserProfile() {
               <Card className="p-8 text-center border-border">
                 <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
-                <Button onClick={() => navigate("/cadastro")}>
+                <Button onClick={handleOpenCreateBusiness}>
                   <Plus className="w-4 h-4 mr-2" />
                   Cadastrar Negócio
                 </Button>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div id="meus-negocios-lista" className="space-y-4">
                 {myBusinesses.map((biz) => (
                   <Card key={biz.id} className="p-4 border-border">
                     <div className="flex items-start gap-4">
@@ -3058,7 +3142,15 @@ export default function UserProfile() {
           </DialogContent>
         </Dialog>
         
-        <Dialog open={!!editingBusiness} onOpenChange={(open) => !open && setEditingBusiness(null)}>
+        <Dialog
+          open={creatingBusiness || !!editingBusiness}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCreatingBusiness(false);
+              setEditingBusiness(null);
+            }
+          }}
+        >
           <DialogContent
             className="max-w-2xl h-[85vh] flex flex-col overflow-hidden"
             onPointerDownOutside={(e) => {
@@ -3075,7 +3167,7 @@ export default function UserProfile() {
             }}
           >
             <DialogHeader>
-              <DialogTitle>Editar {editFormData.name || "Negócio"}</DialogTitle>
+              <DialogTitle>{creatingBusiness ? "Adicionar Novo Negócio" : `Editar ${editFormData.name || "Negócio"}`}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
@@ -3368,7 +3460,7 @@ export default function UserProfile() {
               <Label>Endereço</Label>
               <div className="mt-1.5">
                 <AddressAutocomplete
-                  key={editingBusiness?.id}
+                  key={creatingBusiness ? "new-business-address" : editingBusiness?.id}
                   value={editFormData.street}
                   onChange={(val) => handleEditInputChange("street", val)}
                   onPlaceSelected={handleEditPlaceSelected}
@@ -3384,11 +3476,18 @@ export default function UserProfile() {
             </div>
 
           <div className="flex gap-3 justify-end border-t border-border bg-white px-1 pt-3 pb-1">
-              <Button variant="outline" onClick={() => setEditingBusiness(null)} disabled={isUploading}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCreatingBusiness(false);
+                  setEditingBusiness(null);
+                }}
+                disabled={isUploading}
+              >
                 Cancelar
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveBusiness} disabled={isUploading}>
-                {isUploading ? "Enviando Imagens..." : "Salvar Alterações"}
+                {isUploading ? "Enviando Imagens..." : creatingBusiness ? "Criar Negócio" : "Salvar Alterações"}
               </Button>
             </div>
           </DialogContent>
@@ -3651,9 +3750,13 @@ export default function UserProfile() {
                   )}
                   {menuPdfUrl && (
                     <div className="flex items-center gap-3">
-                      <a href={menuPdfUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+                      <button
+                        type="button"
+                        className="text-xs text-primary underline"
+                        onClick={() => handleOpenPdfPrivately(menuPdfUrl)}
+                      >
                         Ver PDF atual
-                      </a>
+                      </button>
                       <Button
                         type="button"
                         size="sm"
@@ -4096,7 +4199,7 @@ export default function UserProfile() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Requisitos: mínimo de 1 avaliação e Instagram do negócio configurado.
+                Requisitos: mínimo de 5 avaliações e Instagram do negócio configurado.
               </div>
               <div className="text-sm text-muted-foreground">
                 Negócio: <strong>{verificationBusiness?.name}</strong><br />
