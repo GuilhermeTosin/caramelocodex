@@ -846,14 +846,14 @@ export default function SearchResults() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-4">
               {session ? (
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Link to="/perfil?tab=mensagens" className="relative group">
                     <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
-                      <MessageCircle className="w-4 h-4" />
+                      <MessageCircle className="w-5 h-5" />
                       {unreadMessages > 0 && (
-                        <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
                           {unreadMessages > 9 ? "9+" : unreadMessages}
                         </span>
                       )}
@@ -871,10 +871,10 @@ export default function SearchResults() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Link to="/entrar">
-                    <Button variant="ghost" size="sm" className="rounded-full">Entrar</Button>
+                    <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground hover:text-foreground">Entrar</Button>
                   </Link>
                   <Link to="/cadastro">
-                    <Button size="sm" className="!rounded-xl px-5 caramelo-gradient text-white border-0">
+                    <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
                       Cadastrar
                     </Button>
                   </Link>

@@ -197,7 +197,7 @@ export default function Home() {
                   </Link>
                   <Link to="/cadastro">
                     <Button size="sm" className="px-6 caramelo-gradient text-white border-0" style={{ borderRadius: "12px" }}>
-                      Cadastrar negócio
+                      Cadastrar
                     </Button>
                   </Link>
                 </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
@@ -503,30 +503,32 @@ export default function BusinessPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <Tabs key={initialTab} defaultValue={initialTab} className="w-full">
-              <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent h-auto p-0">
-                <TabsTrigger value="about" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+              <div className="relative">
+                <div className="-mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
+              <TabsList className="w-max min-w-full justify-start border-b border-border rounded-none bg-transparent h-auto p-0">
+                <TabsTrigger value="about" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Sobre
                 </TabsTrigger>
                 {getCategoryId(business.category) !== "food" && hasServiceItems && (
-                  <TabsTrigger value="services" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <TabsTrigger value="services" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     Serviços
                   </TabsTrigger>
                 )}
                 {(business.menu && business.menu.length > 0) || !!business.menuPdfUrl ? (
-                  <TabsTrigger value="menu" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <TabsTrigger value="menu" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     Cardápio
                   </TabsTrigger>
                 ) : null}
-                <TabsTrigger value="photos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                <TabsTrigger value="photos" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Fotos
                 </TabsTrigger>
                 {activePromotions.length > 0 && (
-                  <TabsTrigger value="promotions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <TabsTrigger value="promotions" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     Promoções
                   </TabsTrigger>
                 )}
                 {upcomingEvents.length > 0 && (
-                  <TabsTrigger value="events" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                  <TabsTrigger value="events" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                     <span className="inline-flex items-center gap-2">
                       <CalendarDays className="w-4 h-4 text-amber-600" />
                       Eventos
@@ -536,10 +538,13 @@ export default function BusinessPage() {
                     </span>
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
+                <TabsTrigger value="reviews" className="shrink-0 whitespace-nowrap rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent pb-3 px-4">
                   Avaliações
                 </TabsTrigger>
               </TabsList>
+                </div>
+                <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
+              </div>
 
               <TabsContent value="about" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-3">Sobre {business.name}</h2>
@@ -1221,6 +1226,8 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
+
+
 
 
 
