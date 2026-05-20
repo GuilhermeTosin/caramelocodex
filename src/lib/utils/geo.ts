@@ -1,7 +1,7 @@
-import { utf8Fetch } from "@/lib/http/utf8";
+﻿import { utf8Fetch } from "@/lib/http/utf8";
 
 /**
- * Calcula a distância entre dois pontos (lat/lng) em quilômetros usando a fórmula de Haversine.
+ * Calcula a distÃ¢ncia entre dois pontos (lat/lng) em quilÃ´metros usando a fÃ³rmula de Haversine.
  */
 export function calculateDistance(
   lat1: number,
@@ -23,7 +23,7 @@ export function calculateDistance(
 }
 
 /**
- * Obtém a localização atual do usuário via API do Navegador.
+ * ObtÃ©m a localizaÃ§Ã£o atual do usuÃ¡rio via API do Navegador.
  */
 export function getCurrentPosition(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
@@ -48,49 +48,36 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number } | nul
 }
 
 /**
- * Obtém localização aproximada por IP (fallback quando geolocalização do navegador falha).
+ * ObtÃ©m localizaÃ§Ã£o aproximada por IP (fallback quando geolocalizaÃ§Ã£o do navegador falha).
  */
 export async function getApproxPositionByIp(): Promise<{ lat: number; lng: number } | null> {
-  const providers: Array<() => Promise<{ lat: number; lng: number } | null>> = [
-    async () => {
-      const res = await utf8Fetch("https://ipapi.co/json/");
-      if (!res.ok) return null;
-      const data = await res.json();
-      const lat = Number(data?.latitude);
-      const lng = Number(data?.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      return { lat, lng };
-    },
-    async () => {
-      const res = await utf8Fetch("https://ipwho.is/");
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data?.success === false) return null;
-      const lat = Number(data?.latitude);
-      const lng = Number(data?.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      return { lat, lng };
-    },
-    async () => {
-      const res = await utf8Fetch("https://ipinfo.io/json");
-      if (!res.ok) return null;
-      const data = await res.json();
-      const loc = String(data?.loc || "");
+  const endpoint = (import.meta.env.VITE_GEOIP_ENDPOINT || "").trim();
+  if (!endpoint) return null;
+
+  try {
+    const res = await utf8Fetch(endpoint);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    const directLat = Number(data?.lat ?? data?.latitude);
+    const directLng = Number(data?.lng ?? data?.longitude);
+    if (Number.isFinite(directLat) && Number.isFinite(directLng)) {
+      return { lat: directLat, lng: directLng };
+    }
+
+    const loc = String(data?.loc || "");
+    if (loc.includes(",")) {
       const [latRaw, lngRaw] = loc.split(",");
       const lat = Number(latRaw);
       const lng = Number(lngRaw);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-      return { lat, lng };
-    },
-  ];
-
-  for (const provider of providers) {
-    try {
-      const coords = await provider();
-      if (coords) return coords;
-    } catch {
-      // tenta próximo provedor
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng };
+      }
     }
+
+    return null;
+  } catch {
+    return null;
   }
-  return null;
 }
+

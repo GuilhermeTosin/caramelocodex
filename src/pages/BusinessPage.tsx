@@ -472,7 +472,7 @@ export default function BusinessPage() {
         <img src={business.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&q=80"} alt={business.name} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-end gap-6">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-end gap-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white bg-white shrink-0">
               <img src={business.logoUrl || "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80"} alt="" className="w-full h-full object-cover" />
             </div>
@@ -1221,7 +1221,6 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
-
 
 
 
