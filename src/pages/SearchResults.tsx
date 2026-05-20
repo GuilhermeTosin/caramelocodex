@@ -230,19 +230,30 @@ export default function SearchResults() {
         if (eventsRes.status === "fulfilled") {
           setCommunityEvents(eventsRes.value);
         }
-
-        const coords = await getCurrentPosition();
-        if (coords) {
-          setUserCoords(coords);
-          return;
-        }
-        const approx = await getApproxPositionByIp();
-        if (approx) setUserCoords(approx);
       } finally {
         setInitialLoading(false);
       }
     };
     loadInitialData();
+  }, []);
+
+  // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const coords = await getCurrentPosition();
+      if (cancelled) return;
+      if (coords) {
+        setUserCoords(coords);
+        return;
+      }
+      const approx = await getApproxPositionByIp();
+      if (cancelled) return;
+      if (approx) setUserCoords(approx);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

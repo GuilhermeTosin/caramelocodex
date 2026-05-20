@@ -55,7 +55,10 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
   if (!endpoint) return null;
 
   try {
-    const res = await utf8Fetch(endpoint);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    const res = await utf8Fetch(endpoint, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!res.ok) return null;
     const data = await res.json();
 
