@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions"
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
 import { getPublishedCommunityEvents } from "@/services/events";
+import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
@@ -136,6 +137,8 @@ const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
 };
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
+const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
+const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
   "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
@@ -189,6 +192,9 @@ export default function SearchResults() {
   const [locatingMe, setLocatingMe] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
+    getCategorySynonymsConfig()
+  );
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
@@ -237,6 +243,19 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    getGlobalCategorySynonymsConfig().then((cfg) => {
+      if (alive) setCategorySynonymsMap(cfg);
+    });
+    const sync = () => setCategorySynonymsMap(getCategorySynonymsConfig());
+    window.addEventListener("storage", sync);
+    return () => {
+      alive = false;
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -315,7 +334,7 @@ export default function SearchResults() {
 
   // Regra de prioridade para distancia:
   // 1) Se o usuario definiu cidade, usamos apenas essa referencia (sem fallback para GPS).
-  // 2) Se nao definiu cidade, usamos a localizacao atual do usuario.
+  // 2) Se não definiu cidade, usamos a localizacao atual do usuario.
   const hasTypedLocation = !!locationFilter.trim();
   const distanceOrigin = hasTypedLocation ? (selectedOriginCoords || locationCoords) : userCoords;
   const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter || eventsFilter);
@@ -355,24 +374,14 @@ export default function SearchResults() {
 
     if (query) {
       const q = normalizeText(query);
-      // Buscar sinanimos e palavras-chave da categoria
+      // Buscar sinônimos e palavras-chave da categoria
       const relatedTerms = SEARCH_SYNONYMS[q] || [];
       
-      filtered = filtered.filter(
-        (b) => {
-          const catKeywords = CATEGORY_KEYWORDS[b.category] || [];
-          
-          return (
-            matchesBusinessTextQuery(b, q) ||
-            // Checar contra palavras-chave automaticas da categoria
-            catKeywords.some(kw => normalizeText(kw).includes(q)) ||
-            // Checar contra o mapa de sinanimos (termo buscado -> termos relacionados)
-            relatedTerms.some(term => 
-              matchesBusinessTextQuery(b, normalizeText(term))
-            )
-          );
-        }
-      );
+      filtered = filtered.filter((b) => {
+        const effectiveKeywords = getEffectiveCategoryKeywords(b.category, categorySynonymsMap);
+        const score = getBusinessMatchScore(b, q, effectiveKeywords, relatedTerms);
+        return STRICT_SEARCH_MODE ? score >= STRICT_SEARCH_MIN_SCORE : score > 0;
+      });
     }
 
     if (categoryFilter) {
@@ -387,7 +396,7 @@ export default function SearchResults() {
     }
 
     // Se ha referencia geografica (origem + raio efetivo), a cidade vira ponto de origem
-    // e nao filtro estrito por nome. Sem origem, mantemos o filtro por cidade.
+    // e não filtro estrito por nome. Sem origem, mantemos o filtro por cidade.
     if (cityFilter && !(distanceOrigin && effectiveRadiusKm)) {
       filtered = filtered.filter(
         (b) => cityMatches(b.address.city || "", cityFilter)
@@ -450,7 +459,7 @@ export default function SearchResults() {
         radiusKm
       );
 
-      // Sa aplicamos fallback amplo quando nao ha filtros "duros".
+      // Sa aplicamos fallback amplo quando não ha filtros "duros".
       // Assim evitamos transformar uma categoria sem resultados em "todas as categorias".
       if (!hasHardFilters && locationFilter.trim()) {
         const normalizedLocal = normalizeText(locationFilter);
@@ -480,7 +489,7 @@ export default function SearchResults() {
     }
 
     return filtered;
-  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter]);
+  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter, categorySynonymsMap]);
 
   const eventResults = useMemo(() => {
     if (!isEventMode) return [];
@@ -824,24 +833,24 @@ export default function SearchResults() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20 sm:h-24">
+          <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
                 <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
-              <div className="leading-tight">
-                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
+              <div className="leading-tight min-w-0">
+                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               {session ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <Link to="/perfil?tab=mensagens" className="relative group">
-                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary">
+                    <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
                       <MessageCircle className="w-4 h-4" />
                       {unreadMessages > 0 && (
                         <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
@@ -851,11 +860,11 @@ export default function SearchResults() {
                     </Button>
                   </Link>
                   <Link to="/perfil">
-                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-2 px-4">
+                    <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
                       <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
                         <User className="w-3 h-3 text-primary" />
                       </div>
-                      <span className="font-medium">{session.name.split(" ")[0]}</span>
+                      <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session.name.split(" ")[0]}</span>
                     </Button>
                   </Link>
                 </div>
@@ -877,13 +886,14 @@ export default function SearchResults() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSearch} className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center bg-white rounded-xl border-2 border-border shadow-sm focus-within:ring-2 ring-primary/20 transition-all w-full overflow-visible">
+        <form onSubmit={handleSearch} className="mb-6 sm:mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-0 rounded-2xl lg:rounded-xl border border-border lg:border-2 bg-white shadow-xl lg:shadow-sm focus-within:ring-2 ring-primary/20 transition-all w-full overflow-visible p-2 lg:p-0">
             <SearchInputWithSuggestions
               value={searchInput}
               onChange={setSearchInput}
               suggestions={searchSuggestions}
-              placeholder="Buscar por nome, serviço..."
+              disableLocalSuggestions
+              placeholder="Buscar por produto ou serviço (Ex: coxinha)"
               icon="search"
               onSubmit={(selectedValue) => {
                 const nextValue = selectedValue ?? searchInput;
@@ -892,14 +902,16 @@ export default function SearchResults() {
                 else params.delete("q");
                 setSearchParams(params);
               }}
-              className="!h-12"
+              className="rounded-xl lg:rounded-none lg:!h-12"
+              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
             />
-            <div className="hidden lg:block w-px h-8 bg-border" />
+            <div className="hidden lg:block w-px h-8 bg-border self-center" />
+            <div className="lg:hidden h-px bg-border/50 mx-1" />
             <SearchInputWithSuggestions
               value={locationInput}
               onChange={setLocationInput}
               suggestions={citySuggestions}
-              placeholder="Onde? Cidade, bairro ou endereço"
+              placeholder="Em qual cidade?"
               icon="location"
               onSubmit={(selectedValue, meta) => {
                 const nextValue = selectedValue ?? locationInput;
@@ -908,7 +920,7 @@ export default function SearchResults() {
                 if (nextValue.trim()) {
                   params.set("local", nextValue.trim());
                   params.set("cidade", nextValue.trim());
-                  // A cidade da barra principal nao deve impor filtros administrativos,
+                  // A cidade da barra principal não deve impor filtros administrativos,
                   // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
                   params.delete("pais");
                   params.delete("estado");
@@ -934,17 +946,18 @@ export default function SearchResults() {
                 }
                 setSearchParams(params);
               }}
-              className="!h-12"
+              className="rounded-xl lg:rounded-none lg:!h-12"
+              inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
             />
-            <div className="p-2">
-              <Button type="submit" size="sm" className="caramelo-gradient text-white border-0 w-full lg:w-auto !rounded-xl">
+            <div className="pt-2 lg:p-2 flex items-center">
+              <Button type="submit" size="sm" className="w-full lg:w-auto caramelo-gradient text-white border-0 !rounded-xl">
                 Farejar
               </Button>
             </div>
           </div>
         </form>
 
-        <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
           <Button
             type="button"
             variant="outline"
@@ -959,16 +972,16 @@ export default function SearchResults() {
             <SlidersHorizontal className="w-4 h-4" />
             Filtros
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9" disabled={locatingMe}>
+          <div className="w-full sm:w-auto sm:ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleLocateMe} className="h-9 flex-1 sm:flex-none" disabled={locatingMe}>
               <Navigation className="w-4 h-4 mr-1" />
               {locatingMe ? "Localizando..." : "Me localizar"}
             </Button>
-            <Button variant={showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(true)} className="h-9">
+            <Button variant={showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(true)} className="h-9 flex-1 sm:flex-none">
               <MapIcon className="w-4 h-4 mr-1" />
               Mapa
             </Button>
-            <Button variant={!showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(false)} className="h-9">
+            <Button variant={!showMap ? "default" : "outline"} size="sm" onClick={() => setShowMap(false)} className="h-9 flex-1 sm:flex-none">
               <List className="w-4 h-4 mr-1" />
               Lista
             </Button>
@@ -980,10 +993,10 @@ export default function SearchResults() {
             ? "Carregando resultados..."
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
-            : `${results.length} neg?cio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
+            : `${results.length} negócio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
-          {effectiveRadiusKm && <> em at? <strong>{effectiveRadiusKm} km</strong></>}
+          {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
           {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localização para usar raio</>}
           {resolvingLocation && <> localizando referência...</>}
         </p>
@@ -1248,6 +1261,30 @@ function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string):
   return terms.every((term) => blob.includes(term));
 }
 
+function getEffectiveCategoryKeywords(
+  businessCategoryLabel: string,
+  categorySynonymsMap: Record<string, string[]>
+): string[] {
+  if (!businessCategoryLabel) return [];
+  const direct = categorySynonymsMap[businessCategoryLabel];
+  if (direct && direct.length > 0) return direct;
+
+  const matchedEntry = Object.entries(categorySynonymsMap).find(([configuredCategory]) =>
+    matchesCategoryFilter(businessCategoryLabel, configuredCategory)
+  );
+  if (matchedEntry && matchedEntry[1].length > 0) return matchedEntry[1];
+
+  const legacy = CATEGORY_KEYWORDS[businessCategoryLabel];
+  return legacy || [];
+}
+
+function matchesNormalizedQueryTokens(targetNormalizedText: string, queryNormalizedText: string): boolean {
+  if (!targetNormalizedText || !queryNormalizedText) return false;
+  const targetTokens = new Set(targetNormalizedText.split(/\s+/).filter(Boolean));
+  const queryTokens = queryNormalizedText.split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return false;
+  return queryTokens.every((token) => targetTokens.has(token));
+}
 
 
 
@@ -1264,6 +1301,26 @@ function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string):
 
 
 
+
+
+
+
+
+
+function getBusinessMatchScore(b: BusinessFrontend, normalizedQuery: string, categoryKeywords: string[], relatedTerms: string[]): number {
+  if (!normalizedQuery) return 1;
+  const directTextMatch = matchesBusinessTextQuery(b, normalizedQuery);
+  const categoryKeywordMatch = (categoryKeywords || []).some((kw) =>
+    matchesNormalizedQueryTokens(normalizeText(kw), normalizedQuery)
+  );
+  const synonymCategoryMatch = (relatedTerms || []).some((term) => matchesCategoryFilter(b.category, term));
+
+  let score = 0;
+  if (directTextMatch) score += 5;
+  if (categoryKeywordMatch) score += 3;
+  if (synonymCategoryMatch) score += 2;
+  return score;
+}
 
 
 

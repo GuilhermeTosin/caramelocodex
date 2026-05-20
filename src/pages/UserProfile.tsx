@@ -96,6 +96,12 @@ import {
 import { archiveReport, getReportsForAdmin, unarchiveReport, updateReportStatus } from "@/services/reports";
 import { getCurrencyPrefixForCountry } from "@/lib/currency";
 import {
+  DEFAULT_CATEGORY_SYNONYMS,
+  getCategorySynonymsConfig,
+  getGlobalCategorySynonymsConfig,
+  saveGlobalCategorySynonymsConfig,
+} from "@/services/searchPreferences";
+import {
   getVerificationRequestsByOwner,
   getPendingVerificationRequestsForAdmin,
   requestBusinessVerification,
@@ -257,6 +263,9 @@ export default function UserProfile() {
     businessId: "none",
   });
   const [verificationAdminView, setVerificationAdminView] = useState<"pendentes" | "verificados">("pendentes");
+  const [searchSynonymsConfig, setSearchSynonymsConfig] = useState<Record<string, string[]>>(getCategorySynonymsConfig());
+  const [searchSynonymsCategory, setSearchSynonymsCategory] = useState<string>(Object.keys(getCategorySynonymsConfig())[0] || "");
+  const [searchSynonymsDraft, setSearchSynonymsDraft] = useState("");
   const [featuredForm, setFeaturedForm] = useState({
     businessId: "",
     scopeType: "city" as FeaturedScopeType,
@@ -269,6 +278,24 @@ export default function UserProfile() {
     priceCents: "",
     notes: "",
   });
+
+  useEffect(() => {
+    let alive = true;
+    getGlobalCategorySynonymsConfig().then((cfg) => {
+      if (!alive) return;
+      setSearchSynonymsConfig(cfg);
+      const first = Object.keys(cfg)[0] || "";
+      setSearchSynonymsCategory((prev) => prev || first);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!searchSynonymsCategory) return;
+    setSearchSynonymsDraft((searchSynonymsConfig[searchSynonymsCategory] || []).join(", "));
+  }, [searchSynonymsCategory, searchSynonymsConfig]);
 
   // Reviews I made (on any business)
   const [givenReviews, setGivenReviews] = useState<(Review & { businessName: string; businessSlug: string; businessId: string })[]>([]);
@@ -546,6 +573,31 @@ export default function UserProfile() {
     }
     toast.success("Denúncia arquivada.");
     loadReportsAdminData(reportsView);
+  };
+
+  const handleSaveSearchSynonyms = async () => {
+    if (!searchSynonymsCategory) return;
+    const next = { ...searchSynonymsConfig };
+    next[searchSynonymsCategory] = searchSynonymsDraft
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const ok = await saveGlobalCategorySynonymsConfig(next);
+    if (!ok) {
+      toast.error("Não foi possível salvar os sinônimos globais.");
+      return;
+    }
+    setSearchSynonymsConfig(next);
+    toast.success("Sinônimos globais da busca salvos.");
+  };
+
+  const handleResetSearchSynonyms = () => {
+    setSearchSynonymsConfig(DEFAULT_CATEGORY_SYNONYMS);
+    void saveGlobalCategorySynonymsConfig(DEFAULT_CATEGORY_SYNONYMS);
+    const first = Object.keys(DEFAULT_CATEGORY_SYNONYMS)[0] || "";
+    setSearchSynonymsCategory(first);
+    setSearchSynonymsDraft((DEFAULT_CATEGORY_SYNONYMS[first] || []).join(", "));
+    toast.success("Sinônimos restaurados para o padrão.");
   };
 
   const handleUnarchiveReport = async (report: BusinessReport) => {
@@ -1559,22 +1611,22 @@ export default function UserProfile() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20 sm:h-24">
+          <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
                 <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
-              <div className="leading-tight">
-                <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-                <div className="text-xs sm:text-sm font-semibold text-foreground/75">{"O SEU FARO FORA DO BRASIL"}</div>
+              <div className="leading-tight min-w-0">
+                <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
+                <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </Link>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Link to="/perfil?tab=mensagens" onClick={() => setActiveTab("mensagens")} className="relative group">
-                  <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary">
+                  <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:bg-secondary w-9 h-9 sm:w-10 sm:h-10">
                     <MessageCircle className="w-5 h-5" />
                     {unreadMessages > 0 && (
                       <span className="absolute top-0 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
@@ -1584,11 +1636,11 @@ export default function UserProfile() {
                   </Button>
                 </Link>
                 <Link to="/perfil">
-                  <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-2 px-4">
+                  <Button variant="outline" size="sm" className="rounded-full border-border hover:bg-secondary gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 sm:h-10">
                     <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="w-3 h-3 text-primary" />
                     </div>
-                    <span className="font-medium">{session?.name?.split(" ")[0] || "Perfil"}</span>
+                    <span className="font-medium max-w-[90px] sm:max-w-none truncate">{session?.name?.split(" ")[0] || "Perfil"}</span>
                   </Button>
                 </Link>
               </div>
@@ -1640,6 +1692,12 @@ export default function UserProfile() {
                       Destaques
                     </TabsTrigger>
                   )}
+                  {isAdmin && (
+                    <TabsTrigger value="busca" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <Search className="w-4 h-4" />
+                      Busca
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="avaliacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <Star className="w-4 h-4" />
                     Avaliações
@@ -1671,8 +1729,8 @@ export default function UserProfile() {
             {/* Tab: Profile */}
             <TabsContent value="perfil" className="mt-0">
             <Card className="p-6 border-border max-w-2xl">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
                     {user.avatar ? (
                       <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
@@ -1680,9 +1738,9 @@ export default function UserProfile() {
                       <User className="w-8 h-8 text-muted-foreground" />
                     )}
                   </div>
-                  <div>
-                    <h1 className="text-xl font-bold">{user.name}</h1>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <div className="min-w-0">
+                    <h1 className="text-xl font-bold truncate">{user.name}</h1>
+                    <p className="text-sm text-muted-foreground break-all sm:break-normal">{user.email}</p>
                   </div>
                 </div>
                 {!isEditing && (
@@ -1692,7 +1750,7 @@ export default function UserProfile() {
                     setEditBio(user.bio);
                     setEditPhone(user.phone);
                     setEditLocation(user.location);
-                  }}>
+                  }} className="self-start sm:self-auto">
                     <Edit3 className="w-3.5 h-3.5 mr-1" />
                     Editar
                   </Button>
@@ -2810,6 +2868,47 @@ export default function UserProfile() {
           )}
 
           {/* Tab: Reviews */}
+
+
+          {isAdmin && (
+            <TabsContent value="busca">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Configuração de Busca</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Edite sin?nimos por categoria para melhorar a relev?ncia dos resultados.</p>
+                </div>
+                <Card className="p-6 border-border space-y-4">
+                  <div>
+                    <Label>Categoria</Label>
+                    <Select value={searchSynonymsCategory} onValueChange={setSearchSynonymsCategory}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(searchSynonymsConfig).map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Sin?nimos (separados por v?rgula)</Label>
+                    <Textarea
+                      value={searchSynonymsDraft}
+                      onChange={(e) => setSearchSynonymsDraft(e.target.value)}
+                      className="mt-1.5 min-h-[120px]"
+                      placeholder="Ex: advogado, jur?dico, imigra??o, tradu??o"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={handleSaveSearchSynonyms}>Salvar sinônimos</Button>
+                    <Button variant="outline" onClick={handleResetSearchSynonyms}>Restaurar padrão</Button>
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
           <TabsContent value="avaliacoes">
             <div className="flex items-center gap-4 mb-6">
               <h2 className="text-lg font-bold">Avaliações</h2>
@@ -4277,15 +4376,18 @@ function serializeBusinessHours(hours: { day: string; enabled: boolean; open: st
   );
 }
 
-function parseBusinessHours(lines: string[]) {
+function parseBusinessHours(lines: string[] = []) {
   const defaults = createDefaultBusinessHours();
   const byDay = new Map(defaults.map((item) => [item.day.toLowerCase(), item]));
   for (const line of lines) {
-    const [rawDay, rawValue] = line.split(":");
+    const separatorIndex = line.indexOf(":");
+    if (separatorIndex <= 0) continue;
+    const rawDay = line.slice(0, separatorIndex).trim();
+    const rawValue = line.slice(separatorIndex + 1).trim();
     if (!rawDay || !rawValue) continue;
     const entry = byDay.get(rawDay.trim().toLowerCase());
     if (!entry) continue;
-    const normalized = rawValue.trim().toLowerCase();
+    const normalized = rawValue.toLowerCase();
     if (normalized.includes("fechado")) {
       entry.enabled = false;
       continue;
@@ -4347,7 +4449,3 @@ function formatIsoToBr(value: string): string {
   if (!m) return v;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
-
-
-
-

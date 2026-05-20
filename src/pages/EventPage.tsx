@@ -52,15 +52,15 @@ export default function EventPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 sm:h-24 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-24 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
               <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
             </div>
-            <div className="leading-tight">
-              <div className="font-extrabold text-xl sm:text-2xl tracking-tight caramelo-text-gradient">Caramelinho</div>
-              <div className="text-xs sm:text-sm font-semibold text-foreground/75">O SEU FARO FORA DO BRASIL</div>
+            <div className="leading-tight min-w-0">
+              <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
+              <div className="text-[10px] sm:text-sm font-semibold text-foreground/75 whitespace-nowrap overflow-hidden text-ellipsis">O SEU FARO FORA DO BRASIL</div>
             </div>
           </Link>
           <Button variant="outline" onClick={() => navigate(-1)}>Voltar</Button>

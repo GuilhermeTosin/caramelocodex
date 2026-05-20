@@ -24,6 +24,7 @@ interface SearchInputWithSuggestionsProps {
   inputClassName?: string;
   useGooglePlaces?: boolean;
   locationBias?: { lat: number; lng: number } | null;
+  disableLocalSuggestions?: boolean;
 }
 
 function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
@@ -54,8 +55,9 @@ export default function SearchInputWithSuggestions({
   inputClassName = "",
   useGooglePlaces = false,
   locationBias = null,
+  disableLocalSuggestions = false,
 }: SearchInputWithSuggestionsProps) {
-  const suggestionsDisabled = false;
+  const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
