@@ -137,9 +137,21 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
         title: biz.name,
       });
 
-      marker.addEventListener("gmp-click", () => {
+      const handleMarkerClick = () => {
         setSelectedId(biz.id);
         navigate(buildMarkerUrl(biz));
+      };
+
+      if (typeof marker.addEventListener === "function") {
+        marker.addEventListener("gmp-click", handleMarkerClick);
+      }
+      if (typeof (marker as any).addListener === "function") {
+        (marker as any).addListener("click", handleMarkerClick);
+      }
+      pinElement.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleMarkerClick();
       });
 
       markersRef.current.push(marker);
