@@ -55,7 +55,7 @@ export async function loadGoogleMapsApi(): Promise<typeof google.maps> {
     };
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,marker&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,marker&loading=async&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {

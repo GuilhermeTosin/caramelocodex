@@ -36,13 +36,6 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
       center: loc,
       zoom,
       mapId: "caramelinho_map",
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }],
-        },
-      ],
       streetViewControl: false,
       mapTypeControl: false,
       fullscreenControl: false,
@@ -144,7 +137,7 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
         title: biz.name,
       });
 
-      marker.addListener("click", () => {
+      marker.addEventListener("gmp-click", () => {
         setSelectedId(biz.id);
         navigate(buildMarkerUrl(biz));
       });
