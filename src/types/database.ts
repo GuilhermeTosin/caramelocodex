@@ -89,6 +89,9 @@ export interface Business {
   menu_pdf_url?: string | null;
   is_brazilian_owned?: boolean;
   serves_portuguese?: boolean;
+  is_vegan_friendly?: boolean;
+  is_vegetarian_friendly?: boolean;
+  is_gluten_free_friendly?: boolean;
   photos: string[];
   phone: string | null;
   email: string | null;
@@ -159,6 +162,9 @@ export interface BusinessFrontend {
   menuPdfUrl?: string;
   isBrazilianOwned: boolean;
   servesPortuguese: boolean;
+  isVeganFriendly: boolean;
+  isVegetarianFriendly: boolean;
+  isGlutenFreeFriendly: boolean;
   photos: string[];
   phone: string;
   email: string;

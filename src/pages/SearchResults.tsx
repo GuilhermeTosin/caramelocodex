@@ -1,6 +1,6 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -1371,6 +1371,28 @@ export default function SearchResults() {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{biz.description}</p>
+                      {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {biz.isVeganFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegan
+                            </span>
+                          ) : null}
+                          {biz.isVegetarianFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegetariano
+                            </span>
+                          ) : null}
+                          {biz.isGlutenFreeFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              <WheatOff className="w-3 h-3" />
+                              Gluten Free
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {biz.services.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-4">
                           {biz.services.slice(0, 3).map((svc) => (
@@ -1462,6 +1484,9 @@ function getBusinessSearchBlob(b: BusinessFrontend): string {
       b.address?.city || "",
       ...(b.services || []),
       ...(b.keywords || []),
+      b.isVeganFriendly ? "vegano vegan" : "",
+      b.isVegetarianFriendly ? "vegetariano vegetarian" : "",
+      b.isGlutenFreeFriendly ? "sem gluten gluten free sem trigo" : "",
       menuText,
     ].join(" ")
   );

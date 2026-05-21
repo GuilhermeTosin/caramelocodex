@@ -1,4 +1,4 @@
-﻿import { utf8Fetch } from "@/lib/http/utf8";
+import { utf8Fetch } from "@/lib/http/utf8";
 
 /**
  * Calcula a distÃ¢ncia entre dois pontos (lat/lng) em quilÃ´metros usando a fÃ³rmula de Haversine.

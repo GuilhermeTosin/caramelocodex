@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   BadgeCheck,
@@ -22,6 +22,8 @@ import {
   Link2,
   CalendarDays,
   Ticket,
+  Leaf,
+  WheatOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -548,6 +550,28 @@ export default function BusinessPage() {
 
               <TabsContent value="about" className="mt-6">
                 <h2 className="text-xl font-bold text-foreground mb-3">Sobre {business.name}</h2>
+                {business.categoryId === "food" && (business.isVeganFriendly || business.isVegetarianFriendly || business.isGlutenFreeFriendly) ? (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {business.isVeganFriendly ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                        <Leaf className="w-3.5 h-3.5" />
+                        Vegan
+                      </span>
+                    ) : null}
+                    {business.isVegetarianFriendly ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-lime-100 text-lime-800">
+                        <Leaf className="w-3.5 h-3.5" />
+                        Vegetariano
+                      </span>
+                    ) : null}
+                    {business.isGlutenFreeFriendly ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+                        <WheatOff className="w-3.5 h-3.5" />
+                        Gluten Free
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{business.description}</p>
               </TabsContent>
 

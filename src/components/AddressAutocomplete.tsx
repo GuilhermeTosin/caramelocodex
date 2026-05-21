@@ -29,34 +29,34 @@ interface AddressAutocompleteProps {
 const BR_STATE_NAMES: Record<string, string> = {
   "acre": "ac",
   "alagoas": "al",
-  "amapÃ¡": "ap",
+  "amapá": "ap",
   "amazonas": "am",
   "bahia": "ba",
-  "cearÃ¡": "ce",
+  "ceará": "ce",
   "distrito federal": "df",
-  "espÃ­rito santo": "es",
-  "goiÃ¡s": "go",
-  "maranhÃ£o": "ma",
+  "espírito santo": "es",
+  "goiás": "go",
+  "maranhão": "ma",
   "mato grosso": "mt",
   "mato grosso do sul": "ms",
   "minas gerais": "mg",
-  "parÃ¡": "pa",
-  "paraÃ­ba": "pb",
-  "paranÃ¡": "pr",
+  "pará": "pa",
+  "paraíba": "pb",
+  "paraná": "pr",
   "pernambuco": "pe",
-  "piauÃ­": "pi",
+  "piauí": "pi",
   "rio de janeiro": "rj",
   "rio grande do norte": "rn",
   "rio grande do sul": "rs",
-  "rondÃ´nia": "ro",
+  "rondônia": "ro",
   "roraima": "rr",
   "santa catarina": "sc",
-  "sÃ£o paulo": "sp",
+  "são paulo": "sp",
   "sergipe": "se",
   "tocantins": "to",
 };
 
-/** Tenta extrair sigla de estado (provÃ­ncia) de um componente do Google Places.
+/** Tenta extrair sigla de estado (província) de um componente do Google Places.
  * Recebe um array de address_components e retorna { stateCode, state }
  */
 function extractState(
@@ -67,7 +67,7 @@ function extractState(
   if (knownState) return knownState;
   const hasKnownStateList = !!COUNTRIES[countryCode.toLowerCase()]?.states;
 
-  // Prioridade 1: administrative_area_level_1 (ProvÃ­ncia/Estado)
+  // Prioridade 1: administrative_area_level_1 (Província/Estado)
   const level1 = components.find(c => c.types.includes("administrative_area_level_1"));
   if (level1) {
     const name = level1.short_name || level1.long_name;
@@ -89,7 +89,7 @@ function extractState(
     return { stateCode: "", state: "" };
   }
 
-  // Fallback para level 2 se nÃ£o encontrar level 1
+  // Fallback para level 2 se não encontrar level 1
   const level2 = components.find(c => c.types.includes("administrative_area_level_2"));
   if (level2) {
     const name = level2.short_name || level2.long_name;
@@ -102,7 +102,7 @@ function extractState(
   return { stateCode: "", state: "" };
 }
 
-/** Extrai paÃ­s do address_components */
+/** Extrai país do address_components */
 function extractCountry(
   components: google.maps.GeocoderAddressComponent[],
 ): { countryCode: string; country: string } {
@@ -168,7 +168,7 @@ function extractCity(
   const locality = components.find(c => c.types.includes("locality"));
   if (locality) return locality.long_name || "";
 
-  // Prioridade 2: administrative_area_level_2 (Muitas vezes a cidade em certos paÃ­ses)
+  // Prioridade 2: administrative_area_level_2 (Muitas vezes a cidade em certos países)
   const admin2 = components.find(c => c.types.includes("administrative_area_level_2"));
   if (admin2) return admin2.long_name || "";
 
@@ -203,7 +203,7 @@ function extractPostalCode(
   return "";
 }
 
-/** Extrai nome da rua + nÃºmero */
+/** Extrai nome da rua + número */
 function extractStreet(
   components: google.maps.GeocoderAddressComponent[],
 ): string {
@@ -280,7 +280,7 @@ export default function AddressAutocomplete({
   useEffect(() => {
     if (!ready || !inputRef.current) return;
     
-    // Limpar se jÃ¡ existir (para evitar duplicidade em re-renders ou trocas de modal)
+    // Limpar se já existir (para evitar duplicidade em re-renders ou trocas de modal)
     if (autocompleteRef.current) {
       google.maps.event.clearInstanceListeners(autocompleteRef.current);
     }
@@ -312,7 +312,7 @@ export default function AddressAutocomplete({
       onChange(result.formattedAddress);
       onPlaceSelected(result);
 
-      // Esconder dropdown do Google imediatamente apÃ³s seleÃ§Ã£o
+      // Esconder dropdown do Google imediatamente após seleção
       window.requestAnimationFrame(() => {
         inputRef.current?.blur();
         hidePacContainers();
@@ -323,7 +323,7 @@ export default function AddressAutocomplete({
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
-      // Limpeza agressiva ao desmontar (mudar de pÃ¡gina)
+      // Limpeza agressiva ao desmontar (mudar de página)
       const pacContainers = document.querySelectorAll(".pac-container");
       pacContainers.forEach((container) => {
         container.remove();

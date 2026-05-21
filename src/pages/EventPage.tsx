@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, MapPin, Ticket, User } from "lucide-react";
 import { Button } from "@/components/ui/button";

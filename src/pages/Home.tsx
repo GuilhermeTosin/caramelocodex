@@ -1,6 +1,6 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock } from "lucide-react";
+import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -391,6 +391,28 @@ export default function Home() {
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {biz.description}
                     </p>
+                    {biz.categoryId === "food" && (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {biz.isVeganFriendly ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            <Leaf className="w-3 h-3" />
+                            Vegan
+                          </span>
+                        ) : null}
+                        {biz.isVegetarianFriendly ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
+                            <Leaf className="w-3 h-3" />
+                            Vegetariano
+                          </span>
+                        ) : null}
+                        {biz.isGlutenFreeFriendly ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            <WheatOff className="w-3 h-3" />
+                            Gluten Free
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {biz.services.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-3">
                         {biz.services.slice(0, 3).map((svc) => (

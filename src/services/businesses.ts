@@ -235,6 +235,9 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     menuPdfUrl: b.menu_pdf_url || "",
     isBrazilianOwned: !!b.is_brazilian_owned,
     servesPortuguese: !!b.serves_portuguese,
+    isVeganFriendly: !!b.is_vegan_friendly,
+    isVegetarianFriendly: !!b.is_vegetarian_friendly,
+    isGlutenFreeFriendly: !!b.is_gluten_free_friendly,
     photos: b.photos || [],
     phone: b.phone || "",
     email: b.email || "",
@@ -509,6 +512,9 @@ export async function createBusiness(
     menuPdfUrl?: string;
     isBrazilianOwned?: boolean;
     servesPortuguese?: boolean;
+    isVeganFriendly?: boolean;
+    isVegetarianFriendly?: boolean;
+    isGlutenFreeFriendly?: boolean;
     keywords?: string[];
     photos?: string[];
     openingHours?: string[];
@@ -552,6 +558,9 @@ export async function createBusiness(
       menu_pdf_url: data.menuPdfUrl || null,
       is_brazilian_owned: !!data.isBrazilianOwned,
       serves_portuguese: !!data.servesPortuguese,
+      is_vegan_friendly: !!data.isVeganFriendly,
+      is_vegetarian_friendly: !!data.isVegetarianFriendly,
+      is_gluten_free_friendly: !!data.isGlutenFreeFriendly,
       keywords: data.keywords || [],
       photos: data.photos || [],
       opening_hours: data.openingHours || [],
@@ -754,7 +763,7 @@ export function getStateName(countryCode: string, stateCode: string): string {
 export async function getSearchSuggestions(): Promise<string[]> {
   const { data } = await supabase
     .from("businesses")
-    .select("name, keywords, services, city, menu");
+    .select("name, keywords, services, city, menu, is_vegan_friendly, is_vegetarian_friendly, is_gluten_free_friendly");
 
   if (!data) return [];
 
@@ -821,6 +830,18 @@ export async function getSearchSuggestions(): Promise<string[]> {
           addRelevantTokens(String(item.description));
         }
       });
+    }
+    if (b.is_vegan_friendly) {
+      addRawTerm("vegano");
+      addRawTerm("vegan");
+    }
+    if (b.is_vegetarian_friendly) {
+      addRawTerm("vegetariano");
+      addRawTerm("vegetarian");
+    }
+    if (b.is_gluten_free_friendly) {
+      addRawTerm("sem gluten");
+      addRawTerm("gluten free");
     }
   });
 

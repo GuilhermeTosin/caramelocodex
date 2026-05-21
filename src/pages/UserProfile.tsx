@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   PawPrint,
@@ -31,6 +31,8 @@ import {
   BookOpen,
   Flag,
   Lock,
+  Leaf,
+  WheatOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -220,6 +222,9 @@ export default function UserProfile() {
     menuPdfUrl: "",
     isBrazilianOwned: false,
     servesPortuguese: true,
+    isVeganFriendly: false,
+    isVegetarianFriendly: false,
+    isGlutenFreeFriendly: false,
     keywords: "",
   });
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
@@ -372,12 +377,12 @@ export default function UserProfile() {
     e.preventDefault();
     if (!session?.userId) return;
     if (!communityEventForm.title.trim() || !communityEventForm.date || !communityEventForm.location.trim()) {
-      toast.error("Preencha tÃ­tulo, data e local do evento.");
+      toast.error("Preencha título, data e local do evento.");
       return;
     }
     const eventDateIso = parseBrDateToIso(communityEventForm.date);
     if (!eventDateIso) {
-      toast.error("Data invÃ¡lida. Use o formato dd-mm-yyyy.");
+      toast.error("Data inválida. Use o formato dd-mm-yyyy.");
       return;
     }
 
@@ -408,7 +413,7 @@ export default function UserProfile() {
     setSavingCommunityEvent(false);
 
     if (!result.ok) {
-      toast.error(result.error || "NÃ£o foi possÃ­vel criar o evento.");
+      toast.error(result.error || "Não foi possível criar o evento.");
       return;
     }
 
@@ -470,10 +475,10 @@ export default function UserProfile() {
     if (!confirm("Excluir este evento?")) return;
     const result = await deleteCommunityEvent(event.id);
     if (!result.ok) {
-      toast.error(result.error || "NÃ£o foi possÃ­vel excluir o evento.");
+      toast.error(result.error || "Não foi possível excluir o evento.");
       return;
     }
-    toast.success("Evento excluÃ­do.");
+    toast.success("Evento excluído.");
     setMyCommunityEvents((prev) => prev.filter((evt) => evt.id !== event.id));
     if (session?.userId) {
       if (event.business_id) {
@@ -550,28 +555,28 @@ export default function UserProfile() {
   const handleReportStatus = async (id: string, status: BusinessReport["status"]) => {
     const result = await updateReportStatus(id, status);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao atualizar denÃºncia.");
+      toast.error(result.error || "Erro ao atualizar denúncia.");
       return;
     }
-    toast.success("DenÃºncia atualizada.");
+    toast.success("Denúncia atualizada.");
     loadReportsAdminData(reportsView);
   };
 
   const handleArchiveReport = async (report: BusinessReport) => {
     if (!session?.userId) {
-      toast.error("SessÃ£o invÃ¡lida.");
+      toast.error("Sessão inválida.");
       return;
     }
     if (report.status !== "resolved" && report.status !== "rejected") {
-      toast.error("SÃ³ Ã© possÃ­vel arquivar denÃºncias resolvidas ou rejeitadas.");
+      toast.error("Só é possível arquivar denúncias resolvidas ou rejeitadas.");
       return;
     }
     const result = await archiveReport(report.id, session.userId);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao arquivar denÃºncia.");
+      toast.error(result.error || "Erro ao arquivar denúncia.");
       return;
     }
-    toast.success("DenÃºncia arquivada.");
+    toast.success("Denúncia arquivada.");
     loadReportsAdminData(reportsView);
   };
 
@@ -584,11 +589,11 @@ export default function UserProfile() {
       .filter(Boolean);
     const ok = await saveGlobalCategorySynonymsConfig(next);
     if (!ok) {
-      toast.error("NÃ£o foi possÃ­vel salvar os sinÃ´nimos globais.");
+      toast.error("Não foi possível salvar os sinônimos globais.");
       return;
     }
     setSearchSynonymsConfig(next);
-    toast.success("SinÃ´nimos globais da busca salvos.");
+    toast.success("Sinônimos globais da busca salvos.");
   };
 
   const handleResetSearchSynonyms = () => {
@@ -597,16 +602,16 @@ export default function UserProfile() {
     const first = Object.keys(DEFAULT_CATEGORY_SYNONYMS)[0] || "";
     setSearchSynonymsCategory(first);
     setSearchSynonymsDraft((DEFAULT_CATEGORY_SYNONYMS[first] || []).join(", "));
-    toast.success("SinÃ´nimos restaurados para o padrÃ£o.");
+    toast.success("Sinônimos restaurados para o padrão.");
   };
 
   const handleUnarchiveReport = async (report: BusinessReport) => {
     const result = await unarchiveReport(report.id);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao desarquivar denÃºncia.");
+      toast.error(result.error || "Erro ao desarquivar denúncia.");
       return;
     }
-    toast.success("DenÃºncia desarquivada.");
+    toast.success("Denúncia desarquivada.");
     loadReportsAdminData(reportsView);
   };
 
@@ -616,23 +621,23 @@ export default function UserProfile() {
       toast.success(`Ownership transferido para ${request.requester_name || request.requester_email}.`);
       loadOwnershipAdminData();
     } else {
-      toast.error(result.error || "Erro ao aprovar solicitaÃ§Ã£o.");
+      toast.error(result.error || "Erro ao aprovar solicitação.");
     }
   };
 
   const handleRejectOwnership = async (request: OwnerClaimRequest) => {
     const result = await rejectOwnershipRequest(request.id);
     if (result.ok) {
-      toast.success("SolicitaÃ§Ã£o recusada.");
+      toast.success("Solicitação recusada.");
       loadOwnershipAdminData();
     } else {
-      toast.error(result.error || "Erro ao recusar solicitaÃ§Ã£o.");
+      toast.error(result.error || "Erro ao recusar solicitação.");
     }
   };
 
   const handleOpenVerificationModal = (biz: BusinessFrontend) => {
     if (getMyVerificationStatusByBusiness(biz.id) === "pending") {
-      toast.info("Este negÃ³cio jÃ¡ possui uma solicitaÃ§Ã£o de verificaÃ§Ã£o pendente.");
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
       return;
     }
     setInstagramPostUrl("");
@@ -642,15 +647,15 @@ export default function UserProfile() {
   const handleSubmitVerificationRequest = async () => {
     if (!verificationBusiness || !session?.userId) return;
     if (getMyVerificationStatusByBusiness(verificationBusiness.id) === "pending") {
-      toast.info("Este negÃ³cio jÃ¡ possui uma solicitaÃ§Ã£o de verificaÃ§Ã£o pendente.");
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
       return;
     }
     if (verificationBusiness.reviews.length < 5) {
-      toast.error("Seu negÃ³cio precisa ter pelo menos 5 avaliaÃ§Ãµes para solicitar verificaÃ§Ã£o.");
+      toast.error("Seu negócio precisa ter pelo menos 5 avaliações para solicitar verificação.");
       return;
     }
     if (!verificationBusiness.instagram?.trim()) {
-      toast.error("Adicione o Instagram do negÃ³cio antes de solicitar verificaÃ§Ã£o.");
+      toast.error("Adicione o Instagram do negócio antes de solicitar verificação.");
       return;
     }
     if (!instagramPostUrl.trim()) {
@@ -665,13 +670,13 @@ export default function UserProfile() {
     });
     setVerificationSubmitting(false);
     if (!result.ok) {
-      toast.error(result.error || "NÃ£o foi possÃ­vel enviar a solicitaÃ§Ã£o de verificaÃ§Ã£o.");
+      toast.error(result.error || "Não foi possível enviar a solicitação de verificação.");
       return;
     }
     if (session?.userId) {
       getVerificationRequestsByOwner(session.userId).then(setMyVerificationRequests);
     }
-    toast.success("SolicitaÃ§Ã£o de verificaÃ§Ã£o enviada para anÃ¡lise.");
+    toast.success("Solicitação de verificação enviada para análise.");
     setVerificationBusiness(null);
   };
 
@@ -684,7 +689,7 @@ export default function UserProfile() {
     if (!session?.userId) return;
     const statusResult = await setVerificationRequestStatus(request.id, "approved", session.userId);
     if (!statusResult.ok || !statusResult.businessId) {
-      toast.error(statusResult.error || "Erro ao aprovar verificaÃ§Ã£o.");
+      toast.error(statusResult.error || "Erro ao aprovar verificação.");
       return;
     }
     const validUntil = new Date();
@@ -695,10 +700,10 @@ export default function UserProfile() {
       validUntil.toISOString()
     );
     if (!flagResult.ok) {
-      toast.error(flagResult.error || "Aprovado, mas falhou ao atualizar o badge de verificaÃ§Ã£o.");
+      toast.error(flagResult.error || "Aprovado, mas falhou ao atualizar o badge de verificação.");
       return;
     }
-    toast.success("NegÃ³cio verificado com sucesso (validade de 12 meses).");
+    toast.success("Negócio verificado com sucesso (validade de 12 meses).");
     loadVerificationAdminData();
   };
 
@@ -706,21 +711,21 @@ export default function UserProfile() {
     if (!session?.userId) return;
     const result = await setVerificationRequestStatus(request.id, "rejected", session.userId);
     if (!result.ok) {
-      toast.error(result.error || "Erro ao rejeitar verificaÃ§Ã£o.");
+      toast.error(result.error || "Erro ao rejeitar verificação.");
       return;
     }
-    toast.success("SolicitaÃ§Ã£o de verificaÃ§Ã£o rejeitada.");
+    toast.success("Solicitação de verificação rejeitada.");
     loadVerificationAdminData();
   };
 
   const handleRemoveBusinessVerification = async (biz: BusinessFrontend) => {
-    if (!confirm(`Remover o selo de verificaÃ§Ã£o de "${biz.name}"?`)) return;
+    if (!confirm(`Remover o selo de verificação de "${biz.name}"?`)) return;
     const result = await setBusinessVerifiedFlag(biz.id, false);
     if (!result.ok) {
-      toast.error(result.error || "NÃ£o foi possÃ­vel remover a verificaÃ§Ã£o.");
+      toast.error(result.error || "Não foi possível remover a verificação.");
       return;
     }
-    toast.success("VerificaÃ§Ã£o removida com sucesso.");
+    toast.success("Verificação removida com sucesso.");
     const businesses = await getAllBusinesses();
     setAllBusinesses(businesses);
   };
@@ -728,7 +733,7 @@ export default function UserProfile() {
   const handleDirectTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferBusinessId || !transferEmail.trim()) {
-      toast.error("Selecione o negÃ³cio e informe o email do novo dono.");
+      toast.error("Selecione o negócio e informe o email do novo dono.");
       return;
     }
 
@@ -758,7 +763,7 @@ export default function UserProfile() {
   const handleCreateFeaturedPlacement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!featuredForm.businessId) {
-      toast.error("Selecione um negÃ³cio para destacar.");
+      toast.error("Selecione um negócio para destacar.");
       return;
     }
 
@@ -802,7 +807,7 @@ export default function UserProfile() {
   };
 
   const handleDeleteFeaturedPlacement = async (placement: FeaturedPlacementFrontend) => {
-    if (!confirm(`Remover destaque de "${placement.business?.name || "negÃ³cio"}"?`)) return;
+    if (!confirm(`Remover destaque de "${placement.business?.name || "negócio"}"?`)) return;
     const result = await deleteFeaturedPlacement(placement.id);
     if (result.ok) {
       toast.success("Destaque removido.");
@@ -835,7 +840,7 @@ export default function UserProfile() {
       setIsEditing(false);
       setAvatarFile(null);
       toast.success("Perfil atualizado!");
-      await refreshSession(); // Atualiza os dados sem recarregar a pÃ¡gina
+      await refreshSession(); // Atualiza os dados sem recarregar a página
     } else {
       toast.error("Erro ao atualizar perfil.");
     }
@@ -845,7 +850,7 @@ export default function UserProfile() {
   const handleLogout = async () => {
     await logout();
     navigate("/");
-    toast.success("VocÃª saiu da sua conta.");
+    toast.success("Você saiu da sua conta.");
   };
 
   const handleSelectConversation = async (conv: ConversationFrontend) => {
@@ -928,10 +933,10 @@ export default function UserProfile() {
             : r
         )
       );
-      toast.success("AvaliaÃ§Ã£o atualizada!");
+      toast.success("Avaliação atualizada!");
       setEditingReview(null);
     } else {
-      toast.error("Erro ao atualizar avaliaÃ§Ã£o.");
+      toast.error("Erro ao atualizar avaliação.");
       setEditingReview({ ...editingReview, saving: false });
     }
   };
@@ -941,10 +946,10 @@ export default function UserProfile() {
     const ok = await deleteReview(confirmDeleteReview.reviewId);
     if (ok) {
       setGivenReviews((prev) => prev.filter((r) => r.id !== confirmDeleteReview.reviewId));
-      toast.success("AvaliaÃ§Ã£o removida!");
+      toast.success("Avaliação removida!");
       setConfirmDeleteReview(null);
     } else {
-      toast.error("Erro ao remover avaliaÃ§Ã£o.");
+      toast.error("Erro ao remover avaliação.");
       setConfirmDeleteReview(null);
     }
   };
@@ -974,6 +979,9 @@ export default function UserProfile() {
       menuPdfUrl: biz.menuPdfUrl || "",
       isBrazilianOwned: !!biz.isBrazilianOwned,
       servesPortuguese: !!biz.servesPortuguese,
+      isVeganFriendly: !!biz.isVeganFriendly,
+      isVegetarianFriendly: !!biz.isVegetarianFriendly,
+      isGlutenFreeFriendly: !!biz.isGlutenFreeFriendly,
       keywords: (biz.keywords || []).join(", "),
     });
     setEditBusinessHours(parseBusinessHours(biz.openingHours || []));
@@ -1008,6 +1016,9 @@ export default function UserProfile() {
       menuPdfUrl: "",
       isBrazilianOwned: false,
       servesPortuguese: true,
+      isVeganFriendly: false,
+      isVegetarianFriendly: false,
+      isGlutenFreeFriendly: false,
       keywords: "",
     });
     setEditBusinessHours(createDefaultBusinessHours());
@@ -1045,7 +1056,7 @@ export default function UserProfile() {
     const validFiles = files.filter(f => {
       const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
       if (!validTypes.includes(f.type)) {
-        toast.error(`Formato invÃ¡lido: ${f.name}. Use JPG, PNG ou WEBP.`);
+        toast.error(`Formato inválido: ${f.name}. Use JPG, PNG ou WEBP.`);
         return false;
       }
       if (f.size > 5 * 1024 * 1024) {
@@ -1059,7 +1070,7 @@ export default function UserProfile() {
         const existingCount = existingPhotos.length;
         const total = prev.length + validFiles.length + existingCount;
         if (total > 8) {
-          toast.error("Limite mÃ¡ximo de 8 fotos no total.");
+          toast.error("Limite máximo de 8 fotos no total.");
           return [...prev, ...validFiles].slice(0, 8 - existingCount - prev.length);
         }
         return [...prev, ...validFiles];
@@ -1074,7 +1085,7 @@ export default function UserProfile() {
       return;
     }
     if (file.type !== "application/pdf") {
-      toast.error("Formato invÃ¡lido. O cardÃ¡pio completo deve ser um arquivo PDF.");
+      toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
       e.target.value = "";
       return;
     }
@@ -1112,15 +1123,15 @@ export default function UserProfile() {
     const isCreateMode = creatingBusiness;
     if (!isCreateMode && !editingBusiness) return;
     if (!editFormData.name || !editFormData.category || !editFormData.description) {
-      toast.error("Preencha os campos obrigatÃ³rios: Nome, Categoria e DescriÃ§Ã£o");
+      toast.error("Preencha os campos obrigatórios: Nome, Categoria e Descrição");
       return;
     }
     if (!editFormData.phone.trim() || !editFormData.email.trim()) {
-      toast.error("Telefone e Email sÃ£o obrigatÃ³rios.");
+      toast.error("Telefone e Email são obrigatórios.");
       return;
     }
     if (!editFormData.street || !editFormData.city || !editFormData.stateCode) {
-      toast.error("O endereÃ§o completo (Rua, Cidade e Estado) Ã© obrigatÃ³rio.");
+      toast.error("O endereço completo (Rua, Cidade e Estado) é obrigatório.");
       return;
     }
     const services = editFormData.services
@@ -1152,6 +1163,9 @@ export default function UserProfile() {
       menuPdfUrl: getCategoryId(editFormData.category) === "food" ? editFormData.menuPdfUrl : "",
       isBrazilianOwned: false,
       servesPortuguese: false,
+      isVeganFriendly: getCategoryId(editFormData.category) === "food" ? !!editFormData.isVeganFriendly : false,
+      isVegetarianFriendly: getCategoryId(editFormData.category) === "food" ? !!editFormData.isVegetarianFriendly : false,
+      isGlutenFreeFriendly: getCategoryId(editFormData.category) === "food" ? !!editFormData.isGlutenFreeFriendly : false,
       keywords: editFormData.keywords.split(",").map(k => k.trim()).filter(Boolean),
       openingHours: serializeBusinessHours(editBusinessHours),
     };
@@ -1166,7 +1180,7 @@ export default function UserProfile() {
         photos: existingPhotos,
       });
       if (!created) {
-        toast.error("Erro ao criar negÃ³cio.");
+        toast.error("Erro ao criar negócio.");
         setIsUploading(false);
         return;
       }
@@ -1220,7 +1234,7 @@ export default function UserProfile() {
       setEditMenuPdfFile(null);
       getBusinessesByOwner(session.userId).then(setMyBusinesses);
     } else {
-      toast.error(isCreateMode ? "Erro ao criar negÃ³cio." : "Erro ao atualizar negÃ³cio.");
+      toast.error(isCreateMode ? "Erro ao criar negócio." : "Erro ao atualizar negócio.");
     }
     setIsUploading(false);
   };
@@ -1234,11 +1248,11 @@ export default function UserProfile() {
     const ok = await deleteBusiness(deleteTarget.id);
     if (ok) {
       setMyBusinesses((prev) => prev.filter((b) => b.id !== deleteTarget.id));
-      toast.success("NegÃ³cio removido com sucesso!");
+      toast.success("Negócio removido com sucesso!");
       setDeleteTarget(null);
       return;
     }
-    toast.error("Erro ao remover negÃ³cio.");
+    toast.error("Erro ao remover negócio.");
   };
 
   const handleOpenCouponModal = (biz: BusinessFrontend) => {
@@ -1282,7 +1296,7 @@ export default function UserProfile() {
     }
     setMenuNameErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      toast.error("No cardÃ¡pio, o nome do item Ã© obrigatÃ³rio.");
+      toast.error("No cardápio, o nome do item é obrigatório.");
       return;
     }
 
@@ -1300,14 +1314,14 @@ export default function UserProfile() {
     });
     setSavingMenu(false);
     if (!ok) {
-      toast.error("NÃ£o foi possÃ­vel salvar o cardÃ¡pio.");
+      toast.error("Não foi possível salvar o cardápio.");
       return;
     }
 
     setMyBusinesses((prev) =>
       prev.map((b) => (b.id === menuBusiness.id ? { ...b, menu: normalizedMenu, menuPdfUrl: nextMenuPdfUrl } : b))
     );
-    toast.success("CardÃ¡pio salvo com sucesso.");
+    toast.success("Cardápio salvo com sucesso.");
     setMenuBusiness(null);
   };
 
@@ -1338,7 +1352,7 @@ export default function UserProfile() {
     }
     setServiceNameErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      toast.error("Em serviÃ§os, o nome do serviÃ§o Ã© obrigatÃ³rio.");
+      toast.error("Em serviços, o nome do serviço é obrigatório.");
       return;
     }
 
@@ -1353,7 +1367,7 @@ export default function UserProfile() {
     });
     setSavingServices(false);
     if (!ok) {
-      toast.error("NÃ£o foi possÃ­vel salvar os serviÃ§os.");
+      toast.error("Não foi possível salvar os serviços.");
       return;
     }
 
@@ -1364,7 +1378,7 @@ export default function UserProfile() {
           : b
       )
     );
-    toast.success("ServiÃ§os salvos com sucesso.");
+    toast.success("Serviços salvos com sucesso.");
     setServiceBusiness(null);
   };
 
@@ -1414,18 +1428,18 @@ export default function UserProfile() {
       if (!hasAnyData) continue;
 
       if (!evt.title?.trim() || !evt.date?.trim() || !evt.location?.trim()) {
-        toast.error("Nos eventos, preencha pelo menos tÃ­tulo, data e local.");
+        toast.error("Nos eventos, preencha pelo menos título, data e local.");
         setSavingEvents(false);
         return;
       }
       const eventDateIso = parseBrDateToIso(evt.date || "");
       if (!eventDateIso) {
-        toast.error(`Data invÃ¡lida no evento "${evt.title}". Use dd-mm-yyyy.`);
+        toast.error(`Data inválida no evento "${evt.title}". Use dd-mm-yyyy.`);
         setSavingEvents(false);
         return;
       }
       if (!evt.isFree && !evt.price?.trim()) {
-        toast.error(`Informe o preÃ§o do evento "${evt.title}" ou marque entrada franca.`);
+        toast.error(`Informe o preço do evento "${evt.title}" ou marque entrada franca.`);
         setSavingEvents(false);
         return;
       }
@@ -1454,7 +1468,7 @@ export default function UserProfile() {
     const syncResult = await replaceBusinessLinkedEvents(session.userId, eventsBusiness.id, normalizedEvents);
     setSavingEvents(false);
     if (!ok || !syncResult.ok) {
-      toast.error("NÃ£o foi possÃ­vel salvar os eventos.");
+      toast.error("Não foi possível salvar os eventos.");
       return;
     }
     setMyBusinesses((prev) =>
@@ -1469,12 +1483,12 @@ export default function UserProfile() {
 
   const handleAddCoupon = () => {
     if (!couponForm.title.trim() || !couponForm.description.trim() || !couponForm.expiresAt) {
-      toast.error("Preencha tÃ­tulo, descriÃ§Ã£o e data limite antes de adicionar.");
+      toast.error("Preencha título, descrição e data limite antes de adicionar.");
       return;
     }
     const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
     if (!expiresAtIso) {
-      toast.error("Data limite invÃ¡lida. Use o formato dd-mm-yyyy.");
+      toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
       return;
     }
     setCouponItems((prev) => [
@@ -1512,7 +1526,7 @@ export default function UserProfile() {
       !!couponForm.expiresAt;
 
     if (hasDraftField && !isDraftComplete) {
-      toast.error("Complete tÃ­tulo, descriÃ§Ã£o e data limite da promoÃ§Ã£o atual ou limpe-os antes de salvar.");
+      toast.error("Complete título, descrição e data limite da promoção atual ou limpe-os antes de salvar.");
       return;
     }
 
@@ -1520,7 +1534,7 @@ export default function UserProfile() {
     if (isDraftComplete) {
       const expiresAtIso = parseBrDateToIso(couponForm.expiresAt);
       if (!expiresAtIso) {
-        toast.error("Data limite invÃ¡lida. Use o formato dd-mm-yyyy.");
+        toast.error("Data limite inválida. Use o formato dd-mm-yyyy.");
         return;
       }
       promotionsToSave.push({
@@ -1537,7 +1551,7 @@ export default function UserProfile() {
     });
     setSavingCoupon(false);
     if (!ok) {
-      toast.error("NÃ£o foi possÃ­vel salvar a promoÃ§Ã£o. Verifique se a coluna 'promotions' existe na tabela businesses.");
+      toast.error("Não foi possível salvar a promoção. Verifique se a coluna 'promotions' existe na tabela businesses.");
       return;
     }
     setMyBusinesses((prev) =>
@@ -1545,7 +1559,7 @@ export default function UserProfile() {
         b.id === couponBusiness.id ? { ...b, promotions: promotionsToSave } : b
       )
     );
-    toast.success("PromoÃ§Ã£o salva com sucesso.");
+    toast.success("Promoção salva com sucesso.");
     setCouponBusiness(null);
   };
 
@@ -1559,7 +1573,7 @@ export default function UserProfile() {
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (error) {
       console.error("Erro ao abrir PDF privado:", error);
-      toast.error("NÃ£o foi possÃ­vel abrir o PDF agora.");
+      toast.error("Não foi possível abrir o PDF agora.");
     }
   };
 
@@ -1576,7 +1590,7 @@ export default function UserProfile() {
 
   if (!session) return null;
 
-  // Se tem sessÃ£o mas nÃ£o tem perfil, aguarda um curto perÃ­odo antes de mostrar erro
+  // Se tem sessão mas não tem perfil, aguarda um curto período antes de mostrar erro
   if (!user) {
     if (!showMissingProfileError) {
       return (
@@ -1594,8 +1608,8 @@ export default function UserProfile() {
           <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
             <User className="w-8 h-8 text-amber-600" />
           </div>
-          <h1 className="text-xl font-bold mb-2">Ops! Perfil nÃ£o encontrado</h1>
-          <p className="text-muted-foreground mb-6">NÃ£o conseguimos carregar suas informaÃ§Ãµes. Isso pode acontecer se seu perfil ainda nÃ£o foi criado no banco de dados.</p>
+          <h1 className="text-xl font-bold mb-2">Ops! Perfil não encontrado</h1>
+          <p className="text-muted-foreground mb-6">Não conseguimos carregar suas informações. Isso pode acontecer se seu perfil ainda não foi criado no banco de dados.</p>
           <div className="flex flex-col gap-3">
             <Button onClick={() => window.location.reload()} className="w-full caramelo-gradient text-white border-0">
               Tentar Novamente
@@ -1662,7 +1676,7 @@ export default function UserProfile() {
                   </TabsTrigger>
                   <TabsTrigger value="negocios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <Store className="w-4 h-4" />
-                    Meus NegÃ³cios
+                    Meus Negócios
                   </TabsTrigger>
                   <TabsTrigger value="eventos" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <Calendar className="w-4 h-4" />
@@ -1671,7 +1685,7 @@ export default function UserProfile() {
                   {isAdmin && (
                     <TabsTrigger value="verificacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <BadgeCheck className="w-4 h-4" />
-                      VerificaÃ§Ãµes
+                      Verificações
                     </TabsTrigger>
                   )}
                   {isAdmin && (
@@ -1683,7 +1697,7 @@ export default function UserProfile() {
                   {isAdmin && (
                     <TabsTrigger value="denuncias" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <Flag className="w-4 h-4" />
-                      DenÃºncias
+                      Denúncias
                     </TabsTrigger>
                   )}
                   {isAdmin && (
@@ -1700,7 +1714,7 @@ export default function UserProfile() {
                   )}
                   <TabsTrigger value="avaliacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <Star className="w-4 h-4" />
-                    AvaliaÃ§Ãµes
+                    Avaliações
                   </TabsTrigger>
                   <TabsTrigger value="mensagens" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                     <div className="relative">
@@ -1786,7 +1800,7 @@ export default function UserProfile() {
                         className="hidden"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Formatos aceitos: JPG, PNG e WEBP. Tamanho recomendado: 512x512 px. Tamanho mÃ¡ximo: 5MB.
+                        Formatos aceitos: JPG, PNG e WEBP. Tamanho recomendado: 512x512 px. Tamanho máximo: 5MB.
                       </p>
                     </div>
                   </div>
@@ -1805,7 +1819,7 @@ export default function UserProfile() {
                       <Input id="editPhone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="editLocation">LocalizaÃ§Ã£o</Label>
+                      <Label htmlFor="editLocation">Localização</Label>
                       <Input id="editLocation" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="mt-1" />
                     </div>
                   </div>
@@ -1815,7 +1829,7 @@ export default function UserProfile() {
                     </Button>
                     <Button onClick={handleSaveProfile} className="caramelo-gradient text-white border-0" disabled={isUploading}>
                       <Save className="w-4 h-4 mr-2" />
-                      {isUploading ? "Salvando..." : "Salvar AlteraÃ§Ãµes"}
+                      {isUploading ? "Salvando..." : "Salvar Alterações"}
                     </Button>
                   </div>
                 </div>
@@ -1855,23 +1869,23 @@ export default function UserProfile() {
           {/* Tab: My Businesses */}
           <TabsContent value="negocios">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">Meus NegÃ³cios</h2>
+              <h2 className="text-lg font-bold">Meus Negócios</h2>
               <Button
                 size="sm"
                 onClick={handleOpenCreateBusiness}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Adicionar Novo NegÃ³cio
+                Adicionar Novo Negócio
               </Button>
             </div>
 
             {myBusinesses.length === 0 ? (
               <Card className="p-8 text-center border-border">
                 <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground mb-4">VocÃª ainda nÃ£o cadastrou nenhum negÃ³cio.</p>
+                <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
                 <Button onClick={handleOpenCreateBusiness}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Cadastrar NegÃ³cio
+                  Cadastrar Negócio
                 </Button>
               </Card>
             ) : (
@@ -1894,7 +1908,7 @@ export default function UserProfile() {
                           {(() => {
                             const status = getMyVerificationStatusByBusiness(biz.id);
                             if (!status) return null;
-                            if (status === "pending") return <Badge variant="outline">VerificaÃ§Ã£o pendente</Badge>;
+                            if (status === "pending") return <Badge variant="outline">Verificação pendente</Badge>;
                             if (status === "approved" && biz.ownerVerified) {
                               return (
                                 <Badge className="bg-emerald-600 text-white inline-flex items-center gap-1.5">
@@ -1904,9 +1918,9 @@ export default function UserProfile() {
                               );
                             }
                             if (status === "approved" && !biz.ownerVerified) {
-                              return <Badge variant="outline">VerificaÃ§Ã£o expirada</Badge>;
+                              return <Badge variant="outline">Verificação expirada</Badge>;
                             }
-                            return <Badge variant="outline" className="text-destructive border-destructive/30">VerificaÃ§Ã£o rejeitada</Badge>;
+                            return <Badge variant="outline" className="text-destructive border-destructive/30">Verificação rejeitada</Badge>;
                           })()}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
@@ -1916,7 +1930,7 @@ export default function UserProfile() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Star className="w-3 h-3 text-amber-500" />
-                            {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliaÃ§Ã£o" : "avaliaÃ§Ãµes"})
+                            {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
                           </span>
                         </div>
                       </div>
@@ -1925,6 +1939,29 @@ export default function UserProfile() {
                       </Badge>
                     </div>
                     <div className="mt-3 pt-3 border-t border-border/60">
+                      {getCategoryId(biz.category) === "food" &&
+                      (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {biz.isVeganFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegan
+                            </span>
+                          ) : null}
+                          {biz.isVegetarianFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-lime-100 text-lime-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegetariano
+                            </span>
+                          ) : null}
+                          {biz.isGlutenFreeFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+                              <WheatOff className="w-3 h-3" />
+                              Gluten Free
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
                           size="sm"
@@ -1941,7 +1978,7 @@ export default function UserProfile() {
                             onClick={() => handleOpenMenuModal(biz)}
                           >
                             <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                            CardÃ¡pio
+                            Cardápio
                           </Button>
                         ) : (
                           <Button
@@ -1950,7 +1987,7 @@ export default function UserProfile() {
                             onClick={() => handleOpenServicesModal(biz)}
                           >
                             <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                            ServiÃ§os
+                            Serviços
                           </Button>
                         )}
                         <Button
@@ -1967,7 +2004,7 @@ export default function UserProfile() {
                           onClick={() => handleOpenCouponModal(biz)}
                         >
                           <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
-                          PromoÃ§Ãµes
+                          Promoções
                         </Button>
                         {!biz.ownerVerified && (
                           <Button
@@ -1977,12 +2014,12 @@ export default function UserProfile() {
                             disabled={getMyVerificationStatusByBusiness(biz.id) === "pending"}
                             title={
                               getMyVerificationStatusByBusiness(biz.id) === "pending"
-                                ? "JÃ¡ existe uma solicitaÃ§Ã£o pendente"
-                                : "Solicitar verificaÃ§Ã£o"
+                                ? "Já existe uma solicitação pendente"
+                                : "Solicitar verificação"
                             }
                           >
                             <BadgeCheck className="w-3.5 h-3.5 mr-1.5" />
-                            Solicitar verificaÃ§Ã£o
+                            Solicitar verificação
                           </Button>
                         )}
                         <div className="ml-auto flex items-center gap-2">
@@ -1991,7 +2028,7 @@ export default function UserProfile() {
                             variant="outline"
                             asChild
                             aria-label={`Ver ${biz.name}`}
-                            title="Ver negÃ³cio"
+                            title="Ver negócio"
                           >
                             <Link to={buildBusinessUrl(biz)} target="_blank" rel="noreferrer">
                               <Eye className="w-3.5 h-3.5" />
@@ -2003,7 +2040,7 @@ export default function UserProfile() {
                             className="text-destructive border-destructive/30 hover:bg-destructive/10"
                             onClick={() => handleDeleteMyBusiness(biz)}
                             aria-label={`Excluir ${biz.name}`}
-                            title="Excluir negÃ³cio"
+                            title="Excluir negócio"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -2028,7 +2065,7 @@ export default function UserProfile() {
                 </h3>
                 <form onSubmit={handleCreateCommunityEvent} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <Label>TÃ­tulo do evento *</Label>
+                    <Label>Título do evento *</Label>
                     <Input
                       className="mt-1.5"
                       value={communityEventForm.title}
@@ -2037,12 +2074,12 @@ export default function UserProfile() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <Label>DescriÃ§Ã£o</Label>
+                    <Label>Descrição</Label>
                     <Textarea
                       className="mt-1.5 min-h-[90px]"
                       value={communityEventForm.description}
                       onChange={(e) => setCommunityEventForm((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Detalhes do evento, atraÃ§Ãµes e informaÃ§Ãµes importantes."
+                      placeholder="Detalhes do evento, atrações e informações importantes."
                     />
                   </div>
                   <div>
@@ -2095,7 +2132,7 @@ export default function UserProfile() {
                     </div>
                   </div>
                   <div>
-                    <Label>Vincular a negÃ³cio (opcional)</Label>
+                    <Label>Vincular a negócio (opcional)</Label>
                     <Select
                       value={communityEventForm.businessId}
                       onValueChange={(v) => {
@@ -2128,10 +2165,10 @@ export default function UserProfile() {
                       }}
                     >
                       <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Selecionar negÃ³cio" />
+                        <SelectValue placeholder="Selecionar negócio" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Sem negÃ³cio vinculado</SelectItem>
+                        <SelectItem value="none">Sem negócio vinculado</SelectItem>
                         {myBusinesses.map((biz) => (
                           <SelectItem key={biz.id} value={biz.id}>
                             {biz.name}
@@ -2173,7 +2210,7 @@ export default function UserProfile() {
                   </div>
                   {!communityEventForm.isFree && (
                     <div>
-                      <Label>PreÃ§o</Label>
+                      <Label>Preço</Label>
                       <Input
                         className="mt-1.5"
                         value={communityEventForm.price}
@@ -2260,7 +2297,7 @@ export default function UserProfile() {
                       <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" disabled={savingCommunityEvent}>
                         {savingCommunityEvent
                           ? (editingCommunityEventId ? "Salvando..." : "Publicando...")
-                          : (editingCommunityEventId ? "Salvar alteraÃ§Ãµes" : "Publicar evento")}
+                          : (editingCommunityEventId ? "Salvar alterações" : "Publicar evento")}
                       </Button>
                       {editingCommunityEventId && (
                         <Button
@@ -2282,7 +2319,7 @@ export default function UserProfile() {
                             setCommunityEventFlyerFile(null);
                           }}
                         >
-                          Cancelar ediÃ§Ã£o
+                          Cancelar edição
                         </Button>
                       )}
                     </div>
@@ -2295,7 +2332,7 @@ export default function UserProfile() {
                   <h3 className="font-semibold">Eventos publicados</h3>
                 </div>
                 {myCommunityEvents.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">VocÃª ainda nÃ£o publicou eventos.</div>
+                  <div className="p-8 text-center text-muted-foreground">Você ainda não publicou eventos.</div>
                 ) : (
                   <div className="divide-y divide-border">
                     {myCommunityEvents.map((evt) => (
@@ -2303,14 +2340,14 @@ export default function UserProfile() {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold">{evt.title}</h4>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {new Date(`${evt.date}T00:00:00`).toLocaleDateString("pt-BR")} Â· {evt.location}
+                            {new Date(`${evt.date}T00:00:00`).toLocaleDateString("pt-BR")} · {evt.location}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            NegÃ³cio vinculado:{" "}
+                            Negócio vinculado:{" "}
                             <strong>
                               {evt.business_id
-                                ? (myBusinesses.find((b) => b.id === evt.business_id)?.name || "NegÃ³cio nÃ£o encontrado")
-                                : "NÃ£o vinculado"}
+                                ? (myBusinesses.find((b) => b.id === evt.business_id)?.name || "Negócio não encontrado")
+                                : "Não vinculado"}
                             </strong>
                           </p>
                           {evt.description ? <p className="text-sm mt-2 text-muted-foreground line-clamp-2">{evt.description}</p> : null}
@@ -2346,9 +2383,9 @@ export default function UserProfile() {
             <TabsContent value="verificacoes">
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">VerificaÃ§Ãµes</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Verificações</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Analise solicitaÃ§Ãµes de negÃ³cios que querem o selo de verificado.
+                    Analise solicitações de negócios que querem o selo de verificado.
                   </p>
                 </div>
                 <Card className="border-border overflow-hidden">
@@ -2366,17 +2403,17 @@ export default function UserProfile() {
 
                   {verificationAdminView === "pendentes" ? (
                     verificationLoading ? (
-                      <div className="p-8 text-center text-muted-foreground">Carregando solicitaÃ§Ãµes...</div>
+                      <div className="p-8 text-center text-muted-foreground">Carregando solicitações...</div>
                     ) : verificationRequests.length === 0 ? (
-                      <div className="p-8 text-center text-muted-foreground">Nenhuma solicitaÃ§Ã£o pendente.</div>
+                      <div className="p-8 text-center text-muted-foreground">Nenhuma solicitação pendente.</div>
                     ) : (
                       <div className="divide-y divide-border">
                         {verificationRequests.map((request) => (
                           <div key={request.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold">{request.business?.name || "NegÃ³cio"}</h4>
+                              <h4 className="font-semibold">{request.business?.name || "Negócio"}</h4>
                               <p className="text-sm text-muted-foreground mt-1">
-                                {request.business?.city || "Cidade nÃ£o informada"}
+                                {request.business?.city || "Cidade não informada"}
                                 {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
                               </p>
                               <a
@@ -2410,7 +2447,7 @@ export default function UserProfile() {
                     (() => {
                       const verifiedBusinesses = allBusinesses.filter((b) => b.ownerVerified);
                       if (verifiedBusinesses.length === 0) {
-                        return <div className="p-8 text-center text-muted-foreground">Nenhum negÃ³cio verificado no momento.</div>;
+                        return <div className="p-8 text-center text-muted-foreground">Nenhum negócio verificado no momento.</div>;
                       }
                       return (
                         <div className="divide-y divide-border">
@@ -2419,12 +2456,12 @@ export default function UserProfile() {
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold">{biz.name}</h4>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  {biz.address.city || "Cidade nÃ£o informada"}
+                                  {biz.address.city || "Cidade não informada"}
                                   {biz.address.countryCode ? `, ${biz.address.countryCode.toUpperCase()}` : ""}
                                 </p>
                                 {biz.ownerVerifiedUntil ? (
                                   <p className="text-xs text-muted-foreground mt-2">
-                                    VÃ¡lido atÃ©: {new Date(biz.ownerVerifiedUntil).toLocaleDateString("pt-BR")}
+                                    Válido até: {new Date(biz.ownerVerifiedUntil).toLocaleDateString("pt-BR")}
                                   </p>
                                 ) : null}
                               </div>
@@ -2435,7 +2472,7 @@ export default function UserProfile() {
                                   className="text-destructive border-destructive/30 hover:bg-destructive/10"
                                   onClick={() => handleRemoveBusinessVerification(biz)}
                                 >
-                                  Remover verificaÃ§Ã£o
+                                  Remover verificação
                                 </Button>
                               </div>
                             </div>
@@ -2455,24 +2492,24 @@ export default function UserProfile() {
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Aprove solicitaÃ§Ãµes de donos ou transfira um negÃ³cio diretamente por email.
+                    Aprove solicitações de donos ou transfira um negócio diretamente por email.
                   </p>
                 </div>
 
                 <Card className="p-6 border-border">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-primary" />
-                    TransferÃªncia direta
+                    Transferência direta
                   </h3>
                   <form onSubmit={handleDirectTransfer} className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-3">
                     <Select value={transferBusinessId} onValueChange={setTransferBusinessId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o negÃ³cio" />
+                        <SelectValue placeholder="Selecione o negócio" />
                       </SelectTrigger>
                       <SelectContent>
                         {allBusinesses.map((biz) => (
                           <SelectItem key={biz.id} value={biz.id}>
-                            {biz.name} Â· {biz.address.city}
+                            {biz.name} · {biz.address.city}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2492,9 +2529,9 @@ export default function UserProfile() {
                 <Card className="border-border overflow-hidden">
                   <div className="p-5 border-b border-border flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="font-semibold">SolicitaÃ§Ãµes pendentes</h3>
+                      <h3 className="font-semibold">Solicitações pendentes</h3>
                       <p className="text-sm text-muted-foreground">
-                        Pedidos feitos pelo botÃ£o "Sou dono deste negÃ³cio".
+                        Pedidos feitos pelo botão "Sou dono deste negócio".
                       </p>
                     </div>
                     <Button variant="outline" size="sm" onClick={loadOwnershipAdminData} disabled={ownershipLoading}>
@@ -2504,11 +2541,11 @@ export default function UserProfile() {
 
                   {ownershipLoading ? (
                     <div className="p-8 text-center text-muted-foreground">
-                      Carregando solicitaÃ§Ãµes...
+                      Carregando solicitações...
                     </div>
                   ) : ownershipRequests.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
-                      Nenhuma solicitaÃ§Ã£o pendente.
+                      Nenhuma solicitação pendente.
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
@@ -2517,15 +2554,15 @@ export default function UserProfile() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="font-semibold">
-                                {request.business?.name || "NegÃ³cio"}
+                                {request.business?.name || "Negócio"}
                               </h4>
                               <Badge variant="secondary">
-                                {request.business?.city || "Cidade nÃ£o informada"}
+                                {request.business?.city || "Cidade não informada"}
                                 {request.business?.country_code ? `, ${request.business.country_code.toUpperCase()}` : ""}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Solicitado por {request.requester_name || "UsuÃ¡rio"} Â· {request.requester_email || "sem email"}
+                              Solicitado por {request.requester_name || "Usuário"} · {request.requester_email || "sem email"}
                             </p>
                             {request.message && (
                               <p className="text-sm mt-2 text-foreground/80">
@@ -2564,12 +2601,12 @@ export default function UserProfile() {
             <TabsContent value="denuncias">
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">DenÃºncias</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Analise denÃºncias enviadas pelos usuÃ¡rios.</p>
+                  <h2 className="text-2xl font-bold text-foreground">Denúncias</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Analise denúncias enviadas pelos usuários.</p>
                 </div>
                 <Card className="border-border overflow-hidden">
                   <div className="p-5 border-b border-border flex items-center justify-between gap-4">
-                    <h3 className="font-semibold">Fila de denÃºncias</h3>
+                    <h3 className="font-semibold">Fila de denúncias</h3>
                     <div className="flex items-center gap-2">
                       <Button
                         variant={reportsView === "active" ? "default" : "outline"}
@@ -2598,10 +2635,10 @@ export default function UserProfile() {
                     </div>
                   </div>
                   {reportsLoading ? (
-                    <div className="p-8 text-center text-muted-foreground">Carregando denÃºncias...</div>
+                    <div className="p-8 text-center text-muted-foreground">Carregando denúncias...</div>
                   ) : reports.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
-                      {reportsView === "archived" ? "Nenhuma denÃºncia arquivada." : "Nenhuma denÃºncia registrada."}
+                      {reportsView === "archived" ? "Nenhuma denúncia arquivada." : "Nenhuma denúncia registrada."}
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
@@ -2616,22 +2653,22 @@ export default function UserProfile() {
                                   rel="noreferrer"
                                   className="font-semibold hover:underline text-primary"
                                 >
-                                  {r.business?.name || "NegÃ³cio"}
+                                  {r.business?.name || "Negócio"}
                                 </a>
                               ) : (
-                                <h4 className="font-semibold">{r.business?.name || "NegÃ³cio"}</h4>
+                                <h4 className="font-semibold">{r.business?.name || "Negócio"}</h4>
                               )}
                               <Badge variant={r.status === "pending" ? "secondary" : "default"}>{r.status}</Badge>
                               <Badge variant="outline">{r.reason}</Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {r.business?.city || "Cidade nÃ£o informada"} {r.business?.country_code ? `, ${r.business.country_code.toUpperCase()}` : ""}
+                              {r.business?.city || "Cidade não informada"} {r.business?.country_code ? `, ${r.business.country_code.toUpperCase()}` : ""}
                             </p>
                             {r.details && <p className="text-sm mt-2">{r.details}</p>}
                             <p className="text-xs text-muted-foreground mt-2">{new Date(r.created_at).toLocaleString("pt-BR")}</p>
                           </div>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleReportStatus(r.id, "reviewing")}>Em anÃ¡lise</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReportStatus(r.id, "reviewing")}>Em análise</Button>
                             <Button size="sm" onClick={() => handleReportStatus(r.id, "resolved")}>Resolver</Button>
                             <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleReportStatus(r.id, "rejected")}>Rejeitar</Button>
                             <Button
@@ -2669,7 +2706,7 @@ export default function UserProfile() {
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Destaques Regionais</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Gerencie campanhas de destaque por cidade, estado/provÃ­ncia, paÃ­s ou global.
+                    Gerencie campanhas de destaque por cidade, estado/província, país ou global.
                   </p>
                 </div>
 
@@ -2681,15 +2718,15 @@ export default function UserProfile() {
                   <form onSubmit={handleCreateFeaturedPlacement} className="space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div>
-                        <Label>NegÃ³cio</Label>
+                        <Label>Negócio</Label>
                         <Select value={featuredForm.businessId} onValueChange={handleFeaturedBusinessChange}>
                           <SelectTrigger className="mt-1.5">
-                            <SelectValue placeholder="Selecione o negÃ³cio" />
+                            <SelectValue placeholder="Selecione o negócio" />
                           </SelectTrigger>
                           <SelectContent>
                             {allBusinesses.map((biz) => (
                               <SelectItem key={biz.id} value={biz.id}>
-                                {biz.name} Â· {biz.address.city}
+                                {biz.name} · {biz.address.city}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -2707,15 +2744,15 @@ export default function UserProfile() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="city">Cidade</SelectItem>
-                            <SelectItem value="state">Estado/ProvÃ­ncia</SelectItem>
-                            <SelectItem value="country">PaÃ­s</SelectItem>
+                            <SelectItem value="state">Estado/Província</SelectItem>
+                            <SelectItem value="country">País</SelectItem>
                             <SelectItem value="global">Global</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <div>
-                        <Label>PaÃ­s</Label>
+                        <Label>País</Label>
                         <Input
                           value={featuredForm.countryCode}
                           onChange={(e) => setFeaturedForm((prev) => ({ ...prev, countryCode: e.target.value.toLowerCase() }))}
@@ -2726,7 +2763,7 @@ export default function UserProfile() {
                       </div>
 
                       <div>
-                        <Label>Estado/ProvÃ­ncia</Label>
+                        <Label>Estado/Província</Label>
                         <Input
                           value={featuredForm.stateCode}
                           onChange={(e) => setFeaturedForm((prev) => ({ ...prev, stateCode: e.target.value.toLowerCase() }))}
@@ -2758,7 +2795,7 @@ export default function UserProfile() {
                       </div>
 
                       <div>
-                        <Label>InÃ­cio</Label>
+                        <Label>Início</Label>
                         <Input
                           type="date"
                           value={featuredForm.startsAt}
@@ -2778,7 +2815,7 @@ export default function UserProfile() {
                       </div>
 
                       <div>
-                        <Label>PreÃ§o cobrado (centavos)</Label>
+                        <Label>Preço cobrado (centavos)</Label>
                         <Input
                           type="number"
                           value={featuredForm.priceCents}
@@ -2789,7 +2826,7 @@ export default function UserProfile() {
                       </div>
 
                       <div>
-                        <Label>ObservaÃ§Ãµes</Label>
+                        <Label>Observações</Label>
                         <Input
                           value={featuredForm.notes}
                           onChange={(e) => setFeaturedForm((prev) => ({ ...prev, notes: e.target.value }))}
@@ -2827,7 +2864,7 @@ export default function UserProfile() {
                         <div key={placement.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="font-semibold">{placement.business?.name || "NegÃ³cio removido"}</h4>
+                              <h4 className="font-semibold">{placement.business?.name || "Negócio removido"}</h4>
                               <Badge variant={placement.status === "active" ? "default" : "secondary"}>
                                 {placement.status}
                               </Badge>
@@ -2839,8 +2876,8 @@ export default function UserProfile() {
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {new Date(placement.startsAt).toLocaleDateString("pt-BR")} atÃ© {new Date(placement.endsAt).toLocaleDateString("pt-BR")}
-                              {placement.priceCents > 0 ? ` Â· ${(placement.priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "CAD" })}` : ""}
+                              {new Date(placement.startsAt).toLocaleDateString("pt-BR")} até {new Date(placement.endsAt).toLocaleDateString("pt-BR")}
+                              {placement.priceCents > 0 ? ` · ${(placement.priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "CAD" })}` : ""}
                             </p>
                             {placement.notes && <p className="text-sm mt-2">{placement.notes}</p>}
                           </div>
@@ -2874,7 +2911,7 @@ export default function UserProfile() {
             <TabsContent value="busca">
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground">ConfiguraÃ§Ã£o de Busca</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Configuração de Busca</h2>
                   <p className="text-sm text-muted-foreground mt-1">Edite sin?nimos por categoria para melhorar a relev?ncia dos resultados.</p>
                 </div>
                 <Card className="p-6 border-border space-y-4">
@@ -2892,17 +2929,17 @@ export default function UserProfile() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Sin?nimos (separados por v?rgula)</Label>
+                    <Label>Sinônimos (separados por vírgula)</Label>
                     <Textarea
                       value={searchSynonymsDraft}
                       onChange={(e) => setSearchSynonymsDraft(e.target.value)}
                       className="mt-1.5 min-h-[120px]"
-                      placeholder="Ex: advogado, jur?dico, imigra??o, tradu??o"
+                      placeholder="Ex: advogado, jurídico, imigração, tradução"
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button onClick={handleSaveSearchSynonyms}>Salvar sinÃ´nimos</Button>
-                    <Button variant="outline" onClick={handleResetSearchSynonyms}>Restaurar padrÃ£o</Button>
+                    <Button onClick={handleSaveSearchSynonyms}>Salvar sinônimos</Button>
+                    <Button variant="outline" onClick={handleResetSearchSynonyms}>Restaurar padrão</Button>
                   </div>
                 </Card>
               </div>
@@ -2911,7 +2948,7 @@ export default function UserProfile() {
 
           <TabsContent value="avaliacoes">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className="text-lg font-bold">AvaliaÃ§Ãµes</h2>
+              <h2 className="text-lg font-bold">Avaliações</h2>
               <Tabs value={subAvaliacoesTab} onValueChange={setSubAvaliacoesTab} className="ml-auto">
                 <TabsList>
                   <TabsTrigger value="recebidas" className="text-sm">
@@ -2929,7 +2966,7 @@ export default function UserProfile() {
                 {myReviews.length === 0 ? (
                   <Card className="p-8 text-center border-border">
                     <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Seus negÃ³cios ainda nÃ£o receberam avaliaÃ§Ãµes.</p>
+                    <p className="text-muted-foreground">Seus negócios ainda não receberam avaliações.</p>
                   </Card>
                 ) : (
                   <div className="space-y-4">
@@ -2939,9 +2976,9 @@ export default function UserProfile() {
                           <div>
                             <div className="flex items-center gap-2 text-sm">
                               <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">
-                                {((review as any).user_name || "UsuÃ¡rio").charAt(0)}
+                                {((review as any).user_name || "Usuário").charAt(0)}
                               </div>
-                              <span className="font-medium">{(review as any).user_name || "UsuÃ¡rio"}</span>
+                              <span className="font-medium">{(review as any).user_name || "Usuário"}</span>
                               <span className="text-muted-foreground">em</span>
                               <Link to={review.businessSlug} className="text-primary hover:underline font-medium">
                                 {review.businessName}
@@ -2971,7 +3008,7 @@ export default function UserProfile() {
                 {givenReviews.length === 0 ? (
                   <Card className="p-8 text-center border-border">
                     <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">VocÃª ainda nÃ£o avaliou nenhum negÃ³cio.</p>
+                    <p className="text-muted-foreground">Você ainda não avaliou nenhum negócio.</p>
                   </Card>
                 ) : (
                   <div className="space-y-4">
@@ -2983,7 +3020,7 @@ export default function UserProfile() {
                               <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">
                                 {(user?.name || "U").charAt(0)}
                               </div>
-                              <span className="font-medium">VocÃª</span>
+                              <span className="font-medium">Você</span>
                               <span className="text-muted-foreground">em</span>
                               <Link to={review.businessSlug} className="text-primary hover:underline font-medium">
                                 {review.businessName}
@@ -3151,12 +3188,12 @@ export default function UserProfile() {
         <Dialog open={!!editingReview} onOpenChange={(open) => !open && setEditingReview(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Editar AvaliaÃ§Ã£o</DialogTitle>
+              <DialogTitle>Editar Avaliação</DialogTitle>
             </DialogHeader>
             {editingReview && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  AvaliaÃ§Ã£o em <span className="font-medium text-foreground">{editingReview.review.businessName}</span>
+                  Avaliação em <span className="font-medium text-foreground">{editingReview.review.businessName}</span>
                 </p>
 
                 <div>
@@ -3184,14 +3221,14 @@ export default function UserProfile() {
                 </div>
 
                 <div>
-                  <Label htmlFor="edit-comment">ComentÃ¡rio</Label>
+                  <Label htmlFor="edit-comment">Comentário</Label>
                   <Textarea
                     id="edit-comment"
                     value={editingReview.comment}
                     onChange={(e) =>
                       setEditingReview({ ...editingReview, comment: e.target.value })
                     }
-                    placeholder="Escreva seu comentÃ¡rio..."
+                    placeholder="Escreva seu comentário..."
                     className="mt-1.5"
                     rows={4}
                   />
@@ -3221,10 +3258,10 @@ export default function UserProfile() {
         <Dialog open={!!confirmDeleteReview} onOpenChange={(open) => !open && setConfirmDeleteReview(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Remover AvaliaÃ§Ã£o</DialogTitle>
+              <DialogTitle>Remover Avaliação</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground py-2">
-              Tem certeza que deseja remover esta avaliaÃ§Ã£o? Esta aÃ§Ã£o nÃ£o pode ser desfeita.
+              Tem certeza que deseja remover esta avaliação? Esta ação não pode ser desfeita.
             </p>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setConfirmDeleteReview(null)}>
@@ -3266,7 +3303,7 @@ export default function UserProfile() {
             }}
           >
             <DialogHeader>
-              <DialogTitle>{creatingBusiness ? "Adicionar Novo NegÃ³cio" : `Editar ${editFormData.name || "NegÃ³cio"}`}</DialogTitle>
+              <DialogTitle>{creatingBusiness ? "Adicionar Novo Negócio" : `Editar ${editFormData.name || "Negócio"}`}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 py-4">
@@ -3274,7 +3311,7 @@ export default function UserProfile() {
               <h3 className="text-base font-semibold">Dados principais</h3>
             </div>
             <div className="sm:col-span-2">
-              <Label htmlFor="edit-name">Nome do NegÃ³cio *</Label>
+              <Label htmlFor="edit-name">Nome do Negócio *</Label>
               <Input
                 id="edit-name"
                 value={editFormData.name}
@@ -3304,39 +3341,83 @@ export default function UserProfile() {
             </div>
 
             <div className="sm:col-span-2">
-              <Label htmlFor="edit-description">DescriÃ§Ã£o *</Label>
+              <Label htmlFor="edit-description">Descrição *</Label>
               <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
                 <p className="text-sm text-amber-900/90 leading-relaxed">
-                  Esta Ã© a informaÃ§Ã£o mais importante da pÃ¡gina do seu negÃ³cio. Ã‰ ela que ajuda o cliente a entender
-                  rapidamente o que vocÃª oferece, seus diferenciais e por que deve escolher vocÃª. Escreva de forma clara,
-                  objetiva e humana: diga os principais serviÃ§os/produtos, o pÃºblico atendido, regiÃ£o de atuaÃ§Ã£o e pontos
-                  fortes (ex.: rapidez, qualidade, atendimento em portuguÃªs, experiÃªncia, especialidades).
+                  Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender
+                  rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara,
+                  objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos
+                  fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
                 </p>
               </div>
               <Textarea
                 id="edit-description"
                 value={editFormData.description}
                 onChange={(e) => handleEditInputChange("description", e.target.value)}
-                placeholder="Descreva seu negÃ³cio..."
+                placeholder="Descreva seu negócio..."
                 className="mt-1.5 min-h-[160px]"
               />
             </div>
 
+            {getCategoryId(editFormData.category) === "food" ? (
+              <div className="sm:col-span-2 rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4">
+                <h3 className="text-base font-semibold text-emerald-900">Preferências alimentares</h3>
+                <p className="text-sm text-emerald-900/80 mt-1">
+                  Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra como critério de busca.
+                </p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <label className="inline-flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!!editFormData.isVeganFriendly}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({ ...prev, isVeganFriendly: e.target.checked }))
+                      }
+                    />
+                    <Leaf className="w-4 h-4 text-emerald-700" />
+                    Vegan
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!!editFormData.isVegetarianFriendly}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({ ...prev, isVegetarianFriendly: e.target.checked }))
+                      }
+                    />
+                    <Leaf className="w-4 h-4 text-lime-700" />
+                    Vegetariano
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!!editFormData.isGlutenFreeFriendly}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({ ...prev, isGlutenFreeFriendly: e.target.checked }))
+                      }
+                    />
+                    <WheatOff className="w-4 h-4 text-amber-700" />
+                    Gluten Free
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">Oferta e conteÃºdo</h3>
+              <h3 className="text-base font-semibold">Oferta e conteúdo</h3>
             </div>
 
             {null}
 
             <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
-              <h3 className="text-base font-semibold text-amber-900">âš ï¸ Palavras-chave para busca (muito importante)</h3>
+              <h3 className="text-base font-semibold text-amber-900">⚠️ Palavras-chave para busca (muito importante)</h3>
               <p className="text-sm text-amber-900/80 mt-2 leading-relaxed">
-                Essas palavras ajudam seu negÃ³cio a aparecer quando alguÃ©m procura por produtos e serviÃ§os. Use termos reais
-                que seus clientes digitam, incluindo variaÃ§Ãµes e sinÃ´nimos. Exemplo: para <strong>mecÃ¢nico</strong>, tambÃ©m use
-                <strong> oficina</strong>, <strong>manutenÃ§Ã£o automotiva</strong>, <strong>troca de Ã³leo</strong>. Para <strong>restaurante brasileiro</strong>, adicione <strong>comida brasileira</strong>,
-                <strong> prato feito</strong>, <strong>almoÃ§o</strong>, <strong>jantar</strong>, <strong>delivery</strong>. Separe por vÃ­rgula e evite termos muito genÃ©ricos.
+                Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais
+                que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para <strong>mecânico</strong>, também use
+                <strong> oficina</strong>, <strong>manutenção automotiva</strong>, <strong>troca de óleo</strong>. Para <strong>restaurante brasileiro</strong>, adicione <strong>comida brasileira</strong>,
+                <strong> prato feito</strong>, <strong>almoço</strong>, <strong>jantar</strong>, <strong>delivery</strong>. Separe por vírgula e evite termos muito genéricos.
               </p>
-              <Label htmlFor="edit-keywords" className="mt-3 block">Palavras-chave (separadas por vÃ­rgula)</Label>
+              <Label htmlFor="edit-keywords" className="mt-3 block">Palavras-chave (separadas por vírgula)</Label>
               <Textarea
                 id="edit-keywords"
                 value={editFormData.keywords}
@@ -3414,11 +3495,11 @@ export default function UserProfile() {
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">HorÃ¡rios</h3>
+              <h3 className="text-base font-semibold">Horários</h3>
             </div>
 
             <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/10 p-4">
-              <Label>HorÃ¡rios de funcionamento</Label>
+              <Label>Horários de funcionamento</Label>
               <div className="mt-3 space-y-2">
                 {editBusinessHours.map((hour) => (
                   <div key={hour.day} className="grid grid-cols-[120px_90px_1fr_1fr] gap-2 items-center">
@@ -3449,7 +3530,7 @@ export default function UserProfile() {
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">MÃ­dia</h3>
+              <h3 className="text-base font-semibold">Mídia</h3>
             </div>
 
             <div>
@@ -3474,7 +3555,7 @@ export default function UserProfile() {
                 </div>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Formatos aceitos: JPG, PNG e WEBP. ResoluÃ§Ã£o ideal: 512x512 px. Tamanho mÃ¡ximo: 5MB.
+                Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 512x512 px. Tamanho máximo: 5MB.
               </p>
             </div>
 
@@ -3500,7 +3581,7 @@ export default function UserProfile() {
                 </div>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Formatos aceitos: JPG, PNG e WEBP. ResoluÃ§Ã£o ideal: 1600x600 px. Tamanho mÃ¡ximo: 5MB.
+                Formatos aceitos: JPG, PNG e WEBP. Resolução ideal: 1600x600 px. Tamanho máximo: 5MB.
               </p>
             </div>
 
@@ -3524,7 +3605,7 @@ export default function UserProfile() {
                 className="hidden"
               />
               <div className="text-xs text-muted-foreground mt-1 mb-2">
-                Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho mÃ¡x: 5MB | Formatos: JPG, PNG, WEBP
+                Existentes: {existingPhotos.length}/8 | Novas selecionadas: {editPhotoFiles.length} | Tamanho máx: 5MB | Formatos: JPG, PNG, WEBP
               </div>
               {(existingPhotos.length > 0 || editPhotoFiles.length > 0) && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -3552,11 +3633,11 @@ export default function UserProfile() {
             </div>
 
             <div className="sm:col-span-2 border-b border-border pb-2 pt-1">
-              <h3 className="text-base font-semibold">LocalizaÃ§Ã£o</h3>
+              <h3 className="text-base font-semibold">Localização</h3>
             </div>
 
             <div className="sm:col-span-2">
-              <Label>EndereÃ§o</Label>
+              <Label>Endereço</Label>
               <div className="mt-1.5">
                 <AddressAutocomplete
                   key={creatingBusiness ? "new-business-address" : editingBusiness?.id}
@@ -3586,7 +3667,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveBusiness} disabled={isUploading}>
-                {isUploading ? "Enviando Imagens..." : creatingBusiness ? "Criar NegÃ³cio" : "Salvar AlteraÃ§Ãµes"}
+                {isUploading ? "Enviando Imagens..." : creatingBusiness ? "Criar Negócio" : "Salvar Alterações"}
               </Button>
             </div>
           </DialogContent>
@@ -3595,14 +3676,14 @@ export default function UserProfile() {
         <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
           <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
-              <DialogTitle>PromoÃ§Ãµes - {couponBusiness?.name || "NegÃ³cio"}</DialogTitle>
+              <DialogTitle>Promoções - {couponBusiness?.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
                 <div className="space-y-3">
                   <Label>Cupons cadastrados</Label>
                   {couponItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma promoÃ§Ã£o cadastrada ainda.</p>
+                    <p className="text-sm text-muted-foreground">Nenhuma promoção cadastrada ainda.</p>
                   ) : (
                     <div className="space-y-2">
                       {couponItems.map((item, idx) => (
@@ -3611,7 +3692,7 @@ export default function UserProfile() {
                             <p className="font-semibold text-sm">{item.title}</p>
                             <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
                             <p className="text-xs mt-1">
-                              <span className="font-medium">Cupom:</span> {item.code} Â· <span className="font-medium">Validade:</span> {new Date(`${item.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
+                              <span className="font-medium">Cupom:</span> {item.code} · <span className="font-medium">Validade:</span> {new Date(`${item.expiresAt}T00:00:00`).toLocaleDateString("pt-BR")}
                             </p>
                           </div>
                           <Button type="button" size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleRemoveCoupon(idx)}>
@@ -3625,7 +3706,7 @@ export default function UserProfile() {
                 </div>
 
                 <div>
-                  <Label htmlFor="profile-coupon-title">TÃ­tulo da promoÃ§Ã£o</Label>
+                  <Label htmlFor="profile-coupon-title">Título da promoção</Label>
                   <Input
                     id="profile-coupon-title"
                     className="mt-1.5"
@@ -3635,17 +3716,17 @@ export default function UserProfile() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="profile-coupon-description">DescriÃ§Ã£o da promoÃ§Ã£o</Label>
+                  <Label htmlFor="profile-coupon-description">Descrição da promoção</Label>
                   <Textarea
                     id="profile-coupon-description"
                     className="mt-1.5 min-h-[120px]"
                     value={couponForm.description}
                     onChange={(e) => setCouponForm((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Explique regras, itens participantes e condiÃ§Ãµes."
+                    placeholder="Explique regras, itens participantes e condições."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="profile-coupon-code">CÃ³digo promocional</Label>
+                  <Label htmlFor="profile-coupon-code">Código promocional</Label>
                   <Input
                     id="profile-coupon-code"
                     className="mt-1.5"
@@ -3655,7 +3736,7 @@ export default function UserProfile() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="profile-coupon-expiry">Data limite da promoÃ§Ã£o</Label>
+                  <Label htmlFor="profile-coupon-expiry">Data limite da promoção</Label>
                   <div className="mt-1.5 flex items-center gap-2">
                     <Input
                       id="profile-coupon-expiry"
@@ -3693,7 +3774,7 @@ export default function UserProfile() {
                 <div>
                   <Button type="button" variant="outline" onClick={handleAddCoupon}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Adicionar promoÃ§Ã£o
+                    Adicionar promoção
                   </Button>
                 </div>
               </div>
@@ -3703,7 +3784,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveCoupon} disabled={savingCoupon}>
-                {savingCoupon ? "Salvando..." : "Salvar promoÃ§Ã£o"}
+                {savingCoupon ? "Salvando..." : "Salvar promoção"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -3712,16 +3793,16 @@ export default function UserProfile() {
         <Dialog open={!!menuBusiness} onOpenChange={(open) => !open && setMenuBusiness(null)}>
           <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
-              <DialogTitle>CardÃ¡pio - {menuBusiness?.name || "NegÃ³cio"}</DialogTitle>
+              <DialogTitle>Cardápio - {menuBusiness?.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
                 <div className="space-y-4 rounded-lg border border-emerald-300/70 bg-emerald-50/60 p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-emerald-900">ðŸ½ï¸ Itens do cardÃ¡pio</Label>
+                      <Label className="text-emerald-900">🍽️ Itens do cardápio</Label>
                       <p className="text-sm text-emerald-900/80 mt-1">
-                        Adicione itens com nome, descriÃ§Ã£o e preÃ§o para facilitar a busca e conversÃ£o.
+                        Adicione itens com nome, descrição e preço para facilitar a busca e conversão.
                       </p>
                     </div>
                     <Button
@@ -3769,12 +3850,12 @@ export default function UserProfile() {
                                   return next;
                                 })
                               }
-                              placeholder="Ex: PÃ£o de Queijo"
+                              placeholder="Ex: Pão de Queijo"
                               className={`h-8 text-sm mt-1 ${menuNameErrors[index] ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">PreÃ§o (opcional)</Label>
+                            <Label className="text-xs">Preço (opcional)</Label>
                             <Input
                               value={item.price}
                               onChange={(e) =>
@@ -3790,7 +3871,7 @@ export default function UserProfile() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs">DescriÃ§Ã£o</Label>
+                          <Label className="text-xs">Descrição</Label>
                           <Input
                             value={item.description}
                             onChange={(e) =>
@@ -3800,7 +3881,7 @@ export default function UserProfile() {
                                 return next;
                               })
                             }
-                            placeholder="Ex: PorÃ§Ã£o com 6 unidades"
+                            placeholder="Ex: Porção com 6 unidades"
                             className="h-8 text-sm mt-1"
                           />
                         </div>
@@ -3808,14 +3889,14 @@ export default function UserProfile() {
                     ))}
                     {menuItems.length === 0 && (
                       <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
-                        <p className="text-xs text-muted-foreground">Nenhum item no cardÃ¡pio. Adicione o seu primeiro.</p>
+                        <p className="text-xs text-muted-foreground">Nenhum item no cardápio. Adicione o seu primeiro.</p>
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="menu-modal-pdf">CardÃ¡pio completo (PDF, opcional)</Label>
+                  <Label htmlFor="menu-modal-pdf">Cardápio completo (PDF, opcional)</Label>
                   <div className="mt-1.5">
                     <label
                       htmlFor="menu-modal-pdf"
@@ -3835,7 +3916,7 @@ export default function UserProfile() {
                         return;
                       }
                       if (file.type !== "application/pdf") {
-                        toast.error("Formato invÃ¡lido. O cardÃ¡pio completo deve ser um arquivo PDF.");
+                        toast.error("Formato inválido. O cardápio completo deve ser um arquivo PDF.");
                         return;
                       }
                       setMenuPdfFile(file);
@@ -3878,7 +3959,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveMenu} disabled={savingMenu}>
-                {savingMenu ? "Salvando..." : "Salvar cardÃ¡pio"}
+                {savingMenu ? "Salvando..." : "Salvar cardápio"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -3887,16 +3968,16 @@ export default function UserProfile() {
         <Dialog open={!!serviceBusiness} onOpenChange={(open) => !open && setServiceBusiness(null)}>
           <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
-              <DialogTitle>ServiÃ§os - {serviceBusiness?.name || "NegÃ³cio"}</DialogTitle>
+              <DialogTitle>Serviços - {serviceBusiness?.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
                 <div className="space-y-4 rounded-lg border border-sky-300/70 bg-sky-50/60 p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sky-900">ðŸ› ï¸ Itens de serviÃ§o</Label>
+                      <Label className="text-sky-900">🛠️ Itens de serviço</Label>
                       <p className="text-sm text-sky-900/80 mt-1">
-                        Cadastre nome, descriÃ§Ã£o e preÃ§o (opcional) de cada serviÃ§o.
+                        Cadastre nome, descrição e preço (opcional) de cada serviço.
                       </p>
                     </div>
                     <Button
@@ -3916,7 +3997,7 @@ export default function UserProfile() {
                       }
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" />
-                      Adicionar serviÃ§o
+                      Adicionar serviço
                     </Button>
                   </div>
 
@@ -3934,7 +4015,7 @@ export default function UserProfile() {
                         </Button>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="sm:col-span-2">
-                            <Label className="text-xs">Nome do ServiÃ§o</Label>
+                            <Label className="text-xs">Nome do Serviço</Label>
                             <Input
                               value={item.name}
                               onChange={(e) =>
@@ -3944,12 +4025,12 @@ export default function UserProfile() {
                                   return next;
                                 })
                               }
-                              placeholder="Ex: Troca de Ã³leo"
+                              placeholder="Ex: Troca de óleo"
                               className={`h-8 text-sm mt-1 ${serviceNameErrors[index] ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">PreÃ§o (opcional)</Label>
+                            <Label className="text-xs">Preço (opcional)</Label>
                             <Input
                               value={item.price}
                               onChange={(e) =>
@@ -3965,7 +4046,7 @@ export default function UserProfile() {
                           </div>
                         </div>
                         <div>
-                          <Label className="text-xs">DescriÃ§Ã£o</Label>
+                          <Label className="text-xs">Descrição</Label>
                           <Input
                             value={item.description}
                             onChange={(e) =>
@@ -3975,7 +4056,7 @@ export default function UserProfile() {
                                 return next;
                               })
                             }
-                            placeholder="Ex: ServiÃ§o com mÃ£o de obra inclusa"
+                            placeholder="Ex: Serviço com mão de obra inclusa"
                             className="h-8 text-sm mt-1"
                           />
                         </div>
@@ -3983,7 +4064,7 @@ export default function UserProfile() {
                     ))}
                     {serviceItems.length === 0 && (
                       <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
-                        <p className="text-xs text-muted-foreground">Nenhum serviÃ§o cadastrado ainda.</p>
+                        <p className="text-xs text-muted-foreground">Nenhum serviço cadastrado ainda.</p>
                       </div>
                     )}
                   </div>
@@ -3995,7 +4076,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveServices} disabled={savingServices}>
-                {savingServices ? "Salvando..." : "Salvar serviÃ§os"}
+                {savingServices ? "Salvando..." : "Salvar serviços"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -4004,7 +4085,7 @@ export default function UserProfile() {
         <Dialog open={!!eventsBusiness} onOpenChange={(open) => !open && setEventsBusiness(null)}>
           <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
-              <DialogTitle>Eventos - {eventsBusiness?.name || "NegÃ³cio"}</DialogTitle>
+              <DialogTitle>Eventos - {eventsBusiness?.name || "Negócio"}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto pr-1">
               <div className="grid grid-cols-1 gap-5 py-4">
@@ -4013,7 +4094,7 @@ export default function UserProfile() {
                     <div>
                       <h3 className="text-base font-semibold text-violet-900">Agenda de eventos</h3>
                       <p className="text-sm text-violet-900/80 mt-1">
-                        Divulgue datas, local, flyer e preÃ§o para atrair mais pÃºblico.
+                        Divulgue datas, local, flyer e preço para atrair mais público.
                       </p>
                     </div>
                     <Button
@@ -4053,7 +4134,7 @@ export default function UserProfile() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <Label className="text-xs">TÃ­tulo do evento *</Label>
+                              <Label className="text-xs">Título do evento *</Label>
                               <Input
                                 className="mt-1"
                                 value={event.title}
@@ -4134,7 +4215,7 @@ export default function UserProfile() {
                                       })
                                     }
                                   />
-                                  No prÃ³prio estabelecimento
+                                  No próprio estabelecimento
                                 </label>
                               </div>
                             ) : null}
@@ -4152,7 +4233,7 @@ export default function UserProfile() {
                           </div>
 
                           <div>
-                            <Label className="text-xs">DescriÃ§Ã£o</Label>
+                            <Label className="text-xs">Descrição</Label>
                             <Textarea
                               className="mt-1"
                               rows={2}
@@ -4202,7 +4283,7 @@ export default function UserProfile() {
                             </div>
                             {!event.isFree && (
                               <div>
-                                <Label className="text-xs">PreÃ§o</Label>
+                                <Label className="text-xs">Preço</Label>
                                 <Input
                                   className="mt-1"
                                   value={event.price}
@@ -4238,7 +4319,7 @@ export default function UserProfile() {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-                                  toast.error("Formato invÃ¡lido para flyer. Use JPG, PNG ou WEBP.");
+                                  toast.error("Formato inválido para flyer. Use JPG, PNG ou WEBP.");
                                   return;
                                 }
                                 if (file.size > 5 * 1024 * 1024) {
@@ -4294,16 +4375,16 @@ export default function UserProfile() {
         <Dialog open={!!verificationBusiness} onOpenChange={(open) => !open && setVerificationBusiness(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Solicitar NegÃ³cio Verificado</DialogTitle>
+              <DialogTitle>Solicitar Negócio Verificado</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Requisitos: mÃ­nimo de 5 avaliaÃ§Ãµes e Instagram do negÃ³cio configurado.
+                Requisitos: mínimo de 5 avaliações e Instagram do negócio configurado.
               </div>
               <div className="text-sm text-muted-foreground">
-                NegÃ³cio: <strong>{verificationBusiness?.name}</strong><br />
-                AvaliaÃ§Ãµes atuais: <strong>{verificationBusiness?.reviews.length || 0}</strong><br />
-                Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "NÃ£o"}</strong>
+                Negócio: <strong>{verificationBusiness?.name}</strong><br />
+                Avaliações atuais: <strong>{verificationBusiness?.reviews.length || 0}</strong><br />
+                Instagram cadastrado: <strong>{verificationBusiness?.instagram ? "Sim" : "Não"}</strong>
               </div>
               <div>
                 <Label htmlFor="verification-instagram-post">Link do post no Instagram marcando o Caramelinho *</Label>
@@ -4321,7 +4402,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button onClick={handleSubmitVerificationRequest} disabled={verificationSubmitting}>
-                {verificationSubmitting ? "Enviando..." : "Enviar solicitaÃ§Ã£o"}
+                {verificationSubmitting ? "Enviando..." : "Enviar solicitação"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -4332,15 +4413,15 @@ export default function UserProfile() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="w-5 h-5" />
-                ATENÃ‡ÃƒO
+                ATENÇÃO
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 text-sm">
               <p>
-                VocÃª estÃ¡ prestes a <strong>APAGAR DEFINITIVAMENTE</strong> o negÃ³cio{" "}
+                Você está prestes a <strong>APAGAR DEFINITIVAMENTE</strong> o negócio{" "}
                 <strong>"{deleteTarget?.name}"</strong>.
               </p>
-              <p className="text-red-600 font-semibold">Esta aÃ§Ã£o Ã© IRREVERSÃVEL e todos os dados relacionados serÃ£o perdidos.</p>
+              <p className="text-red-600 font-semibold">Esta ação é IRREVERSÍVEL e todos os dados relacionados serão perdidos.</p>
               <p>Deseja continuar mesmo assim?</p>
             </div>
             <DialogFooter>
@@ -4348,7 +4429,7 @@ export default function UserProfile() {
                 Cancelar
               </Button>
               <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleConfirmDeleteMyBusiness}>
-                Sim, apagar negÃ³cio
+                Sim, apagar negócio
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -4361,11 +4442,11 @@ export default function UserProfile() {
 function createDefaultBusinessHours() {
   return [
     { day: "Segunda", enabled: true, open: "09:00", close: "18:00" },
-    { day: "TerÃ§a", enabled: true, open: "09:00", close: "18:00" },
+    { day: "Terça", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quarta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Quinta", enabled: true, open: "09:00", close: "18:00" },
     { day: "Sexta", enabled: true, open: "09:00", close: "18:00" },
-    { day: "SÃ¡bado", enabled: false, open: "10:00", close: "14:00" },
+    { day: "Sábado", enabled: false, open: "10:00", close: "14:00" },
     { day: "Domingo", enabled: false, open: "10:00", close: "14:00" },
   ];
 }
@@ -4410,7 +4491,7 @@ function getDateInputDaysFromNow(days: number): string {
 
 function formatFeaturedScope(placement: FeaturedPlacementFrontend): string {
   if (placement.scopeType === "global") return "Global";
-  if (placement.scopeType === "country") return `PaÃ­s: ${placement.countryCode.toUpperCase()}`;
+  if (placement.scopeType === "country") return `País: ${placement.countryCode.toUpperCase()}`;
   if (placement.scopeType === "state") {
     return `${placement.countryCode.toUpperCase()}/${placement.stateCode.toUpperCase()}`;
   }
