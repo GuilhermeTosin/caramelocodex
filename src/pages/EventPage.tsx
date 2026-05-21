@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, MapPin, Ticket, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function EventPage() {
       if (data) {
         setSeoMeta(
           `${data.title} | Evento | Caramelinho.com`,
-          `${data.title} em ${data.location}. Veja data, detalhes e informações do evento.`
+          `${data.title} em ${data.location}. Veja data, detalhes e informaÃ§Ãµes do evento.`
         );
       } else {
         setSeoMeta("Evento | Caramelinho.com", "Detalhes de evento da comunidade.");
@@ -41,8 +41,8 @@ export default function EventPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <main className="flex-1 max-w-3xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold">Evento não encontrado</h1>
-          <p className="text-muted-foreground mt-2">Esse evento não está disponível no momento.</p>
+          <h1 className="text-2xl font-bold">Evento nÃ£o encontrado</h1>
+          <p className="text-muted-foreground mt-2">Esse evento nÃ£o estÃ¡ disponÃ­vel no momento.</p>
           <Button className="mt-6" onClick={() => navigate("/buscar")}>Voltar para busca</Button>
         </main>
         <SiteFooter />
@@ -78,7 +78,7 @@ export default function EventPage() {
           </div>
           <div className="p-6 sm:p-8">
             <h1 className="text-2xl sm:text-3xl font-bold">{event.title}</h1>
-            <p className="text-muted-foreground mt-3 whitespace-pre-line">{event.description || "Sem descrição."}</p>
+            <p className="text-muted-foreground mt-3 whitespace-pre-line">{event.description || "Sem descriÃ§Ã£o."}</p>
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="inline-flex items-center gap-2 rounded-md bg-secondary px-3 py-2">
@@ -121,3 +121,5 @@ export default function EventPage() {
     </div>
   );
 }
+
+

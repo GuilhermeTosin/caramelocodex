@@ -57,6 +57,7 @@ export interface Review {
   business_id: string;
   user_id: string | null;
   user_name: string;
+  user_avatar?: string | null;
   rating: 1 | 2 | 3 | 4 | 5;
   comment: string;
   created_at: string;

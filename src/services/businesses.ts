@@ -380,11 +380,23 @@ export async function getBusinessBySlug(
     .eq("business_id", biz.id)
     .order("created_at", { ascending: false });
 
+  const reviewUserIds = Array.from(
+    new Set((reviews || []).map((r: any) => r.user_id).filter((id: any) => typeof id === "string" && id.length > 0))
+  ) as string[];
+  const { data: reviewProfiles } =
+    reviewUserIds.length > 0
+      ? await supabase.from("profiles").select("id, avatar").in("id", reviewUserIds)
+      : { data: [] as Array<{ id: string; avatar: string | null }> };
+  const reviewAvatarByUserId = new Map(
+    (reviewProfiles || []).map((p: { id: string; avatar: string | null }) => [p.id, p.avatar || null])
+  );
+
   biz.reviews = (reviews || []).map(r => ({
     id: r.id,
     business_id: r.business_id,
     user_id: r.user_id,
     user_name: r.user_name || "Usuário",
+    user_avatar: r.user_id ? (reviewAvatarByUserId.get(r.user_id) || null) : null,
     rating: r.rating,
     comment: r.comment,
     created_at: r.created_at,

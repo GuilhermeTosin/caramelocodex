@@ -377,7 +377,7 @@ export default function Home() {
                   <div className="p-5">
                     <div className="flex items-center gap-3 mb-3">
                       {biz.logoUrl && (
-                        <img src={biz.logoUrl} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-border" />
+                        <img src={biz.logoUrl} alt="" loading="lazy" className="w-10 h-10 rounded-full object-cover ring-2 ring-border" />
                       )}
                       <div className="min-w-0">
                         <h3 className="font-semibold text-foreground truncate group-hover:text-amber-600 transition-colors">
@@ -498,6 +498,8 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
+
+
 
 
 

@@ -159,6 +159,194 @@ const CATEGORY_SEO_TEXT: Record<string, string> = {
   "Outros": "serviços diversos",
 };
 
+// Equivalências de cidades para busca multilíngue (pt/en e variações comuns).
+const CITY_ALIAS_GROUPS: string[][] = [
+  // América do Norte
+  ["montreal", "montréal", "montreal city"],
+  ["quebec", "québec", "cidade de quebec", "quebec city"],
+  ["toronto"],
+  ["vancouver"],
+  ["calgary"],
+  ["edmonton"],
+  ["ottawa", "otava"],
+  ["winnipeg"],
+  ["halifax"],
+  ["victoria"],
+  ["new york", "nova york", "nyc"],
+  ["los angeles", "los angeles", "la"],
+  ["san francisco", "sao francisco", "são francisco"],
+  ["washington", "washington dc"],
+  ["miami"],
+  ["orlando"],
+  ["boston"],
+  ["chicago"],
+  ["seattle"],
+  ["houston"],
+  ["dallas"],
+  ["las vegas"],
+  ["philadelphia", "filadelfia", "filadélfia"],
+  ["mexico city", "cidade do mexico", "cidade do méxico", "ciudad de mexico", "ciudad de méxico"],
+  ["guadalajara"],
+  ["monterrey"],
+  ["tijuana"],
+  // América do Sul
+  ["sao paulo", "são paulo"],
+  ["rio de janeiro"],
+  ["belo horizonte"],
+  ["brasilia", "brasília"],
+  ["curitiba"],
+  ["porto alegre"],
+  ["salvador"],
+  ["recife"],
+  ["fortaleza"],
+  ["manaus"],
+  ["bogota", "bogotá", "bogota d.c"],
+  ["medellin", "medellín"],
+  ["cali"],
+  ["buenos aires"],
+  ["cordoba", "córdoba"],
+  ["rosario"],
+  ["santiago"],
+  ["valparaiso", "valparaíso"],
+  ["lima"],
+  ["arequipa"],
+  ["quito"],
+  ["guayaquil"],
+  ["montevideo"],
+  ["asuncion", "asunción"],
+  ["la paz"],
+  ["santa cruz de la sierra", "santa cruz"],
+  ["caracas"],
+  // Europa
+  ["london", "londres"],
+  ["manchester"],
+  ["birmingham"],
+  ["dublin", "dublim"],
+  ["lisbon", "lisboa"],
+  ["porto", "oporto"],
+  ["madrid"],
+  ["barcelona"],
+  ["seville", "sevilla", "sevilha"],
+  ["valencia", "valência"],
+  ["paris", "paris"],
+  ["lyon", "lião", "lyon"],
+  ["marseille", "marselha"],
+  ["brussels", "bruxelas", "brussel", "bruxelles"],
+  ["amsterdam", "amsterda", "amsterdã"],
+  ["rotterdam", "rotterda", "rotterdam"],
+  ["berlin", "berlim"],
+  ["munich", "munique", "muenchen", "münchen"],
+  ["frankfurt", "frankfurt am main"],
+  ["hamburg", "hamburgo"],
+  ["cologne", "koln", "köln", "colonia", "colônia"],
+  ["vienna", "viena", "wien"],
+  ["zurich", "zuerich", "zürich", "zurique"],
+  ["geneva", "genebra", "genève"],
+  ["rome", "roma"],
+  ["milan", "milao", "milão", "milano"],
+  ["naples", "napoli", "nápoles"],
+  ["venice", "venezia", "veneza", "veneza"],
+  ["athens", "atenas"],
+  ["thessaloniki", "salonica", "salônica"],
+  ["warsaw", "varsovia", "varsóvia", "warszawa"],
+  ["prague", "praga", "praha"],
+  ["budapest", "budapeste"],
+  ["bucharest", "bucareste", "bucuresti", "bucurești"],
+  ["copenhagen", "copenhague", "kobenhavn", "københavn"],
+  ["stockholm", "estocolmo"],
+  ["oslo"],
+  ["helsinki", "helsinquia", "helsínquia"],
+  ["reykjavik", "reiquiavique", "reykjavík"],
+  ["moscow", "moscou", "moskva"],
+  ["saint petersburg", "sao petersburgo", "são petersburgo", "sankt-peterburg"],
+  ["istanbul", "istambul"],
+  // Ásia
+  ["tokyo", "toquio", "tóquio"],
+  ["kyoto", "quioto", "kyoto-shi"],
+  ["osaka"],
+  ["nagoya"],
+  ["sapporo"],
+  ["fukuoka"],
+  ["hiroshima"],
+  ["seoul", "seul"],
+  ["busan", "pusan"],
+  ["incheon", "incheon"],
+  ["beijing", "pequim"],
+  ["shanghai", "xangai"],
+  ["guangzhou", "cantao", "cantão"],
+  ["shenzhen"],
+  ["hong kong", "hong kong", "hong kong sar"],
+  ["macau", "macao", "macau sar"],
+  ["taipei", "taipé"],
+  ["kaohsiung"],
+  ["singapore", "singapura"],
+  ["bangkok", "banguecoque"],
+  ["kuala lumpur"],
+  ["jakarta"],
+  ["bali", "denpasar"],
+  ["manila"],
+  ["ho chi minh city", "cidade de ho chi minh", "saigon", "saigao", "saigão"],
+  ["hanoi", "hanói", "hanoi"],
+  ["phnom penh", "pnom penh"],
+  ["yangon", "rangum"],
+  ["new delhi", "nova delhi", "delhi"],
+  ["mumbai", "bombaim"],
+  ["bangalore", "bengaluru", "bangalore"],
+  ["chennai", "madras"],
+  ["kolkata", "calcuta"],
+  ["hyderabad"],
+  ["karachi"],
+  ["lahore"],
+  ["islamabad"],
+  ["dubai", "dubai"],
+  ["abu dhabi", "abu dabi", "abu dhabi"],
+  ["doha"],
+  ["riyadh", "riad"],
+  ["jeddah", "jedah"],
+  ["tel aviv", "tel avive"],
+  ["jerusalem", "jerusalem", "jerusalém"],
+  ["tehran", "teera", "teerã", "tehran"],
+  // Oceania
+  ["sydney", "sidney", "sidnei"],
+  ["melbourne", "melburne"],
+  ["brisbane"],
+  ["perth"],
+  ["adelaide"],
+  ["auckland"],
+  ["wellington"],
+  ["christchurch"],
+  // África
+  ["cairo", "cairo"],
+  ["alexandria", "alexandria", "alexandria"],
+  ["casablanca"],
+  ["rabat"],
+  ["marrakesh", "marrakech", "marraquexe"],
+  ["algiers", "argel", "alger"],
+  ["tunis", "tunis", "tunis"],
+  ["lagos"],
+  ["abuja"],
+  ["nairobi"],
+  ["addis ababa", "adis abeba"],
+  ["johannesburg", "joanesburgo"],
+  ["cape town", "cidade do cabo", "cidade do cabo"],
+  ["durban"],
+  ["luanda"],
+  ["maputo"],
+];
+
+function buildCityAliases(groups: string[][]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  groups.forEach((group) => {
+    const normalized = Array.from(new Set(group.map((c) => normalizeText(c))));
+    normalized.forEach((name) => {
+      map[name] = normalized.filter((other) => other !== name);
+    });
+  });
+  return map;
+}
+
+const CITY_ALIASES: Record<string, string[]> = buildCityAliases(CITY_ALIAS_GROUPS);
+
 export default function SearchResults() {
   const navigate = useNavigate();
   const { session, unreadMessages } = useAuth();
@@ -1171,7 +1359,7 @@ export default function SearchResults() {
                     <div className="p-5">
                       <div className="flex items-center gap-3 mb-4">
                         {biz.logoUrl && (
-                          <img src={biz.logoUrl} alt="" className="w-11 h-11 rounded-full object-cover ring-2 ring-border" />
+                          <img src={biz.logoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-full object-cover ring-2 ring-border" />
                         )}
                         <div className="min-w-0">
                           <h3 className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors leading-tight">
@@ -1240,10 +1428,24 @@ function cityMatches(businessCity: string, selectedCity: string): boolean {
   const normalizedSelectedCity = normalizeText(selectedCity);
   if (!normalizedBusinessCity || !normalizedSelectedCity) return false;
 
+  const businessTerms = expandCityTerms(normalizedBusinessCity);
+  const selectedTerms = expandCityTerms(normalizedSelectedCity);
+  const hasAliasIntersection = businessTerms.some((term) => selectedTerms.includes(term));
+  if (hasAliasIntersection) return true;
+
   return (
     normalizedBusinessCity === normalizedSelectedCity ||
     normalizedBusinessCity.includes(normalizedSelectedCity) ||
     normalizedSelectedCity.includes(normalizedBusinessCity)
+  );
+}
+
+function expandCityTerms(normalizedCity: string): string[] {
+  const base = normalizedCity.trim();
+  if (!base) return [];
+  const aliasList = CITY_ALIASES[base] || [];
+  return Array.from(
+    new Set([base, ...aliasList.map((a) => normalizeText(a))])
   );
 }
 
@@ -1332,6 +1534,8 @@ function getBusinessMatchScore(b: BusinessFrontend, normalizedQuery: string, cat
   if (synonymCategoryMatch) score += 2;
   return score;
 }
+
+
 
 
 

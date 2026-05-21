@@ -7,23 +7,85 @@ const IMAGE_TYPES_TO_CONVERT = new Set([
   "image/webp",
 ]);
 
-async function convertImageToWebp(file: File, quality = 0.84): Promise<File> {
+type ImagePreset = {
+  maxWidth: number;
+  maxHeight: number;
+  quality: number;
+};
+
+const DEFAULT_IMAGE_PRESET: ImagePreset = {
+  maxWidth: 1600,
+  maxHeight: 1600,
+  quality: 0.82,
+};
+
+const IMAGE_PRESETS: Record<string, ImagePreset> = {
+  hero: { maxWidth: 1920, maxHeight: 1080, quality: 0.8 },
+  logo: { maxWidth: 700, maxHeight: 700, quality: 0.86 },
+  photo: { maxWidth: 1400, maxHeight: 1400, quality: 0.78 },
+  "event-flyer": { maxWidth: 1400, maxHeight: 1800, quality: 0.8 },
+  avatar: { maxWidth: 600, maxHeight: 600, quality: 0.85 },
+};
+
+function getImagePresetFromPath(path: string): ImagePreset {
+  const fileName = path.split("/").pop() || "";
+  const kind = fileName.split("_")[0].toLowerCase();
+  return IMAGE_PRESETS[kind] || DEFAULT_IMAGE_PRESET;
+}
+
+function fitSize(
+  width: number,
+  height: number,
+  maxWidth: number,
+  maxHeight: number
+): { width: number; height: number } {
+  if (width <= maxWidth && height <= maxHeight) {
+    return { width, height };
+  }
+  const ratio = Math.min(maxWidth / width, maxHeight / height);
+  return {
+    width: Math.max(1, Math.round(width * ratio)),
+    height: Math.max(1, Math.round(height * ratio)),
+  };
+}
+
+async function convertImageToWebp(
+  file: File,
+  preset: ImagePreset = DEFAULT_IMAGE_PRESET
+): Promise<File> {
   if (!IMAGE_TYPES_TO_CONVERT.has(file.type)) return file;
-  if (file.type === "image/webp") return file;
 
   try {
     const bitmap = await createImageBitmap(file);
+    const target = fitSize(
+      bitmap.width,
+      bitmap.height,
+      preset.maxWidth,
+      preset.maxHeight
+    );
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = target.width;
+    canvas.height = target.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return file;
 
-    ctx.drawImage(bitmap, 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/webp", quality);
-    });
+    ctx.drawImage(bitmap, 0, 0, target.width, target.height);
+
+    // If image is still too heavy, reduce quality progressively.
+    const encode = (quality: number) =>
+      new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/webp", quality);
+      });
+
+    let blob = await encode(preset.quality);
     if (!blob) return file;
+
+    const maxTargetBytes = 950 * 1024; // ~0.95MB
+    if (blob.size > maxTargetBytes) {
+      const lowQ = Math.max(0.62, preset.quality - 0.16);
+      const lowBlob = await encode(lowQ);
+      if (lowBlob) blob = lowBlob;
+    }
 
     const webpName = file.name.replace(/\.[^.]+$/, "") + ".webp";
     return new File([blob], webpName, { type: "image/webp" });
@@ -45,7 +107,8 @@ export async function uploadImage(
   file: File
 ): Promise<string | null> {
   try {
-    const uploadFile = await convertImageToWebp(file);
+    const preset = getImagePresetFromPath(path);
+    const uploadFile = await convertImageToWebp(file, preset);
     const normalizedPath =
       uploadFile.type === "image/webp"
         ? path.replace(/\.[^.\/]+$/, ".webp")

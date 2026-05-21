@@ -806,10 +806,10 @@ export default function BusinessPage() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">
-                              {review.user_id === session?.userId && user?.avatar ? (
+                              {review.user_avatar || (review.user_id === session?.userId && user?.avatar) ? (
                                 <img
-                                  src={user.avatar}
-                                  alt={user.name}
+                                  src={review.user_avatar || user?.avatar || ""}
+                                  alt={review.user_name}
                                   className="w-full h-full rounded-full object-cover"
                                 />
                               ) : (
@@ -1120,7 +1120,7 @@ export default function BusinessPage() {
                 <Link key={item.id} to={buildBusinessUrl(item)} className="group">
                   <Card className="overflow-hidden border-border card-hover h-full">
                     <div className="aspect-[16/10] bg-muted overflow-hidden">
-                      <img src={item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"} alt={item.name} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out" />
+                      <img src={item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"} alt={item.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out" />
                     </div>
                     <div className="p-4">
                       <Badge variant="secondary" className="mb-2">{item.category.split("(")[0].trim()}</Badge>
@@ -1226,6 +1226,8 @@ function formatInstagramDisplay(value: string): string {
 function formatFacebookDisplay(value: string): string {
   return normalizeSocialValue(value) || value;
 }
+
+
 
 
 
