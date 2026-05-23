@@ -405,6 +405,10 @@ export default function SearchResults() {
           !!initialRadius &&
           initialRadius > 0 &&
           (!hasCityContext || hasCityAlignedOrigin);
+        const rpcCityFilter =
+          canUseRpcRadius
+            ? undefined // com raio, cidade é origem; não deve restringir só à cidade
+            : ((cityFilter || locationFilter) || undefined);
 
         const businessesPromise = canUseRpcRadius
           ? getBusinessesByRadiusRpc({
@@ -415,7 +419,7 @@ export default function SearchResults() {
               countryCode: countryFilter || undefined,
               stateCode: stateFilter || undefined,
               query: query || undefined,
-              city: (cityFilter || locationFilter) || undefined,
+              city: rpcCityFilter,
             })
           : getAllBusinesses();
 
