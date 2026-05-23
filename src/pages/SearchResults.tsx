@@ -389,7 +389,14 @@ export default function SearchResults() {
   const [initialLoading, setInitialLoading] = useState(true);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
-  const [requestedPage, setRequestedPage] = useState(currentPage);
+  const [pendingPage, setPendingPage] = useState<number | null>(null);
+  const effectivePage = pendingPage ?? currentPage;
+
+  useEffect(() => {
+    if (pendingPage !== null && currentPage === pendingPage) {
+      setPendingPage(null);
+    }
+  }, [currentPage, pendingPage]);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -435,7 +442,7 @@ export default function SearchResults() {
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
             : ((cityFilter || locationFilter) || undefined);
 
-        const pageForRpc = Math.max(1, requestedPage);
+        const pageForRpc = Math.max(1, effectivePage);
         const offset = (pageForRpc - 1) * RESULTS_PER_PAGE;
 
         const businessesPromise = canUseRpcRadius
@@ -500,7 +507,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, requestedPage, canUseRpcRadiusMode]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, effectivePage, canUseRpcRadiusMode]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
@@ -740,7 +747,7 @@ export default function SearchResults() {
     ? rpcTotalCount
     : results.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
-  const safeCurrentPage = Math.min(requestedPage, totalPages);
+  const safeCurrentPage = Math.min(effectivePage, totalPages);
   const pageStart = (safeCurrentPage - 1) * RESULTS_PER_PAGE;
   const pageEnd = pageStart + RESULTS_PER_PAGE;
 
@@ -757,13 +764,13 @@ export default function SearchResults() {
   useEffect(() => {
     if (initialLoading) return;
     if (canUseRpcRadiusMode && rpcTotalCount === null) return;
-    if (safeCurrentPage === requestedPage) return;
-    setRequestedPage(safeCurrentPage);
+    if (safeCurrentPage === effectivePage) return;
+    setPendingPage(safeCurrentPage);
     const params = new URLSearchParams(searchParams);
     if (safeCurrentPage <= 1) params.delete("pagina");
     else params.set("pagina", String(safeCurrentPage));
     setSearchParams(params, { replace: true });
-  }, [safeCurrentPage, requestedPage, searchParams, setSearchParams, initialLoading, canUseRpcRadiusMode, rpcTotalCount]);
+  }, [safeCurrentPage, effectivePage, searchParams, setSearchParams, initialLoading, canUseRpcRadiusMode, rpcTotalCount]);
 
   useEffect(() => {
     if (safeCurrentPage <= 1) return;
@@ -772,7 +779,7 @@ export default function SearchResults() {
 
   const goToPage = useCallback((page: number) => {
     const nextPage = Math.max(1, page);
-    setRequestedPage(nextPage);
+    setPendingPage(nextPage);
     const params = new URLSearchParams(searchParams);
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
