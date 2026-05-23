@@ -390,10 +390,11 @@ export default function SearchResults() {
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [requestedPage, setRequestedPage] = useState(currentPage);
-
   useEffect(() => {
-    setRequestedPage(currentPage);
-  }, [currentPage]);
+    if (currentPage === 1 && requestedPage !== 1) {
+      setRequestedPage(1);
+    }
+  }, [currentPage, requestedPage]);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -775,7 +776,7 @@ export default function SearchResults() {
   }, [safeCurrentPage]);
 
   const goToPage = useCallback((page: number) => {
-    const nextPage = Math.max(1, Math.min(totalPages, page));
+    const nextPage = Math.max(1, page);
     setRequestedPage(nextPage);
     const params = new URLSearchParams(searchParams);
     if (nextPage <= 1) params.delete("pagina");
@@ -791,7 +792,7 @@ export default function SearchResults() {
       setTimeout(scrollToResultsTop, 80);
       setTimeout(scrollToResultsTop, 180);
     });
-  }, [searchParams, setSearchParams, totalPages]);
+  }, [searchParams, setSearchParams]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
