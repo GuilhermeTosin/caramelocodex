@@ -80,6 +80,7 @@ import {
   deleteBusiness,
   BUSINESS_CATEGORY_OPTIONS,
   slugify,
+  isBusinessSlugAvailable,
   getCategoryId,
   getCategoryLabel,
 } from "@/services/businesses";
@@ -200,6 +201,7 @@ export default function UserProfile() {
   });
   const [editFormData, setEditFormData] = useState({
     name: "",
+    shortSlug: "",
     category: "",
     description: "",
     phone: "",
@@ -235,6 +237,8 @@ export default function UserProfile() {
   const [eventFlyerFiles, setEventFlyerFiles] = useState<Record<number, File>>({});
   const eventDatePickerRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [editBusinessHours, setEditBusinessHours] = useState<BusinessHour[]>(createDefaultBusinessHours());
+  const [shortSlugStatus, setShortSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [shortSlugMessage, setShortSlugMessage] = useState("");
   const [myReviews, setMyReviews] = useState<(BusinessFrontend["reviews"][0] & { businessName: string; businessSlug: string; businessId: string })[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
   const [ownershipRequests, setOwnershipRequests] = useState<OwnerClaimRequest[]>([]);
@@ -957,6 +961,7 @@ export default function UserProfile() {
   const handleStartEditBusiness = (biz: BusinessFrontend) => {
     setEditFormData({
       name: biz.name,
+      shortSlug: biz.slug || "",
       category: biz.categoryId,
       description: biz.description,
       phone: biz.phone || "",
@@ -994,6 +999,7 @@ export default function UserProfile() {
     setEditingBusiness(null);
     setEditFormData({
       name: "",
+      shortSlug: "",
       category: "",
       description: "",
       phone: "",
@@ -1027,11 +1033,74 @@ export default function UserProfile() {
     setEditHeroFile(null);
     setEditPhotoFiles([]);
     setEditMenuPdfFile(null);
+    setShortSlugStatus("idle");
+    setShortSlugMessage("");
   };
 
+  const normalizeShortSlug = (value: string) =>
+    (value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-+/, "")
+      .replace(/-+$/, "");
+
   const handleEditInputChange = (field: string, value: string) => {
+    if (field === "shortSlug") {
+      const normalized = normalizeShortSlug(value);
+      setEditFormData((prev) => ({ ...prev, shortSlug: normalized }));
+      return;
+    }
     setEditFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    if (!creatingBusiness && !editingBusiness) return;
+    const raw = (editFormData.shortSlug || "").trim();
+    const normalized = normalizeShortSlug(raw);
+
+    if (!normalized) {
+      setShortSlugStatus("idle");
+      setShortSlugMessage("Escolha um link curto para compartilhar seu negócio.");
+      return;
+    }
+
+    if (normalized.includes("caramelinho")) {
+      setShortSlugStatus("invalid");
+      setShortSlugMessage('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
+      return;
+    }
+
+    if (normalized.length < 3) {
+      setShortSlugStatus("invalid");
+      setShortSlugMessage("Use pelo menos 3 caracteres.");
+      return;
+    }
+
+    setShortSlugStatus("checking");
+    setShortSlugMessage("Verificando disponibilidade...");
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const available = await isBusinessSlugAvailable(normalized, editingBusiness?.id);
+      if (cancelled) return;
+      if (available) {
+        setShortSlugStatus("available");
+        setShortSlugMessage("Disponível.");
+      } else {
+        setShortSlugStatus("taken");
+        setShortSlugMessage("Indisponível. Esse link já está em uso.");
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [editFormData.shortSlug, creatingBusiness, editingBusiness]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero", isEdit: boolean) => {
     const file = e.target.files?.[0] || null;
@@ -1138,9 +1207,32 @@ export default function UserProfile() {
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
+    const desiredSlug = slugify((editFormData.shortSlug || editFormData.name).trim());
+    if (!desiredSlug) {
+      toast.error("Defina um link curto válido para o negócio.");
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(desiredSlug)) {
+      toast.error("Use apenas letras, números e hífen (-) no link curto.");
+      return;
+    }
+    if (desiredSlug.includes("caramelinho")) {
+      toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
+      return;
+    }
+    const slugAvailable = await isBusinessSlugAvailable(desiredSlug, editingBusiness?.id);
+    if (!slugAvailable) {
+      const baseCity = slugify(editFormData.city || "");
+      const baseState = slugify(editFormData.stateCode || editFormData.state || "");
+      const suggestion1 = `${desiredSlug}-${baseCity || "local"}`.replace(/-+$/g, "");
+      const suggestion2 = `${desiredSlug}-${baseState || "oficial"}`.replace(/-+$/g, "");
+      const suggestion3 = `${desiredSlug}-${Date.now().toString().slice(-4)}`;
+      toast.error(`Esse link curto já está em uso. Tente: ${suggestion1}, ${suggestion2} ou ${suggestion3}.`);
+      return;
+    }
     const updates: any = {
       name: editFormData.name,
-      slug: slugify(editFormData.name),
+      slug: desiredSlug,
       categoryId: editFormData.category,
       description: editFormData.description,
       street: editFormData.street,
@@ -3319,6 +3411,39 @@ export default function UserProfile() {
                 placeholder="Ex: Brasil Tropical Bakery"
                 className="mt-1.5"
               />
+            </div>
+
+            <div className="sm:col-span-2">
+              <Label htmlFor="edit-short-slug">Link curto do negócio</Label>
+              <div className="mt-1.5 flex items-center rounded-md border border-input bg-background overflow-hidden">
+                <span className="px-3 py-2 text-sm text-muted-foreground bg-secondary/50 border-r border-input whitespace-nowrap">
+                  caramelinho.com/go/
+                </span>
+                <input
+                  id="edit-short-slug"
+                  value={editFormData.shortSlug}
+                  onChange={(e) => handleEditInputChange("shortSlug", e.target.value)}
+                  placeholder="pizzaria-do-ze"
+                  className="w-full h-10 px-3 bg-transparent text-sm outline-none"
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Este é o link simples para compartilhar seu negócio em redes sociais, WhatsApp e cartões.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Exemplo: caramelinho.com/go/{editFormData.shortSlug || "pizzaria-do-ze"}
+              </p>
+              <p
+                className={`mt-1 text-xs ${
+                  shortSlugStatus === "available"
+                    ? "text-emerald-700"
+                    : shortSlugStatus === "taken" || shortSlugStatus === "invalid"
+                    ? "text-red-600"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {shortSlugMessage}
+              </p>
             </div>
 
             <div className="sm:col-span-2">

@@ -504,6 +504,47 @@ export async function getBusinessBySlug(
   return toFrontend(biz, profile?.name);
 }
 
+export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
+  const normalizedSlug = (slug || "").trim().toLowerCase();
+  if (!normalizedSlug) return null;
+
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("slug", normalizedSlug)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  return toFrontend(biz, profile?.name);
+}
+
+export async function isBusinessSlugAvailable(
+  slug: string,
+  excludeBusinessId?: string
+): Promise<boolean> {
+  const normalizedSlug = slugify((slug || "").trim());
+  if (!normalizedSlug) return false;
+
+  let query = supabase.from("businesses").select("id").eq("slug", normalizedSlug).limit(1);
+  if (excludeBusinessId) {
+    query = query.neq("id", excludeBusinessId);
+  }
+
+  const { data, error } = await query;
+  if (error) return false;
+  return !data || data.length === 0;
+}
+
 export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFrontend[]> {
   const { data } = await supabase
     .from("businesses")
@@ -614,6 +655,8 @@ export async function createBusiness(
     return null;
   }
   const safeSlug = slugify(data.slug?.trim() || data.name);
+  const slugAvailable = await isBusinessSlugAvailable(safeSlug);
+  if (!slugAvailable) return null;
 
   const { data: newBiz, error } = await supabase
     .from("businesses")
@@ -673,6 +716,11 @@ export async function updateBusiness(
     normalizedUpdates.slug = slugify(nameValue);
   } else if (slugValue.trim()) {
     normalizedUpdates.slug = slugify(slugValue);
+  }
+
+  if (typeof normalizedUpdates.slug === "string" && normalizedUpdates.slug.trim()) {
+    const slugAvailable = await isBusinessSlugAvailable(normalizedUpdates.slug, id);
+    if (!slugAvailable) return false;
   }
 
   // Mapear camelCase para snake_case (colunas do banco)

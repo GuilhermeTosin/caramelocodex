@@ -9,6 +9,7 @@ import Login from "@/pages/Login";
 import UserProfile from "@/pages/UserProfile";
 import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
 import EventPage from "@/pages/EventPage";
+import BusinessShortLink from "@/pages/BusinessShortLink";
 import NotFound from "@/pages/NotFound";
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
           <Route path="/eventos/:eventId" element={<EventPage />} />
+          <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
