@@ -405,6 +405,8 @@ export default function SearchResults() {
               categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
               countryCode: countryFilter || undefined,
               stateCode: stateFilter || undefined,
+              query: query || undefined,
+              city: (cityFilter || locationFilter) || undefined,
             })
           : getAllBusinesses();
 
@@ -443,7 +445,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, categoryFilter, countryFilter, stateFilter]);
+  }, [radiusFilter, originLatParam, originLngParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {

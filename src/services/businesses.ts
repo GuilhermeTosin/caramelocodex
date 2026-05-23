@@ -362,6 +362,8 @@ export async function getBusinessesByRadiusRpc(params: {
   categoryId?: string;
   countryCode?: string;
   stateCode?: string;
+  query?: string;
+  city?: string;
 }): Promise<BusinessFrontend[]> {
   const { data: hits } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
@@ -372,6 +374,8 @@ export async function getBusinessesByRadiusRpc(params: {
     p_category_id: params.categoryId || null,
     p_country_code: params.countryCode || null,
     p_state_code: params.stateCode || null,
+    p_query: (params.query || "").trim() || null,
+    p_city: (params.city || "").trim() || null,
   });
 
   const orderedIds: string[] = (hits || [])
