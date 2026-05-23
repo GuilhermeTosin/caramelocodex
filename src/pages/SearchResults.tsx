@@ -390,12 +390,21 @@ export default function SearchResults() {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
         const initialLat = Number(originLatParam);
         const initialLng = Number(originLngParam);
+        const cityContext = (cityFilter || locationFilter || "").trim();
+        const normalizedCityContext = normalizeText(cityContext);
+        const normalizedOriginLocal = normalizeText(originLocalParam || "");
+        const hasCityContext = !!normalizedCityContext;
+        const hasCityAlignedOrigin =
+          hasCityContext &&
+          originSourceParam === "city" &&
+          normalizedOriginLocal === normalizedCityContext;
         const canUseRpcRadius =
           SEARCH_BACKEND === "rpc" &&
           Number.isFinite(initialLat) &&
           Number.isFinite(initialLng) &&
           !!initialRadius &&
-          initialRadius > 0;
+          initialRadius > 0 &&
+          (!hasCityContext || hasCityAlignedOrigin);
 
         const businessesPromise = canUseRpcRadius
           ? getBusinessesByRadiusRpc({
@@ -448,7 +457,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
