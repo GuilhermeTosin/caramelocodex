@@ -9,6 +9,8 @@
         "prepreview": "npm run check:encoding",
         "lint": "eslint .",
         "preview": "vite preview --host 0.0.0.0",
+        "test:search": "vitest run src/lib/search/businessSearch.test.ts",
+        "test:events": "vitest run src/lib/search/eventSearch.test.ts",
         "check:encoding": "node scripts/check-encoding.mjs",
         "fix:encoding": "node scripts/fix-encoding.mjs",
         "migrate:webp": "node scripts/migrate-images-to-webp.mjs",
@@ -52,6 +54,7 @@
         "tailwindcss-animate": "^1.0.7",
         "typescript": "^5.6.3",
         "typescript-eslint": "^8.58.2",
-        "vite": "^5.4.11"
+        "vite": "^5.4.11",
+        "vitest": "^4.1.7"
     }
 }

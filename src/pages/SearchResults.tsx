@@ -36,6 +36,8 @@ import { setSeoMeta } from "@/lib/seo";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
+import { buildCityAliases, cityMatches, filterBusinesses, normalizeText } from "@/lib/search/businessSearch";
+import { buildEventResults } from "@/lib/search/eventSearch";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -334,17 +336,6 @@ const CITY_ALIAS_GROUPS: string[][] = [
   ["maputo"],
 ];
 
-function buildCityAliases(groups: string[][]): Record<string, string[]> {
-  const map: Record<string, string[]> = {};
-  groups.forEach((group) => {
-    const normalized = Array.from(new Set(group.map((c) => normalizeText(c))));
-    normalized.forEach((name) => {
-      map[name] = normalized.filter((other) => other !== name);
-    });
-  });
-  return map;
-}
-
 const CITY_ALIASES: Record<string, string[]> = buildCityAliases(CITY_ALIAS_GROUPS);
 
 export default function SearchResults() {
@@ -631,128 +622,29 @@ export default function SearchResults() {
   }, [query, categoryFilter, cityFilter]);
 
   const results = useMemo(() => {
-    let filtered = allBusinesses;
-    const baseBusinesses = allBusinesses;
-
-    if (query) {
-      const q = normalizeText(query);
-      // Buscar sinônimos e palavras-chave da categoria
-      const relatedTerms = SEARCH_SYNONYMS[q] || [];
-      
-      filtered = filtered.filter((b) => {
-        const effectiveKeywords = getEffectiveCategoryKeywords(b.category, categorySynonymsMap);
-        const score = getBusinessMatchScore(b, q, effectiveKeywords, relatedTerms);
-        return STRICT_SEARCH_MODE ? score >= STRICT_SEARCH_MIN_SCORE : score > 0;
-      });
-    }
-
-    if (categoryFilter) {
-      filtered = filtered.filter((b) => matchesCategoryFilter(b.category, categoryFilter));
-    }
-
-    if (eventsFilter === "1") {
-      const today = new Date().toISOString().slice(0, 10);
-      filtered = filtered.filter((b) =>
-        (b.events || []).some((event) => !!event?.date && event.date >= today)
-      );
-    }
-
-    // Se ha referencia geografica (origem + raio efetivo), a cidade vira ponto de origem
-    // e não filtro estrito por nome. Sem origem, mantemos o filtro por cidade.
-    if (cityFilter && !(distanceOrigin && effectiveRadiusKm)) {
-      filtered = filtered.filter(
-        (b) => cityMatches(b.address.city || "", cityFilter)
-      );
-    }
-
-    if (countryFilter) {
-      filtered = filtered.filter((b) => b.address.countryCode.toLowerCase() === countryFilter.toLowerCase());
-    }
-
-    if (stateFilter) {
-      filtered = filtered.filter((b) => b.address.stateCode.toLowerCase() === stateFilter.toLowerCase());
-    }
-
-
-    if (effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
-      filtered = [];
-    } else if (effectiveRadiusKm && distanceOrigin) {
-      filtered = filtered.filter((b) => {
-        const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
-        return distance <= effectiveRadiusKm;
-      });
-    }
-
-    // Expansão progressiva quando zera: 50km (padrão) -> 150km -> estado/província.
-    if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
-      const baseScoped = baseBusinesses.filter((b) => {
-        const passesQuery = !query || matchesBusinessTextQuery(b, normalizeText(query));
-        const passesCategory = !categoryFilter || matchesCategoryFilter(b.category, categoryFilter);
-        const passesCountry = !countryFilter || b.address.countryCode.toLowerCase() === countryFilter.toLowerCase();
-        const passesState = !stateFilter || b.address.stateCode.toLowerCase() === stateFilter.toLowerCase();
-        return passesQuery && passesCategory && passesCountry && passesState;
-      });
-
-      const within = (km) => baseScoped.filter((b) => calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng) <= km);
-
-      const near150 = within(150);
-      if (near150.length > 0) {
-        filtered = near150;
-      } else {
-        const sameState = baseScoped.filter((b) => {
-          const ref = baseBusinesses.find((x) => cityMatches(x.address.city || "", cityFilter || locationFilter));
-          if (!ref) return false;
-          return (
-            b.address.countryCode.toLowerCase() === ref.address.countryCode.toLowerCase() &&
-            b.address.stateCode.toLowerCase() === ref.address.stateCode.toLowerCase()
-          );
-        });
-        if (sameState.length > 0) {
-          filtered = sameState;
-        }
-      }
-    }
-
-    if (filtered.length === 0) {
-      const hasHardFilters = !!(
-        categoryFilter ||
-        query ||
-        cityFilter ||
-        countryFilter ||
-        stateFilter ||
-        radiusKm
-      );
-
-      // Sa aplicamos fallback amplo quando não ha filtros "duros".
-      // Assim evitamos transformar uma categoria sem resultados em "todas as categorias".
-      if (!hasHardFilters && locationFilter.trim()) {
-        const normalizedLocal = normalizeText(locationFilter);
-        const localFallback = baseBusinesses.filter((b) => {
-          const city = normalizeText(b.address.city || "");
-          const state = normalizeText(b.address.state || "");
-          const country = normalizeText(b.address.country || "");
-          return (
-            city.includes(normalizedLocal) ||
-            normalizedLocal.includes(city) ||
-            state.includes(normalizedLocal) ||
-            country.includes(normalizedLocal)
-          );
-        });
-        if (localFallback.length > 0) {
-          return localFallback;
-        }
-      }
-    }
-    // Se tiver coordenadas de referencia, ordena por proximidade sem alterar a contagem.
-    if (distanceOrigin) {
-      return [...filtered].sort((a, b) => {
-        const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
-        const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
-        return distA - distB;
-      });
-    }
-
-    return filtered;
+    return filterBusinesses({
+      allBusinesses,
+      query,
+      categoryFilter,
+      cityFilter,
+      locationFilter,
+      countryFilter,
+      stateFilter,
+      eventsFilter,
+      radiusKm,
+      effectiveRadiusKm,
+      hasLocationContext,
+      hasTypedLocation,
+      distanceOrigin,
+      categorySynonymsMap,
+      searchSynonyms: SEARCH_SYNONYMS,
+      categoryKeywords: CATEGORY_KEYWORDS,
+      categoryFilterAliases: CATEGORY_FILTER_ALIASES,
+      cityAliases: CITY_ALIASES,
+      strictSearchMode: STRICT_SEARCH_MODE,
+      strictSearchMinScore: STRICT_SEARCH_MIN_SCORE,
+      getCategoryLabel,
+    });
   }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter, categorySynonymsMap]);
 
   const mapCenter =
@@ -764,41 +656,13 @@ export default function SearchResults() {
       : { lat: 45.5, lng: -73.6 });
 
   const eventResults = useMemo(() => {
-    if (!isEventMode) return [];
-    const today = new Date().toISOString().slice(0, 10);
-    const q = normalizeText(query);
-    const matchesEventQuery = (evt: { title: string; description: string; location: string }) => {
-      if (!q) return true;
-      const blob = normalizeText(`${evt.title || ""} ${evt.description || ""} ${evt.location || ""}`);
-      return q.split(/\s+/).filter(Boolean).every((term) => blob.includes(term));
-    };
-
-    const businessBacked = results.flatMap((biz) =>
-      (biz.events || [])
-        .filter((evt) => !!evt?.date && evt.date >= today)
-        .filter(matchesEventQuery)
-        .map((evt, idx) => ({
-          type: "business" as const,
-          biz,
-          evt,
-          key: `${biz.id}-${evt.title}-${evt.date}-${idx}`,
-        }))
-    );
-
-    const standalone = communityEvents
-      .filter((evt) => !evt.business_id)
-      .filter((evt) => !!evt?.date && evt.date >= today)
-      .filter((evt) => matchesEventQuery({ title: evt.title, description: evt.description, location: evt.location }))
-      .map((evt) => ({
-        type: "community" as const,
-        evt,
-        linkedBiz: evt.business_id ? allBusinesses.find((b) => b.id === evt.business_id) || null : null,
-        key: `community-${evt.id}`,
-      }));
-
-    return [...businessBacked, ...standalone].sort((a, b) =>
-      a.evt.date.localeCompare(b.evt.date)
-    );
+    return buildEventResults({
+      isEventMode,
+      query,
+      results,
+      communityEvents,
+      allBusinesses,
+    });
   }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -1507,136 +1371,6 @@ export default function SearchResults() {
       <SiteFooter />
     </div>
   );
-}
-
-function matchesCategoryFilter(category: string, filter: string): boolean {
-  const normalizedCategory = normalizeText(getCategoryLabel(category));
-  const terms = CATEGORY_FILTER_ALIASES[normalizeText(filter)] || [filter];
-
-  return terms.some((term) => normalizedCategory.includes(normalizeText(term)));
-}
-
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function cityMatches(businessCity: string, selectedCity: string): boolean {
-  const normalizedBusinessCity = normalizeText(businessCity);
-  const normalizedSelectedCity = normalizeText(selectedCity);
-  if (!normalizedBusinessCity || !normalizedSelectedCity) return false;
-
-  const businessTerms = expandCityTerms(normalizedBusinessCity);
-  const selectedTerms = expandCityTerms(normalizedSelectedCity);
-  const hasAliasIntersection = businessTerms.some((term) => selectedTerms.includes(term));
-  if (hasAliasIntersection) return true;
-
-  return (
-    normalizedBusinessCity === normalizedSelectedCity ||
-    normalizedBusinessCity.includes(normalizedSelectedCity) ||
-    normalizedSelectedCity.includes(normalizedBusinessCity)
-  );
-}
-
-function expandCityTerms(normalizedCity: string): string[] {
-  const base = normalizedCity.trim();
-  if (!base) return [];
-  const aliasList = CITY_ALIASES[base] || [];
-  return Array.from(
-    new Set([base, ...aliasList.map((a) => normalizeText(a))])
-  );
-}
-
-function getBusinessSearchBlob(b: BusinessFrontend): string {
-  const menuText = (b.menu || [])
-    .map((item) => `${item?.name || ""} ${item?.description || ""}`)
-    .join(" ");
-
-  return normalizeText(
-    [
-      b.name || "",
-      b.description || "",
-      b.category || "",
-      b.address?.city || "",
-      ...(b.services || []),
-      ...(b.keywords || []),
-      b.isVeganFriendly ? "vegano vegan" : "",
-      b.isVegetarianFriendly ? "vegetariano vegetarian" : "",
-      b.isGlutenFreeFriendly ? "sem gluten gluten free sem trigo" : "",
-      menuText,
-    ].join(" ")
-  );
-}
-
-function matchesBusinessTextQuery(b: BusinessFrontend, normalizedQuery: string): boolean {
-  if (!normalizedQuery) return true;
-  const blob = getBusinessSearchBlob(b);
-  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-  return terms.every((term) => blob.includes(term));
-}
-
-function getEffectiveCategoryKeywords(
-  businessCategoryLabel: string,
-  categorySynonymsMap: Record<string, string[]>
-): string[] {
-  if (!businessCategoryLabel) return [];
-  const direct = categorySynonymsMap[businessCategoryLabel];
-  if (direct && direct.length > 0) return direct;
-
-  const matchedEntry = Object.entries(categorySynonymsMap).find(([configuredCategory]) =>
-    matchesCategoryFilter(businessCategoryLabel, configuredCategory)
-  );
-  if (matchedEntry && matchedEntry[1].length > 0) return matchedEntry[1];
-
-  const legacy = CATEGORY_KEYWORDS[businessCategoryLabel];
-  return legacy || [];
-}
-
-function matchesNormalizedQueryTokens(targetNormalizedText: string, queryNormalizedText: string): boolean {
-  if (!targetNormalizedText || !queryNormalizedText) return false;
-  const targetTokens = new Set(targetNormalizedText.split(/\s+/).filter(Boolean));
-  const queryTokens = queryNormalizedText.split(/\s+/).filter(Boolean);
-  if (queryTokens.length === 0) return false;
-  return queryTokens.every((token) => targetTokens.has(token));
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function getBusinessMatchScore(b: BusinessFrontend, normalizedQuery: string, categoryKeywords: string[], relatedTerms: string[]): number {
-  if (!normalizedQuery) return 1;
-  const directTextMatch = matchesBusinessTextQuery(b, normalizedQuery);
-  const categoryKeywordMatch = (categoryKeywords || []).some((kw) =>
-    matchesNormalizedQueryTokens(normalizeText(kw), normalizedQuery)
-  );
-  const synonymCategoryMatch = (relatedTerms || []).some((term) => matchesCategoryFilter(b.category, term));
-
-  let score = 0;
-  if (directTextMatch) score += 5;
-  if (categoryKeywordMatch) score += 3;
-  if (synonymCategoryMatch) score += 2;
-  return score;
 }
 
 
