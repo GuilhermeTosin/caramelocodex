@@ -389,14 +389,7 @@ export default function SearchResults() {
   const [initialLoading, setInitialLoading] = useState(true);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
-  const [pendingPage, setPendingPage] = useState<number | null>(null);
-  const effectivePage = pendingPage ?? currentPage;
-
-  useEffect(() => {
-    if (pendingPage !== null && currentPage === pendingPage) {
-      setPendingPage(null);
-    }
-  }, [currentPage, pendingPage]);
+  const effectivePage = currentPage;
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -430,6 +423,41 @@ export default function SearchResults() {
     isEventMode,
   ]);
 
+  const loadRpcBusinessesPage = useCallback(async (page: number) => {
+    if (!canUseRpcRadiusMode) return false;
+
+    const initialRadius = radiusFilter ? Number(radiusFilter) : null;
+    const initialLat = Number(originLatParam);
+    const initialLng = Number(originLngParam);
+    const offset = (Math.max(1, page) - 1) * RESULTS_PER_PAGE;
+
+    const rpcResult = await getBusinessesByRadiusRpc({
+      originLat: initialLat,
+      originLng: initialLng,
+      radiusKm: initialRadius as number,
+      limit: RESULTS_PER_PAGE,
+      offset,
+      categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
+      countryCode: countryFilter || undefined,
+      stateCode: stateFilter || undefined,
+      query: query || undefined,
+      city: undefined,
+    });
+
+    setAllBusinesses(rpcResult.items);
+    setRpcTotalCount(rpcResult.totalCount);
+    return true;
+  }, [
+    canUseRpcRadiusMode,
+    radiusFilter,
+    originLatParam,
+    originLngParam,
+    categoryFilter,
+    countryFilter,
+    stateFilter,
+    query,
+  ]);
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -442,7 +470,7 @@ export default function SearchResults() {
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
             : ((cityFilter || locationFilter) || undefined);
 
-        const pageForRpc = Math.max(1, effectivePage);
+        const pageForRpc = Math.max(1, currentPage);
         const offset = (pageForRpc - 1) * RESULTS_PER_PAGE;
 
         const businessesPromise = canUseRpcRadius
@@ -507,7 +535,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, effectivePage, canUseRpcRadiusMode]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
@@ -779,11 +807,15 @@ export default function SearchResults() {
 
   const goToPage = useCallback((page: number) => {
     const nextPage = Math.max(1, page);
-    setPendingPage(nextPage);
     const params = new URLSearchParams(searchParams);
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
     setSearchParams(params, { replace: true });
+    if (canUseRpcRadiusMode) {
+      loadRpcBusinessesPage(nextPage).catch(() => {
+        // O efeito principal continua como fallback quando a navegação atualizar a URL.
+      });
+    }
 
     const scrollToResultsTop = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -794,7 +826,7 @@ export default function SearchResults() {
       setTimeout(scrollToResultsTop, 80);
       setTimeout(scrollToResultsTop, 180);
     });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, canUseRpcRadiusMode, loadRpcBusinessesPage]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
