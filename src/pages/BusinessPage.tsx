@@ -24,6 +24,8 @@ import {
   Ticket,
   Leaf,
   WheatOff,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +57,7 @@ export default function BusinessPage() {
   const [business, setBusiness] = useState<BusinessFrontend | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(-1);
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewComment, setReviewComment] = useState("");
   const [sendingReview, setSendingReview] = useState(false);
@@ -86,6 +89,7 @@ export default function BusinessPage() {
     })
     .sort((a, b) => a.date.localeCompare(b.date));
   const requestedTab = searchParams.get("tab");
+  const galleryPhotos = (business?.photos || []).slice(0, 8);
   const initialTab =
     requestedTab === "about" ||
     requestedTab === "services" ||
@@ -138,6 +142,31 @@ export default function BusinessPage() {
       `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações, contato e localização para escolher com confiança.`
     );
   }, [business]);
+
+  useEffect(() => {
+    if (!selectedPhoto || !business) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedPhoto(null);
+        setSelectedPhotoIndex(-1);
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      const photos = (business.photos || []).slice(0, 8);
+      if (!photos.length) return;
+      event.preventDefault();
+      const current = selectedPhotoIndex >= 0 ? selectedPhotoIndex : photos.findIndex((p) => p === selectedPhoto);
+      const safeCurrent = current >= 0 ? current : 0;
+      const nextIndex =
+        event.key === "ArrowRight"
+          ? (safeCurrent + 1) % photos.length
+          : (safeCurrent - 1 + photos.length) % photos.length;
+      setSelectedPhotoIndex(nextIndex);
+      setSelectedPhoto(photos[nextIndex]);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedPhoto, selectedPhotoIndex, business]);
 
   useEffect(() => {
     if (!session || !business || session.userId === business.ownerId) {
@@ -555,7 +584,7 @@ export default function BusinessPage() {
                     {business.isVeganFriendly ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
                         <Leaf className="w-3.5 h-3.5" />
-                        Vegan
+                        Vegano
                       </span>
                     ) : null}
                     {business.isVegetarianFriendly ? (
@@ -567,7 +596,7 @@ export default function BusinessPage() {
                     {business.isGlutenFreeFriendly ? (
                       <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
                         <WheatOff className="w-3.5 h-3.5" />
-                        Gluten Free
+                        Sem Glúten
                       </span>
                     ) : null}
                   </div>
@@ -638,10 +667,13 @@ export default function BusinessPage() {
                   <p className="text-muted-foreground text-sm">Nenhuma foto disponível.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {business.photos.slice(0, 8).map((photo) => (
+                    {business.photos.slice(0, 8).map((photo, index) => (
                       <button
                         key={photo}
-                        onClick={() => setSelectedPhoto(photo)}
+                        onClick={() => {
+                          setSelectedPhoto(photo);
+                          setSelectedPhotoIndex(index);
+                        }}
                         className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer"
                       >
                         <img
@@ -919,13 +951,51 @@ export default function BusinessPage() {
             {selectedPhoto && (
               <div
                 className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-                onClick={() => setSelectedPhoto(null)}
+                onClick={() => {
+                  setSelectedPhoto(null);
+                  setSelectedPhotoIndex(-1);
+                }}
               >
+                {galleryPhotos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const current = selectedPhotoIndex >= 0 ? selectedPhotoIndex : galleryPhotos.findIndex((p) => p === selectedPhoto);
+                      const safeCurrent = current >= 0 ? current : 0;
+                      const nextIndex = (safeCurrent - 1 + galleryPhotos.length) % galleryPhotos.length;
+                      setSelectedPhotoIndex(nextIndex);
+                      setSelectedPhoto(galleryPhotos[nextIndex]);
+                    }}
+                    className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/70 border border-white/35 hover:bg-black/85 hover:border-white/70 hover:scale-110 text-white p-3 shadow-lg transition-all duration-200"
+                    aria-label="Foto anterior"
+                  >
+                    <ChevronLeft className="w-7 h-7" />
+                  </button>
+                )}
                 <img
                   src={selectedPhoto}
                   alt="Imagem ampliada"
                   className="max-w-full max-h-full rounded-lg object-contain"
+                  onClick={(e) => e.stopPropagation()}
                 />
+                {galleryPhotos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const current = selectedPhotoIndex >= 0 ? selectedPhotoIndex : galleryPhotos.findIndex((p) => p === selectedPhoto);
+                      const safeCurrent = current >= 0 ? current : 0;
+                      const nextIndex = (safeCurrent + 1) % galleryPhotos.length;
+                      setSelectedPhotoIndex(nextIndex);
+                      setSelectedPhoto(galleryPhotos[nextIndex]);
+                    }}
+                    className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/70 border border-white/35 hover:bg-black/85 hover:border-white/70 hover:scale-110 text-white p-3 shadow-lg transition-all duration-200"
+                    aria-label="Próxima foto"
+                  >
+                    <ChevronRight className="w-7 h-7" />
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -10,6 +10,7 @@ import UserProfile from "@/pages/UserProfile";
 import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
 import EventPage from "@/pages/EventPage";
 import BusinessShortLink from "@/pages/BusinessShortLink";
+import BusinessWizardPage from "@/pages/BusinessWizardPage";
 import NotFound from "@/pages/NotFound";
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
           <Route path="/eventos/:eventId" element={<EventPage />} />
+          <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage />} />
           <Route path="*" element={<NotFound />} />

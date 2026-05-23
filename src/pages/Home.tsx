@@ -424,7 +424,7 @@ export default function Home() {
                         {biz.isVeganFriendly ? (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                             <Leaf className="w-3 h-3" />
-                            Vegan
+                            Vegano
                           </span>
                         ) : null}
                         {biz.isVegetarianFriendly ? (
@@ -436,7 +436,7 @@ export default function Home() {
                         {biz.isGlutenFreeFriendly ? (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                             <WheatOff className="w-3 h-3" />
-                            Gluten Free
+                            Sem Glúten
                           </span>
                         ) : null}
                       </div>

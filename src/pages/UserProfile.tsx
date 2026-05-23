@@ -15,6 +15,7 @@ import {
   LogOut,
   Clock,
   Search,
+  Sparkles,
   Plus,
   ExternalLink,
   Trash2,
@@ -994,49 +995,6 @@ export default function UserProfile() {
     setExistingPhotos(biz.photos || []);
   };
 
-  const handleOpenCreateBusiness = () => {
-    setCreatingBusiness(true);
-    setEditingBusiness(null);
-    setEditFormData({
-      name: "",
-      shortSlug: "",
-      category: "",
-      description: "",
-      phone: "",
-      email: "",
-      website: "",
-      street: "",
-      city: "",
-      state: "",
-      stateCode: "",
-      country: "",
-      countryCode: "",
-      postalCode: "",
-      services: "",
-      lat: 0,
-      lng: 0,
-      instagram: "",
-      facebook: "",
-      whatsapp: "",
-      menu: [],
-      menuPdfUrl: "",
-      isBrazilianOwned: false,
-      servesPortuguese: true,
-      isVeganFriendly: false,
-      isVegetarianFriendly: false,
-      isGlutenFreeFriendly: false,
-      keywords: "",
-    });
-    setEditBusinessHours(createDefaultBusinessHours());
-    setExistingPhotos([]);
-    setEditLogoFile(null);
-    setEditHeroFile(null);
-    setEditPhotoFiles([]);
-    setEditMenuPdfFile(null);
-    setShortSlugStatus("idle");
-    setShortSlugMessage("");
-  };
-
   const normalizeShortSlug = (value: string) =>
     (value || "")
       .toLowerCase()
@@ -1959,26 +1917,27 @@ export default function UserProfile() {
           </TabsContent>
 
           {/* Tab: My Businesses */}
-          <TabsContent value="negocios">
+          <TabsContent value="negocios" className="mt-0">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold">Meus Negócios</h2>
-              <Button
+              <h2 className="text-2xl font-bold text-foreground">Meus Negócios</h2>
+              <Link to="/negocio/wizard">
+                <Button
                 size="sm"
-                onClick={handleOpenCreateBusiness}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 Adicionar Novo Negócio
-              </Button>
+                </Button>
+              </Link>
             </div>
 
             {myBusinesses.length === 0 ? (
               <Card className="p-8 text-center border-border">
                 <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
-                <Button onClick={handleOpenCreateBusiness}>
+                <Link to="/negocio/wizard"><Button>
                   <Plus className="w-4 h-4 mr-2" />
                   Cadastrar Negócio
-                </Button>
+                </Button></Link>
               </Card>
             ) : (
               <div id="meus-negocios-lista" className="space-y-4">
@@ -2037,7 +1996,7 @@ export default function UserProfile() {
                           {biz.isVeganFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
                               <Leaf className="w-3 h-3" />
-                              Vegan
+                              Vegano
                             </span>
                           ) : null}
                           {biz.isVegetarianFriendly ? (
@@ -2049,20 +2008,21 @@ export default function UserProfile() {
                           {biz.isGlutenFreeFriendly ? (
                             <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800">
                               <WheatOff className="w-3 h-3" />
-                              Gluten Free
+                              Sem Glúten
                             </span>
                           ) : null}
                         </div>
                       ) : null}
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStartEditBusiness(biz)}
-                        >
-                          <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-                          Editar
-                        </Button>
+                        <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                            Editar
+                          </Button>
+                        </Link>
                         {getCategoryId(biz.category) === "food" ? (
                           <Button
                             size="sm"
@@ -2145,10 +2105,10 @@ export default function UserProfile() {
             )}
           </TabsContent>
 
-          <TabsContent value="eventos">
+          <TabsContent value="eventos" className="mt-0">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold">Meus Eventos</h2>
+                <h2 className="text-2xl font-bold text-foreground">Meus Eventos</h2>
               </div>
 
               <Card className="p-5 border-border">
@@ -2472,7 +2432,7 @@ export default function UserProfile() {
           </TabsContent>
 
           {isAdmin && (
-            <TabsContent value="verificacoes">
+            <TabsContent value="verificacoes" className="mt-0">
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Verificações</h2>
@@ -2579,7 +2539,7 @@ export default function UserProfile() {
           )}
 
           {isAdmin && (
-            <TabsContent value="ownership">
+            <TabsContent value="ownership" className="mt-0">
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
@@ -2690,7 +2650,7 @@ export default function UserProfile() {
           )}
 
           {isAdmin && (
-            <TabsContent value="denuncias">
+            <TabsContent value="denuncias" className="mt-0">
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Denúncias</h2>
@@ -3038,9 +2998,9 @@ export default function UserProfile() {
             </TabsContent>
           )}
 
-          <TabsContent value="avaliacoes">
+          <TabsContent value="avaliacoes" className="mt-0">
             <div className="flex items-center gap-4 mb-6">
-              <h2 className="text-lg font-bold">Avaliações</h2>
+              <h2 className="text-2xl font-bold text-foreground">Avaliações</h2>
               <Tabs value={subAvaliacoesTab} onValueChange={setSubAvaliacoesTab} className="ml-auto">
                 <TabsList>
                   <TabsTrigger value="recebidas" className="text-sm">
@@ -3163,11 +3123,11 @@ export default function UserProfile() {
           </TabsContent>
 
           {/* Tab: Messages */}
-          <TabsContent value="mensagens">
+          <TabsContent value="mensagens" className="mt-0">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Conversation List */}
               <div className="lg:col-span-1">
-                <h2 className="text-lg font-bold mb-4">Conversas</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-4">Mensagens</h2>
                 {conversations.length === 0 ? (
                   <Card className="p-6 text-center border-border">
                     <MessageCircle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
@@ -3486,7 +3446,7 @@ export default function UserProfile() {
 
             {getCategoryId(editFormData.category) === "food" ? (
               <div className="sm:col-span-2 rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4">
-                <h3 className="text-base font-semibold text-emerald-900">Preferências alimentares</h3>
+                <h3 className="text-base font-semibold text-emerald-900">Públicos também atendidos</h3>
                 <p className="text-sm text-emerald-900/80 mt-1">
                   Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra como critério de busca.
                 </p>
@@ -3500,7 +3460,7 @@ export default function UserProfile() {
                       }
                     />
                     <Leaf className="w-4 h-4 text-emerald-700" />
-                    Vegan
+                    Vegano
                   </label>
                   <label className="inline-flex items-center gap-2 text-sm text-foreground">
                     <input
@@ -3522,7 +3482,7 @@ export default function UserProfile() {
                       }
                     />
                     <WheatOff className="w-4 h-4 text-amber-700" />
-                    Gluten Free
+                    Sem Glúten
                   </label>
                 </div>
               </div>
