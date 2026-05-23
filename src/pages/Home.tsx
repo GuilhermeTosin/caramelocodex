@@ -9,7 +9,7 @@ import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSug
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
-import { calculateDistance, getCurrentPosition } from "@/lib/utils/geo";
+import { calculateDistance, getApproxPositionByIp, getCurrentPosition } from "@/lib/utils/geo";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
@@ -51,6 +51,7 @@ export default function Home() {
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
 
   useEffect(() => {
     setSeoMeta(
@@ -103,15 +104,42 @@ export default function Home() {
     getSearchSuggestions().then(setSearchSuggestions);
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    if (locationQuery.trim()) params.set("cidade", locationQuery.trim());
-    
+    if (locationQuery.trim()) {
+      params.set("cidade", locationQuery.trim());
+      params.set("local", locationQuery.trim());
+    }
+    if (!locationQuery.trim()) {
+      const coords = userCoords || (await getCurrentPosition());
+      if (coords) {
+        setUserCoords(coords);
+        params.set("raio", "50");
+        params.set("auto_raio", "1");
+        params.set("origem_lat", String(coords.lat));
+        params.set("origem_lng", String(coords.lng));
+        params.set("origem_source", "gps");
+      } else {
+        const approx = await getApproxPositionByIp();
+        if (approx) {
+          params.set("raio", "50");
+          params.set("auto_raio", "1");
+          params.set("origem_lat", String(approx.lat));
+          params.set("origem_lng", String(approx.lng));
+          params.set("origem_source", "ip");
+        }
+      }
+    } else {
+      params.set("raio", "50");
+    }
+
     // Se o usuário selecionou uma cidade que sabemos o país/estado, podemos ser mais específicos
     // Mas por simplicidade no momento, passamos apenas como query de cidade
     navigate(`/buscar?${params.toString()}`);
+    setIsSubmittingSearch(false);
   };
 
   const [mascotPhrase] = useState(() => MASCOT_PHRASES[Math.floor(Math.random() * MASCOT_PHRASES.length)]);
@@ -256,8 +284,8 @@ export default function Home() {
                   inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"
                 />
                 <div className="pt-2 sm:p-3 flex items-center">
-                  <Button type="submit" size="lg" className="w-full sm:w-auto h-11 sm:h-14 px-6 sm:px-10 caramelo-gradient hover:opacity-90 text-white border-0 font-bold text-sm sm:text-base" style={{ borderRadius: "12px" }}>
-                    Farejar
+                  <Button type="submit" size="lg" disabled={isSubmittingSearch} className="w-full sm:w-auto h-11 sm:h-14 px-6 sm:px-10 caramelo-gradient hover:opacity-90 text-white border-0 font-bold text-sm sm:text-base" style={{ borderRadius: "12px" }}>
+                    {isSubmittingSearch ? "Farejando..." : "Farejar"}
                   </Button>
                 </div>
               </div>
@@ -520,6 +548,7 @@ function normalizeText(value?: string | null): string {
 function formatBusinessCount(count: number): string {
   return `${count} ${count === 1 ? "negócio" : "negócios"}`;
 }
+
 
 
 

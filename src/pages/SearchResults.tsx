@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -358,12 +358,15 @@ export default function SearchResults() {
   const countryFilter = searchParams.get("pais") || "";
   const stateFilter = searchParams.get("estado") || "";
   const radiusFilter = searchParams.get("raio") || "";
+  const autoRadiusFilter = searchParams.get("auto_raio") || "";
   const eventsFilter = searchParams.get("eventos") || "";
   const isEventMode = eventsFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
+  const originSourceParam = searchParams.get("origem_source") || "";
   const radiusKm = radiusFilter ? Number(radiusFilter) : null;
+  const isAutoRadiusMode = autoRadiusFilter === "1";
   const hasLocationContext = !!(cityFilter.trim() || locationFilter.trim());
   const effectiveRadiusKm = radiusKm ?? (hasLocationContext ? 50 : null);
 
@@ -375,9 +378,11 @@ export default function SearchResults() {
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [approxCoords, setApproxCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [locatingMe, setLocatingMe] = useState(false);
+  const [geoLookupComplete, setGeoLookupComplete] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
   const [categorySynonymsMap, setCategorySynonymsMap] = useState<Record<string, string[]>>(
@@ -428,21 +433,68 @@ export default function SearchResults() {
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
     let cancelled = false;
+    setGeoLookupComplete(false);
     (async () => {
       const coords = await getCurrentPosition();
       if (cancelled) return;
       if (coords) {
         setUserCoords(coords);
+        setGeoLookupComplete(true);
         return;
       }
       const approx = await getApproxPositionByIp();
       if (cancelled) return;
-      if (approx) setUserCoords(approx);
+      if (approx) setApproxCoords(approx);
+      setGeoLookupComplete(true);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAutoRadiusMode || originLatParam || originLngParam || hasLocationContext) return;
+    if (!userCoords) return;
+
+    const params = new URLSearchParams(searchParams);
+    params.set("origem_lat", String(userCoords.lat));
+    params.set("origem_lng", String(userCoords.lng));
+    params.set("origem_source", "gps");
+    params.set("raio", radiusFilter || "50");
+    setSearchParams(params, { replace: true });
+  }, [
+    isAutoRadiusMode,
+    originLatParam,
+    originLngParam,
+    hasLocationContext,
+    userCoords,
+    searchParams,
+    setSearchParams,
+    radiusFilter,
+  ]);
+
+  useEffect(() => {
+    if (!isAutoRadiusMode || hasLocationContext || userCoords || !geoLookupComplete) {
+      return;
+    }
+
+    if (originSourceParam === "gps" || originSourceParam === "ip") {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams);
+    params.delete("auto_raio");
+    params.delete("raio");
+    setSearchParams(params, { replace: true });
+  }, [
+    isAutoRadiusMode,
+    hasLocationContext,
+    userCoords,
+    geoLookupComplete,
+    originSourceParam,
+    searchParams,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     let alive = true;
@@ -503,6 +555,14 @@ export default function SearchResults() {
     return { lat, lng };
   }, [originLatParam, originLngParam, originLocalParam, locationFilter, cityFilter]);
 
+  const approximateMapCoords = useMemo(() => {
+    const lat = Number(originLatParam);
+    const lng = Number(originLngParam);
+    if (originSourceParam !== "ip") return approxCoords;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return approxCoords;
+    return { lat, lng };
+  }, [originLatParam, originLngParam, originSourceParam, approxCoords]);
+
   useEffect(() => {
     let canceled = false;
     const referenceText = (locationFilter || cityFilter || "").trim();
@@ -535,7 +595,10 @@ export default function SearchResults() {
   // 1) Se o usuario definiu cidade, usamos apenas essa referencia (sem fallback para GPS).
   // 2) Se não definiu cidade, usamos a localizacao atual do usuario.
   const hasTypedLocation = !!locationFilter.trim();
-  const distanceOrigin = hasTypedLocation ? (selectedOriginCoords || locationCoords) : userCoords;
+  const distanceOrigin = hasTypedLocation
+    ? (selectedOriginCoords || locationCoords)
+    : (selectedOriginCoords || userCoords);
+  const isResolvingDistanceOrigin = !!effectiveRadiusKm && !distanceOrigin && !hasTypedLocation && !geoLookupComplete;
   const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter || eventsFilter);
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
@@ -611,7 +674,9 @@ export default function SearchResults() {
     }
 
 
-    if (effectiveRadiusKm && distanceOrigin) {
+    if (effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
+      filtered = [];
+    } else if (effectiveRadiusKm && distanceOrigin) {
       filtered = filtered.filter((b) => {
         const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
         return distance <= effectiveRadiusKm;
@@ -690,6 +755,14 @@ export default function SearchResults() {
     return filtered;
   }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter, categorySynonymsMap]);
 
+  const mapCenter =
+    distanceOrigin ||
+    userCoords ||
+    approximateMapCoords ||
+    (results.length > 0 && results[0].address?.lat && results[0].address?.lng
+      ? { lat: results[0].address.lat, lng: results[0].address.lng }
+      : { lat: 45.5, lng: -73.6 });
+
   const eventResults = useMemo(() => {
     if (!isEventMode) return [];
     const today = new Date().toISOString().slice(0, 10);
@@ -731,6 +804,7 @@ export default function SearchResults() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams);
+    params.delete("auto_raio");
     if (searchInput.trim()) params.set("q", searchInput.trim());
     else params.delete("q");
     if (locationInput.trim()) {
@@ -746,6 +820,7 @@ export default function SearchResults() {
         params.delete("origem_lat");
         params.delete("origem_lng");
         params.delete("origem_local");
+        params.delete("origem_source");
       }
     } else {
       params.delete("local");
@@ -754,6 +829,7 @@ export default function SearchResults() {
       params.delete("origem_lat");
       params.delete("origem_lng");
       params.delete("origem_local");
+      params.delete("origem_source");
     }
     setSearchParams(params);
   };
@@ -768,6 +844,7 @@ export default function SearchResults() {
     setLocatingMe(true);
     let geoError: GeolocationPositionError | null = null;
     let coords = await getCurrentPosition();
+
     if (!coords && navigator.geolocation) {
       coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
         navigator.geolocation.getCurrentPosition(
@@ -784,41 +861,47 @@ export default function SearchResults() {
         );
       });
     }
+
     setLocatingMe(false);
+
     if (!coords) {
       const approx = await getApproxPositionByIp();
       if (approx) {
-        setUserCoords(approx);
+        setApproxCoords(approx);
         setLocationInput("");
+
         const params = new URLSearchParams(searchParams);
         params.delete("local");
         params.delete("cidade");
-        params.delete("origem_lat");
-        params.delete("origem_lng");
         params.delete("origem_local");
         params.set("raio", "50");
+        params.set("auto_raio", "1");
+        params.set("origem_lat", String(approx.lat));
+        params.set("origem_lng", String(approx.lng));
+        params.set("origem_source", "ip");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("Localização exata bloqueada. Usei localização aproximada por IP.");
+        window.alert("Não consegui acessar sua localização exata. Centralizei o mapa usando uma localização aproximada por IP.");
         return;
       }
+
       if (!window.isSecureContext) {
-        window.alert("Geolocalização exige contexto seguro. Abra em localhost ou HTTPS.");
+        window.alert("Geolocalização bloqueada e a localização aproximada por IP não está disponível agora.");
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("Permissão de localização negada pelo navegador/dispositivo.");
+        window.alert("Permissão de localização negada e não foi possível obter localização aproximada por IP.");
         return;
       }
       if (geoError?.code === 2) {
-        window.alert("Localização indisponível no momento. Tente novamente em alguns segundos.");
+        window.alert("Localização indisponível no momento e não foi possível obter localização aproximada por IP.");
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localização. Tente novamente.");
+        window.alert("Tempo esgotado para obter localização e não foi possível obter localização aproximada por IP.");
         return;
       }
-      window.alert("Não consegui acessar sua localização. Verifique bloqueadores/extensões e permissões do navegador.");
+      window.alert("Não consegui acessar sua localização e o fallback por IP também falhou.");
       return;
     }
 
@@ -828,14 +911,15 @@ export default function SearchResults() {
     const params = new URLSearchParams(searchParams);
     params.delete("local");
     params.delete("cidade");
-    params.delete("origem_lat");
-    params.delete("origem_lng");
+    params.set("origem_lat", String(coords.lat));
+    params.set("origem_lng", String(coords.lng));
     params.delete("origem_local");
+    params.set("origem_source", "gps");
     params.set("raio", "50");
+    params.set("auto_raio", "1");
     setSearchParams(params);
     setShowMap(true);
   };
-
   const getDistanceLabel = (biz: BusinessFrontend): string | null => {
     if (!distanceOrigin) return null;
     const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, biz.address.lat, biz.address.lng);
@@ -852,18 +936,15 @@ export default function SearchResults() {
     else params.delete("local");
     if (committedCity) params.set("cidade", committedCity);
     else params.delete("cidade");
-    if (!localToKeep && !committedCity) {
-      params.delete("origem_lat");
-      params.delete("origem_lng");
-      params.delete("origem_local");
-    } else if (
-      searchParams.get("origem_local") &&
+    if (
       localToKeep &&
+      searchParams.get("origem_local") &&
       normalizeText(searchParams.get("origem_local") || "") !== normalizeText(localToKeep)
     ) {
       params.delete("origem_lat");
       params.delete("origem_lng");
       params.delete("origem_local");
+      params.delete("origem_source");
     }
     return params;
   }, [searchParams, cityFilter, locationInput, locationFilter]);
@@ -980,6 +1061,7 @@ export default function SearchResults() {
         onValueChange={(v) => {
           const params = getParamsWithCurrentLocation();
           params.set("raio", v);
+          params.delete("auto_raio");
           setSearchParams(params);
         }}
       >
@@ -1130,10 +1212,12 @@ export default function SearchResults() {
                     params.set("origem_lat", String(meta.lat));
                     params.set("origem_lng", String(meta.lng));
                     params.set("origem_local", nextValue.trim());
+                    params.set("origem_source", "city");
                   } else {
                     params.delete("origem_lat");
                     params.delete("origem_lng");
                     params.delete("origem_local");
+                    params.delete("origem_source");
                   }
                 } else {
                   params.delete("local");
@@ -1142,6 +1226,7 @@ export default function SearchResults() {
                   params.delete("origem_lat");
                   params.delete("origem_lng");
                   params.delete("origem_local");
+                  params.delete("origem_source");
                 }
                 setSearchParams(params);
               }}
@@ -1188,7 +1273,7 @@ export default function SearchResults() {
         </div>
 
         <p className="text-sm text-muted-foreground mb-6">
-          {initialLoading
+          {initialLoading || isResolvingDistanceOrigin
             ? "Carregando resultados..."
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
@@ -1196,7 +1281,7 @@ export default function SearchResults() {
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
-          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && <> informe um local ou permita sua localização para usar raio</>}
+          {effectiveRadiusKm && !distanceOrigin && !resolvingLocation && !isResolvingDistanceOrigin && <> informe um local ou permita sua localização para usar raio</>}
           {resolvingLocation && <> localizando referência...</>}
         </p>
 
@@ -1208,7 +1293,7 @@ export default function SearchResults() {
           </aside>
 
           <div>
-            {!initialLoading && (isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -1230,7 +1315,7 @@ export default function SearchResults() {
                   </div>
                 </div>
               </div>
-            ) : initialLoading ? (
+            ) : initialLoading || isResolvingDistanceOrigin ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0 animate-pulse" />
@@ -1246,13 +1331,7 @@ export default function SearchResults() {
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 <MapView
                   businesses={results}
-                  center={
-                    distanceOrigin
-                      ? distanceOrigin
-                      : results.length > 0
-                      ? { lat: results[0].address.lat, lng: results[0].address.lng }
-                      : { lat: 45.5, lng: -73.6 }
-                  }
+                  center={mapCenter}
                 />
               </div>
             )}
@@ -1559,6 +1638,7 @@ function getBusinessMatchScore(b: BusinessFrontend, normalizedQuery: string, cat
   if (synonymCategoryMatch) score += 2;
   return score;
 }
+
 
 
 
