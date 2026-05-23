@@ -568,17 +568,30 @@ export default function SearchResults() {
       return;
     }
 
+    if (referenceText.length < 3) {
+      Promise.resolve().then(() => {
+        if (!canceled) {
+          setLocationCoords(null);
+          setResolvingLocation(false);
+        }
+      });
+      return;
+    }
+
     Promise.resolve().then(() => {
       if (!canceled) setResolvingLocation(true);
     });
-    geocodeAddress(referenceText).then((coords) => {
-      if (canceled) return;
-      setLocationCoords(coords);
-      setResolvingLocation(false);
-    });
+    const timer = window.setTimeout(() => {
+      geocodeAddress(referenceText).then((coords) => {
+        if (canceled) return;
+        setLocationCoords(coords);
+        setResolvingLocation(false);
+      });
+    }, 350);
 
     return () => {
       canceled = true;
+      window.clearTimeout(timer);
     };
   }, [cityFilter, locationFilter, matchedLocationCoords]);
 
