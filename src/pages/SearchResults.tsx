@@ -389,6 +389,11 @@ export default function SearchResults() {
   const [initialLoading, setInitialLoading] = useState(true);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
+  const [activePage, setActivePage] = useState(currentPage);
+
+  useEffect(() => {
+    setActivePage(currentPage);
+  }, [currentPage]);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -434,7 +439,7 @@ export default function SearchResults() {
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
             : ((cityFilter || locationFilter) || undefined);
 
-        const offset = (currentPage - 1) * RESULTS_PER_PAGE;
+        const offset = (safeCurrentPage - 1) * RESULTS_PER_PAGE;
 
         const businessesPromise = canUseRpcRadius
           ? getBusinessesByRadiusRpc({
@@ -498,7 +503,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, safeCurrentPage, canUseRpcRadiusMode]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
@@ -738,7 +743,7 @@ export default function SearchResults() {
     ? rpcTotalCount
     : results.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const safeCurrentPage = Math.min(activePage, totalPages);
   const pageStart = (safeCurrentPage - 1) * RESULTS_PER_PAGE;
   const pageEnd = pageStart + RESULTS_PER_PAGE;
 
@@ -767,6 +772,7 @@ export default function SearchResults() {
 
   const goToPage = useCallback((page: number) => {
     const nextPage = Math.max(1, Math.min(totalPages, page));
+    setActivePage(nextPage);
     const params = new URLSearchParams(searchParams);
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
