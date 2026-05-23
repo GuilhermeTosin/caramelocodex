@@ -418,7 +418,12 @@ export default function SearchResults() {
         ]);
 
         if (businessesRes.status === "fulfilled") {
-          setAllBusinesses(businessesRes.value);
+          if (canUseRpcRadius && businessesRes.value.length === 0) {
+            const fallbackBusinesses = await getAllBusinesses();
+            setAllBusinesses(fallbackBusinesses);
+          } else {
+            setAllBusinesses(businessesRes.value);
+          }
         }
 
         if (locationsRes.status === "fulfilled") {
