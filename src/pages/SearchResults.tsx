@@ -530,6 +530,17 @@ export default function SearchResults() {
     };
   }, [allBusinesses, cityFilter]);
 
+  const resolveCoordsFromBusinesses = useCallback((cityText: string) => {
+    const term = cityText.trim();
+    if (!term) return null;
+    const matching = allBusinesses.filter((biz) => cityMatches(biz.address.city, term, CITY_ALIASES));
+    if (matching.length === 0) return null;
+    return {
+      lat: matching.reduce((sum, biz) => sum + biz.address.lat, 0) / matching.length,
+      lng: matching.reduce((sum, biz) => sum + biz.address.lng, 0) / matching.length,
+    };
+  }, [allBusinesses]);
+
   const selectedOriginCoords = useMemo(() => {
     const lat = Number(originLatParam);
     const lng = Number(originLngParam);
@@ -555,45 +566,9 @@ export default function SearchResults() {
   }, [originLatParam, originLngParam, originSourceParam, approxCoords]);
 
   useEffect(() => {
-    let canceled = false;
-    const referenceText = (locationFilter || cityFilter || "").trim();
-
-    if (!referenceText || matchedLocationCoords) {
-      Promise.resolve().then(() => {
-        if (!canceled) {
-          setLocationCoords(matchedLocationCoords);
-          setResolvingLocation(false);
-        }
-      });
-      return;
-    }
-
-    if (referenceText.length < 3) {
-      Promise.resolve().then(() => {
-        if (!canceled) {
-          setLocationCoords(null);
-          setResolvingLocation(false);
-        }
-      });
-      return;
-    }
-
-    Promise.resolve().then(() => {
-      if (!canceled) setResolvingLocation(true);
-    });
-    const timer = window.setTimeout(() => {
-      geocodeAddress(referenceText).then((coords) => {
-        if (canceled) return;
-        setLocationCoords(coords);
-        setResolvingLocation(false);
-      });
-    }, 350);
-
-    return () => {
-      canceled = true;
-      window.clearTimeout(timer);
-    };
-  }, [cityFilter, locationFilter, matchedLocationCoords]);
+    setLocationCoords(matchedLocationCoords);
+    setResolvingLocation(false);
+  }, [matchedLocationCoords]);
 
   // Regra de prioridade para distancia:
   // 1) Se o usuario definiu cidade, usamos apenas essa referencia (sem fallback para GPS).
@@ -678,22 +653,35 @@ export default function SearchResults() {
     });
   }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams);
     params.delete("auto_raio");
     if (searchInput.trim()) params.set("q", searchInput.trim());
     else params.delete("q");
     if (locationInput.trim()) {
-      params.set("local", locationInput.trim());
-      if (!cityFilter.trim()) params.delete("cidade");
+      const typedLocation = locationInput.trim();
+      params.set("local", typedLocation);
+      params.set("cidade", typedLocation);
       // Cidade escolhida no campo principal deve prevalecer sobre filtros laterais antigos.
       params.delete("pais");
       params.delete("estado");
       params.delete("categoria");
       params.delete("brasileiro");
       params.delete("portugues");
-      if (normalizeText(locationInput) !== normalizeText(cityFilter)) {
+
+      let coords = resolveCoordsFromBusinesses(typedLocation);
+      if (!coords && typedLocation.length >= 3) {
+        setResolvingLocation(true);
+        coords = await geocodeAddress(typedLocation);
+        setResolvingLocation(false);
+      }
+      if (coords) {
+        params.set("origem_lat", String(coords.lat));
+        params.set("origem_lng", String(coords.lng));
+        params.set("origem_local", typedLocation);
+        params.set("origem_source", "city");
+      } else {
         params.delete("origem_lat");
         params.delete("origem_lng");
         params.delete("origem_local");
@@ -1072,40 +1060,55 @@ export default function SearchResults() {
               placeholder="Em qual cidade?"
               icon="location"
               onSubmit={(selectedValue, meta) => {
-                const nextValue = selectedValue ?? locationInput;
-                setLocationInput(nextValue);
-                const params = new URLSearchParams(searchParams);
-                if (nextValue.trim()) {
-                  params.set("local", nextValue.trim());
-                  params.set("cidade", nextValue.trim());
-                  // A cidade da barra principal não deve impor filtros administrativos,
-                  // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
-                  params.delete("pais");
-                  params.delete("estado");
-                  params.delete("categoria");
-                  params.delete("brasileiro");
-                  params.delete("portugues");
-                  if (typeof meta?.lat === "number" && typeof meta?.lng === "number") {
-                    params.set("origem_lat", String(meta.lat));
-                    params.set("origem_lng", String(meta.lng));
-                    params.set("origem_local", nextValue.trim());
-                    params.set("origem_source", "city");
+                (async () => {
+                  const nextValue = selectedValue ?? locationInput;
+                  setLocationInput(nextValue);
+                  const params = new URLSearchParams(searchParams);
+                  if (nextValue.trim()) {
+                    const typedLocation = nextValue.trim();
+                    params.set("local", typedLocation);
+                    params.set("cidade", typedLocation);
+                    // A cidade da barra principal não deve impor filtros administrativos,
+                    // pois o cadastro historico pode usar codigos diferentes (ex.: lau vs qc).
+                    params.delete("pais");
+                    params.delete("estado");
+                    params.delete("categoria");
+                    params.delete("brasileiro");
+                    params.delete("portugues");
+
+                    let coords =
+                      typeof meta?.lat === "number" && typeof meta?.lng === "number"
+                        ? { lat: meta.lat, lng: meta.lng }
+                        : resolveCoordsFromBusinesses(typedLocation);
+
+                    if (!coords && typedLocation.length >= 3) {
+                      setResolvingLocation(true);
+                      coords = await geocodeAddress(typedLocation);
+                      setResolvingLocation(false);
+                    }
+
+                    if (coords) {
+                      params.set("origem_lat", String(coords.lat));
+                      params.set("origem_lng", String(coords.lng));
+                      params.set("origem_local", typedLocation);
+                      params.set("origem_source", "city");
+                    } else {
+                      params.delete("origem_lat");
+                      params.delete("origem_lng");
+                      params.delete("origem_local");
+                      params.delete("origem_source");
+                    }
                   } else {
+                    params.delete("local");
+                    params.delete("cidade");
+                    params.delete("raio");
                     params.delete("origem_lat");
                     params.delete("origem_lng");
                     params.delete("origem_local");
                     params.delete("origem_source");
                   }
-                } else {
-                  params.delete("local");
-                  params.delete("cidade");
-                  params.delete("raio");
-                  params.delete("origem_lat");
-                  params.delete("origem_lng");
-                  params.delete("origem_local");
-                  params.delete("origem_source");
-                }
-                setSearchParams(params);
+                  setSearchParams(params);
+                })();
               }}
               className="rounded-xl lg:rounded-none lg:!h-12"
               inputClassName="h-12 text-base lg:text-lg placeholder:text-[11px] lg:placeholder:text-sm"
