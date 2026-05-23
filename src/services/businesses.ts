@@ -353,6 +353,82 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
   );
 }
 
+export async function getBusinessesByRadiusRpc(params: {
+  originLat: number;
+  originLng: number;
+  radiusKm: number;
+  limit?: number;
+  offset?: number;
+  categoryId?: string;
+  countryCode?: string;
+  stateCode?: string;
+}): Promise<BusinessFrontend[]> {
+  const { data: hits } = await supabase.rpc("search_businesses_radius", {
+    p_origin_lat: params.originLat,
+    p_origin_lng: params.originLng,
+    p_radius_km: params.radiusKm,
+    p_limit: params.limit ?? 300,
+    p_offset: params.offset ?? 0,
+    p_category_id: params.categoryId || null,
+    p_country_code: params.countryCode || null,
+    p_state_code: params.stateCode || null,
+  });
+
+  const orderedIds: string[] = (hits || [])
+    .map((r: any) => r?.business_id)
+    .filter((id: any) => typeof id === "string" && id.length > 0);
+
+  if (orderedIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .in("id", orderedIds);
+
+  if (!data) return [];
+
+  const ownerIds = [...new Set((data as Business[]).map((b: Business) => b.owner_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .in("id", ownerIds);
+
+  const ownerNames = new Map(
+    (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
+  );
+
+  const businessRows = data as Business[];
+  const businessIds = businessRows.map((b) => b.id);
+  const { data: linkedEventsRows } = await supabase
+    .from("events")
+    .select("*")
+    .in("business_id", businessIds)
+    .eq("status", "published");
+
+  const linkedEventsByBusinessId = (linkedEventsRows || []).reduce((acc, evt: any) => {
+    const key = evt.business_id as string;
+    const list = acc.get(key) || [];
+    list.push(evt as CommunityEvent);
+    acc.set(key, list);
+    return acc;
+  }, new Map<string, CommunityEvent[]>());
+
+  const byId = new Map(
+    businessRows.map((b) => [
+      b.id,
+      toFrontend(
+        {
+          ...b,
+          events: mergeBusinessEvents(b.events, linkedEventsByBusinessId.get(b.id) || []),
+        } as Business,
+        ownerNames.get(b.owner_id)
+      ),
+    ])
+  );
+
+  return orderedIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[];
+}
+
 export async function getBusinessBySlug(
   countryCode: string,
   stateCode: string,

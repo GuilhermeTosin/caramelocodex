@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { 
   getAllBusinesses, 
+  getBusinessesByRadiusRpc,
   buildBusinessUrl, 
   BUSINESS_CATEGORIES, 
   getCategoryLabel,
+  getCategoryId,
   getAvailableLocations,
   getSearchSuggestions
 } from "@/services/businesses";
@@ -141,6 +143,7 @@ const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
 const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
 const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
+const SEARCH_BACKEND = (import.meta.env.VITE_SEARCH_BACKEND ?? "client").toLowerCase();
 
 const CATEGORY_SEO_TEXT: Record<string, string> = {
   "Alimentação (Restaurantes, Padarias, Cafés)": "restaurantes, padarias e cafés",
@@ -384,8 +387,29 @@ export default function SearchResults() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
+        const initialRadius = radiusFilter ? Number(radiusFilter) : null;
+        const initialLat = Number(originLatParam);
+        const initialLng = Number(originLngParam);
+        const canUseRpcRadius =
+          SEARCH_BACKEND === "rpc" &&
+          Number.isFinite(initialLat) &&
+          Number.isFinite(initialLng) &&
+          !!initialRadius &&
+          initialRadius > 0;
+
+        const businessesPromise = canUseRpcRadius
+          ? getBusinessesByRadiusRpc({
+              originLat: initialLat,
+              originLng: initialLng,
+              radiusKm: initialRadius as number,
+              categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
+              countryCode: countryFilter || undefined,
+              stateCode: stateFilter || undefined,
+            })
+          : getAllBusinesses();
+
         const [businessesRes, locationsRes, suggestionsRes, eventsRes] = await Promise.allSettled([
-          getAllBusinesses(),
+          businessesPromise,
           getAvailableLocations(),
           getSearchSuggestions(),
           getPublishedCommunityEvents(),
@@ -419,7 +443,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, []);
+  }, [radiusFilter, originLatParam, originLngParam, categoryFilter, countryFilter, stateFilter]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
