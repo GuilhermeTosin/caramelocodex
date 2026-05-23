@@ -364,7 +364,7 @@ export async function getBusinessesByRadiusRpc(params: {
   stateCode?: string;
   query?: string;
   city?: string;
-}): Promise<BusinessFrontend[]> {
+}): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
   const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
     p_origin_lng: params.originLng,
@@ -385,15 +385,16 @@ export async function getBusinessesByRadiusRpc(params: {
   const orderedIds: string[] = (hits || [])
     .map((r: any) => r?.business_id)
     .filter((id: any) => typeof id === "string" && id.length > 0);
+  const totalCount = Number((hits && hits[0]?.total_count) ?? 0);
 
-  if (orderedIds.length === 0) return [];
+  if (orderedIds.length === 0) return { items: [], totalCount };
 
   const { data } = await supabase
     .from("businesses")
     .select("*")
     .in("id", orderedIds);
 
-  if (!data) return [];
+  if (!data) return { items: [], totalCount };
 
   const ownerIds = [...new Set((data as Business[]).map((b: Business) => b.owner_id))];
   const { data: profiles } = await supabase
@@ -434,7 +435,10 @@ export async function getBusinessesByRadiusRpc(params: {
     ])
   );
 
-  return orderedIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[];
+  return {
+    items: orderedIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
+    totalCount,
+  };
 }
 
 export async function getBusinessBySlug(

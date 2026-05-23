@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff } from "lucide-react";
+import { useRef } from "react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -141,6 +142,7 @@ const CATEGORY_FILTER_ALIASES: Record<string, string[]> = {
 };
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100, 250];
+const RESULTS_PER_PAGE = 6;
 const STRICT_SEARCH_MODE = (import.meta.env.VITE_STRICT_SEARCH_MODE ?? "1") !== "0";
 const STRICT_SEARCH_MIN_SCORE = Number(import.meta.env.VITE_STRICT_SEARCH_MIN_SCORE ?? "3");
 const SEARCH_BACKEND = (import.meta.env.VITE_SEARCH_BACKEND ?? "client").toLowerCase();
@@ -354,6 +356,8 @@ export default function SearchResults() {
   const radiusFilter = searchParams.get("raio") || "";
   const autoRadiusFilter = searchParams.get("auto_raio") || "";
   const eventsFilter = searchParams.get("eventos") || "";
+  const pageParam = Number(searchParams.get("pagina") || "1");
+  const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
@@ -383,6 +387,40 @@ export default function SearchResults() {
     getCategorySynonymsConfig()
   );
   const [initialLoading, setInitialLoading] = useState(true);
+  const resultsTopRef = useRef<HTMLDivElement | null>(null);
+  const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
+
+  const canUseRpcRadiusMode = useMemo(() => {
+    const initialRadius = radiusFilter ? Number(radiusFilter) : null;
+    const initialLat = Number(originLatParam);
+    const initialLng = Number(originLngParam);
+    const cityContext = (cityFilter || locationFilter || "").trim();
+    const normalizedCityContext = normalizeText(cityContext);
+    const normalizedOriginLocal = normalizeText(originLocalParam || "");
+    const hasCityContext = !!normalizedCityContext;
+    const hasCityAlignedOrigin =
+      hasCityContext &&
+      originSourceParam === "city" &&
+      normalizedOriginLocal === normalizedCityContext;
+    return (
+      SEARCH_BACKEND === "rpc" &&
+      !isEventMode &&
+      Number.isFinite(initialLat) &&
+      Number.isFinite(initialLng) &&
+      !!initialRadius &&
+      initialRadius > 0 &&
+      (!hasCityContext || hasCityAlignedOrigin)
+    );
+  }, [
+    radiusFilter,
+    originLatParam,
+    originLngParam,
+    cityFilter,
+    locationFilter,
+    originLocalParam,
+    originSourceParam,
+    isEventMode,
+  ]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -390,31 +428,21 @@ export default function SearchResults() {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
         const initialLat = Number(originLatParam);
         const initialLng = Number(originLngParam);
-        const cityContext = (cityFilter || locationFilter || "").trim();
-        const normalizedCityContext = normalizeText(cityContext);
-        const normalizedOriginLocal = normalizeText(originLocalParam || "");
-        const hasCityContext = !!normalizedCityContext;
-        const hasCityAlignedOrigin =
-          hasCityContext &&
-          originSourceParam === "city" &&
-          normalizedOriginLocal === normalizedCityContext;
-        const canUseRpcRadius =
-          SEARCH_BACKEND === "rpc" &&
-          Number.isFinite(initialLat) &&
-          Number.isFinite(initialLng) &&
-          !!initialRadius &&
-          initialRadius > 0 &&
-          (!hasCityContext || hasCityAlignedOrigin);
+        const canUseRpcRadius = canUseRpcRadiusMode;
         const rpcCityFilter =
           canUseRpcRadius
             ? undefined // com raio, cidade é origem; não deve restringir só à cidade
             : ((cityFilter || locationFilter) || undefined);
+
+        const offset = (currentPage - 1) * RESULTS_PER_PAGE;
 
         const businessesPromise = canUseRpcRadius
           ? getBusinessesByRadiusRpc({
               originLat: initialLat,
               originLng: initialLng,
               radiusKm: initialRadius as number,
+              limit: RESULTS_PER_PAGE,
+              offset,
               categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
               countryCode: countryFilter || undefined,
               stateCode: stateFilter || undefined,
@@ -431,10 +459,19 @@ export default function SearchResults() {
         ]);
 
         if (businessesRes.status === "fulfilled") {
-          setAllBusinesses(businessesRes.value);
+          if (canUseRpcRadius) {
+            setAllBusinesses(businessesRes.value.items);
+            setRpcTotalCount(businessesRes.value.totalCount);
+          } else {
+            setAllBusinesses(businessesRes.value);
+            setRpcTotalCount(null);
+          }
         } else if (canUseRpcRadius) {
           const fallbackBusinesses = await getAllBusinesses();
           setAllBusinesses(fallbackBusinesses);
+          setRpcTotalCount(null);
+        } else {
+          setRpcTotalCount(null);
         }
 
         if (locationsRes.status === "fulfilled") {
@@ -461,7 +498,7 @@ export default function SearchResults() {
       }
     };
     loadInitialData();
-  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter]);
+  }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
 
   // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
   useEffect(() => {
@@ -695,10 +732,62 @@ export default function SearchResults() {
     });
   }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
+  const totalResults = isEventMode
+    ? eventResults.length
+    : canUseRpcRadiusMode && rpcTotalCount !== null
+    ? rpcTotalCount
+    : results.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / RESULTS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStart = (safeCurrentPage - 1) * RESULTS_PER_PAGE;
+  const pageEnd = pageStart + RESULTS_PER_PAGE;
+
+  const paginatedBusinesses = useMemo(
+    () => (canUseRpcRadiusMode ? results : results.slice(pageStart, pageEnd)),
+    [results, pageStart, pageEnd, canUseRpcRadiusMode]
+  );
+
+  const paginatedEvents = useMemo(
+    () => eventResults.slice(pageStart, pageEnd),
+    [eventResults, pageStart, pageEnd]
+  );
+
+  useEffect(() => {
+    if (safeCurrentPage === currentPage) return;
+    const params = new URLSearchParams(searchParams);
+    if (safeCurrentPage <= 1) params.delete("pagina");
+    else params.set("pagina", String(safeCurrentPage));
+    setSearchParams(params, { replace: true });
+  }, [safeCurrentPage, currentPage, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (safeCurrentPage <= 1) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [safeCurrentPage]);
+
+  const goToPage = useCallback((page: number) => {
+    const nextPage = Math.max(1, Math.min(totalPages, page));
+    const params = new URLSearchParams(searchParams);
+    if (nextPage <= 1) params.delete("pagina");
+    else params.set("pagina", String(nextPage));
+    setSearchParams(params, { replace: true });
+
+    const scrollToResultsTop = () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    requestAnimationFrame(() => {
+      scrollToResultsTop();
+      setTimeout(scrollToResultsTop, 80);
+      setTimeout(scrollToResultsTop, 180);
+    });
+  }, [searchParams, setSearchParams, totalPages]);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams);
     params.delete("auto_raio");
+    params.delete("pagina");
     if (searchInput.trim()) params.set("q", searchInput.trim());
     else params.delete("q");
     if (locationInput.trim()) {
@@ -778,6 +867,7 @@ export default function SearchResults() {
         setLocationInput("");
 
         const params = new URLSearchParams(searchParams);
+        params.delete("pagina");
         params.delete("local");
         params.delete("cidade");
         params.delete("origem_local");
@@ -816,6 +906,7 @@ export default function SearchResults() {
     setLocationInput("");
 
     const params = new URLSearchParams(searchParams);
+    params.delete("pagina");
     params.delete("local");
     params.delete("cidade");
     params.set("origem_lat", String(coords.lat));
@@ -858,6 +949,7 @@ export default function SearchResults() {
 
   const handleToggleEventsMode = (enabled: boolean) => {
     const params = getParamsWithCurrentLocation();
+    params.delete("pagina");
     if (enabled) params.set("eventos", "1");
     else params.delete("eventos");
     setSearchParams(params);
@@ -869,6 +961,7 @@ export default function SearchResults() {
         value={categoryFilter || "all"}
         onValueChange={(v) => {
           const params = getParamsWithCurrentLocation();
+          params.delete("pagina");
           if (v === "all") params.delete("categoria");
           else params.set("categoria", v);
           setSearchParams(params);
@@ -891,6 +984,7 @@ export default function SearchResults() {
         value={countryFilter || "all"}
         onValueChange={(v) => {
           const params = getParamsWithCurrentLocation();
+          params.delete("pagina");
           if (v === "all") {
             params.delete("pais");
             params.delete("estado");
@@ -919,6 +1013,7 @@ export default function SearchResults() {
           value={searchParams.get("estado") || "all"}
           onValueChange={(v) => {
             const params = getParamsWithCurrentLocation();
+            params.delete("pagina");
             if (v === "all") {
               params.delete("estado");
               params.delete("cidade");
@@ -946,6 +1041,7 @@ export default function SearchResults() {
           value={cityFilter || "all"}
           onValueChange={(v) => {
             const params = new URLSearchParams(searchParams);
+            params.delete("pagina");
             if (v === "all") params.delete("cidade");
             else params.set("cidade", v);
             setSearchParams(params);
@@ -967,6 +1063,7 @@ export default function SearchResults() {
         value={radiusFilter || "50"}
         onValueChange={(v) => {
           const params = getParamsWithCurrentLocation();
+          params.delete("pagina");
           params.set("raio", v);
           params.delete("auto_raio");
           setSearchParams(params);
@@ -1086,6 +1183,7 @@ export default function SearchResults() {
               onSubmit={(selectedValue) => {
                 const nextValue = selectedValue ?? searchInput;
                 const params = new URLSearchParams(searchParams);
+                params.delete("pagina");
                 if (nextValue.trim()) params.set("q", nextValue.trim());
                 else params.delete("q");
                 setSearchParams(params);
@@ -1106,6 +1204,7 @@ export default function SearchResults() {
                   const nextValue = selectedValue ?? locationInput;
                   setLocationInput(nextValue);
                   const params = new URLSearchParams(searchParams);
+                  params.delete("pagina");
                   if (nextValue.trim()) {
                     const typedLocation = nextValue.trim();
                     params.set("local", typedLocation);
@@ -1199,7 +1298,7 @@ export default function SearchResults() {
             ? "Carregando resultados..."
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
-            : `${results.length} negócio${results.length !== 1 ? "s" : ""} encontrado${results.length !== 1 ? "s" : ""}`}
+            : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
           {query && <> para "<strong>{query}</strong>"</>}
           {locationFilter && <> perto de <strong>{locationFilter}</strong></>}
           {effectiveRadiusKm && <> em até <strong>{effectiveRadiusKm} km</strong></>}
@@ -1214,7 +1313,7 @@ export default function SearchResults() {
             </div>
           </aside>
 
-          <div>
+          <div ref={resultsTopRef}>
             {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
@@ -1260,7 +1359,7 @@ export default function SearchResults() {
 
             {isEventMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {eventResults.map((item) => (
+                {paginatedEvents.map((item) => (
                   <Link
                     key={item.key}
                     to={
@@ -1324,7 +1423,7 @@ export default function SearchResults() {
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {results.map((biz) => (
+              {paginatedBusinesses.map((biz) => (
                 <Link key={biz.id} to={buildBusinessUrl(biz)} className="group h-full">
                   <Card className="overflow-hidden border-border h-full">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
@@ -1411,6 +1510,42 @@ export default function SearchResults() {
                 </Link>
               ))}
             </div>
+            )}
+            {totalResults > RESULTS_PER_PAGE && (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(safeCurrentPage - 1)}
+                  disabled={safeCurrentPage <= 1}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Anterior
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    type="button"
+                    variant={page === safeCurrentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => goToPage(page)}
+                    className="min-w-9"
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(safeCurrentPage + 1)}
+                  disabled={safeCurrentPage >= totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
             )}
             </>
             )}
