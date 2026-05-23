@@ -390,11 +390,6 @@ export default function SearchResults() {
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [requestedPage, setRequestedPage] = useState(currentPage);
-  useEffect(() => {
-    if (currentPage === 1 && requestedPage !== 1) {
-      setRequestedPage(1);
-    }
-  }, [currentPage, requestedPage]);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
