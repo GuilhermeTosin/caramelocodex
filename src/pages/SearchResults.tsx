@@ -423,41 +423,6 @@ export default function SearchResults() {
     isEventMode,
   ]);
 
-  const loadRpcBusinessesPage = useCallback(async (page: number) => {
-    if (!canUseRpcRadiusMode) return false;
-
-    const initialRadius = radiusFilter ? Number(radiusFilter) : null;
-    const initialLat = Number(originLatParam);
-    const initialLng = Number(originLngParam);
-    const offset = (Math.max(1, page) - 1) * RESULTS_PER_PAGE;
-
-    const rpcResult = await getBusinessesByRadiusRpc({
-      originLat: initialLat,
-      originLng: initialLng,
-      radiusKm: initialRadius as number,
-      limit: RESULTS_PER_PAGE,
-      offset,
-      categoryId: categoryFilter ? getCategoryId(categoryFilter) : undefined,
-      countryCode: countryFilter || undefined,
-      stateCode: stateFilter || undefined,
-      query: query || undefined,
-      city: undefined,
-    });
-
-    setAllBusinesses(rpcResult.items);
-    setRpcTotalCount(rpcResult.totalCount);
-    return true;
-  }, [
-    canUseRpcRadiusMode,
-    radiusFilter,
-    originLatParam,
-    originLngParam,
-    categoryFilter,
-    countryFilter,
-    stateFilter,
-    query,
-  ]);
-
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -793,7 +758,6 @@ export default function SearchResults() {
     if (initialLoading) return;
     if (canUseRpcRadiusMode && rpcTotalCount === null) return;
     if (safeCurrentPage === effectivePage) return;
-    setPendingPage(safeCurrentPage);
     const params = new URLSearchParams(searchParams);
     if (safeCurrentPage <= 1) params.delete("pagina");
     else params.set("pagina", String(safeCurrentPage));
@@ -811,11 +775,6 @@ export default function SearchResults() {
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
     setSearchParams(params, { replace: true });
-    if (canUseRpcRadiusMode) {
-      loadRpcBusinessesPage(nextPage).catch(() => {
-        // O efeito principal continua como fallback quando a navegação atualizar a URL.
-      });
-    }
 
     const scrollToResultsTop = () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -826,7 +785,7 @@ export default function SearchResults() {
       setTimeout(scrollToResultsTop, 80);
       setTimeout(scrollToResultsTop, 180);
     });
-  }, [searchParams, setSearchParams, canUseRpcRadiusMode, loadRpcBusinessesPage]);
+  }, [searchParams, setSearchParams]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
