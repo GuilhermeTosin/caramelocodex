@@ -54,18 +54,37 @@ as $$
     )
     and (
       p.q is null or
-      lower(unaccent(coalesce(b.name, ''))) like '%' || lower(unaccent(p.q)) || '%' or
-      lower(unaccent(coalesce(b.description, ''))) like '%' || lower(unaccent(p.q)) || '%' or
-      lower(unaccent(coalesce(b.city, ''))) like '%' || lower(unaccent(p.q)) || '%' or
-      exists (
+      not exists (
         select 1
-        from jsonb_array_elements_text(coalesce(to_jsonb(b.keywords), '[]'::jsonb)) kw
-        where lower(unaccent(kw)) like '%' || lower(unaccent(p.q)) || '%'
-      ) or
-      exists (
-        select 1
-        from jsonb_array_elements_text(coalesce(to_jsonb(b.services), '[]'::jsonb)) sv
-        where lower(unaccent(sv)) like '%' || lower(unaccent(p.q)) || '%'
+        from regexp_split_to_table(lower(unaccent(p.q)), E'\\s+') as t(term)
+        where
+          t.term <> ''
+          and lower(
+            unaccent(
+              concat_ws(
+                ' ',
+                coalesce(b.name, ''),
+                coalesce(b.description, ''),
+                coalesce(b.city, ''),
+                coalesce((
+                  select string_agg(kw, ' ')
+                  from jsonb_array_elements_text(coalesce(to_jsonb(b.keywords), '[]'::jsonb)) as kw
+                ), ''),
+                coalesce((
+                  select string_agg(sv, ' ')
+                  from jsonb_array_elements_text(coalesce(to_jsonb(b.services), '[]'::jsonb)) as sv
+                ), ''),
+                coalesce((
+                  select string_agg(concat_ws(' ', coalesce(mi->>'name', ''), coalesce(mi->>'description', '')), ' ')
+                  from jsonb_array_elements(coalesce(to_jsonb(b.menu), '[]'::jsonb)) as mi
+                ), ''),
+                coalesce((
+                  select string_agg(concat_ws(' ', coalesce(si->>'name', ''), coalesce(si->>'description', '')), ' ')
+                  from jsonb_array_elements(coalesce(to_jsonb(b.service_items), '[]'::jsonb)) as si
+                ), '')
+              )
+            )
+          ) not like '%' || t.term || '%'
       )
     )
   order by distance_km asc

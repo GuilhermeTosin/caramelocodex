@@ -365,7 +365,7 @@ export async function getBusinessesByRadiusRpc(params: {
   query?: string;
   city?: string;
 }): Promise<BusinessFrontend[]> {
-  const { data: hits } = await supabase.rpc("search_businesses_radius", {
+  const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
     p_origin_lng: params.originLng,
     p_radius_km: params.radiusKm,
@@ -377,6 +377,10 @@ export async function getBusinessesByRadiusRpc(params: {
     p_query: (params.query || "").trim() || null,
     p_city: (params.city || "").trim() || null,
   });
+
+  if (rpcError) {
+    throw new Error(`[search_businesses_radius] ${rpcError.message}`);
+  }
 
   const orderedIds: string[] = (hits || [])
     .map((r: any) => r?.business_id)
