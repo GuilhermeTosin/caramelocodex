@@ -520,7 +520,7 @@ export default function SearchResults() {
   const matchedLocationCoords = useMemo(() => {
     if (!cityFilter) return null;
     const matching = allBusinesses.filter(
-      (biz) => cityMatches(biz.address.city, cityFilter)
+      (biz) => cityMatches(biz.address.city, cityFilter, CITY_ALIASES)
     );
     if (matching.length === 0) return null;
 
