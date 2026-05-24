@@ -1257,6 +1257,28 @@ export default function SearchResults() {
     setSearchParams(params);
   };
 
+  const getParamsForAdministrativeFilterChange = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("pagina");
+
+    // Se havia cidade definida na barra principal, ela tem prioridade no fluxo atual.
+    // Ao mexer nos filtros administrativos, limpamos esse contexto para evitar combinações incoerentes
+    // (ex.: Montreal + país=US aparentando "não filtrar").
+    if (locationFilter.trim() || cityFilter.trim()) {
+      params.delete("local");
+      params.delete("cidade");
+      params.delete("origem_local");
+      const source = (params.get("origem_source") || "").toLowerCase();
+      if (source === "city") {
+        params.delete("origem_lat");
+        params.delete("origem_lng");
+        params.delete("origem_source");
+        params.delete("origem_pais");
+      }
+    }
+    return params;
+  };
+
   const renderFilterControls = () => (
     <div className="space-y-3">
       <Select
@@ -1285,8 +1307,7 @@ export default function SearchResults() {
       <Select
         value={countryFilter || "all"}
         onValueChange={(v) => {
-          const params = getParamsWithCurrentLocation();
-          params.delete("pagina");
+          const params = getParamsForAdministrativeFilterChange();
           if (v === "all") {
             params.delete("pais");
             params.delete("estado");
@@ -1314,8 +1335,7 @@ export default function SearchResults() {
         <Select
           value={searchParams.get("estado") || "all"}
           onValueChange={(v) => {
-            const params = getParamsWithCurrentLocation();
-            params.delete("pagina");
+            const params = getParamsForAdministrativeFilterChange();
             if (v === "all") {
               params.delete("estado");
               params.delete("cidade");
@@ -1342,8 +1362,7 @@ export default function SearchResults() {
         <Select
           value={cityFilter || "all"}
           onValueChange={(v) => {
-            const params = new URLSearchParams(searchParams);
-            params.delete("pagina");
+            const params = getParamsForAdministrativeFilterChange();
             if (v === "all") params.delete("cidade");
             else params.set("cidade", v);
             setSearchParams(params);
