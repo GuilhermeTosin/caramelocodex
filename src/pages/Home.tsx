@@ -142,6 +142,34 @@ export default function Home() {
     setIsSubmittingSearch(false);
   };
 
+  const handleQuickTagSearch = async (tag: string) => {
+    setIsSubmittingSearch(true);
+    const params = new URLSearchParams();
+    params.set("q", tag.trim());
+
+    const coords = userCoords || (await getCurrentPosition());
+    if (coords) {
+      setUserCoords(coords);
+      params.set("raio", "50");
+      params.set("auto_raio", "1");
+      params.set("origem_lat", String(coords.lat));
+      params.set("origem_lng", String(coords.lng));
+      params.set("origem_source", "gps");
+    } else {
+      const approx = await getApproxPositionByIp();
+      if (approx) {
+        params.set("raio", "50");
+        params.set("auto_raio", "1");
+        params.set("origem_lat", String(approx.lat));
+        params.set("origem_lng", String(approx.lng));
+        params.set("origem_source", "ip");
+      }
+    }
+
+    navigate(`/buscar?${params.toString()}`);
+    setIsSubmittingSearch(false);
+  };
+
   const [mascotPhrase] = useState(() => MASCOT_PHRASES[Math.floor(Math.random() * MASCOT_PHRASES.length)]);
   const categories = useMemo(() => {
     return CATEGORIES.map((cat) => ({
@@ -298,7 +326,7 @@ export default function Home() {
                   key={tag}
                   onClick={() => {
                     setSearchQuery(tag);
-                    navigate(`/buscar?q=${encodeURIComponent(tag)}`);
+                    void handleQuickTagSearch(tag);
                   }}
                   className="px-3 py-1.5 text-sm rounded-full bg-secondary text-secondary-foreground hover:bg-amber-100 transition-colors"
                 >
