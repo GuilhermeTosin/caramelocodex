@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
-import { MapPin, Store, ShieldCheck, MessageCircle } from "lucide-react";
+import { MapPin, Store, ShieldCheck, MessageCircle, FileText, ScrollText, Info, Mail } from "lucide-react";
 
 export default function SiteFooter() {
   return (
     <footer className="mt-16 border-t border-slate-800 bg-slate-950 text-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <div className="group flex items-center gap-2">
               <div className="w-8 h-8 flex items-center justify-center">
@@ -40,6 +40,28 @@ export default function SiteFooter() {
           </div>
 
           <div>
+            <h4 className="text-sm font-semibold text-white mb-3">Institucional</h4>
+            <div className="space-y-2 text-sm">
+              <Link to="/sobre" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <Info className="w-4 h-4" />
+                Sobre
+              </Link>
+              <Link to="/contato" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <Mail className="w-4 h-4" />
+                Contato
+              </Link>
+              <Link to="/privacidade" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <FileText className="w-4 h-4" />
+                Privacidade
+              </Link>
+              <Link to="/termos" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <ScrollText className="w-4 h-4" />
+                Termos e Condições
+              </Link>
+            </div>
+          </div>
+
+          <div>
             <h4 className="text-sm font-semibold text-white mb-3">Confiança</h4>
             <div className="space-y-2 text-sm text-slate-400">
               <p className="flex items-start gap-2">
@@ -59,7 +81,6 @@ export default function SiteFooter() {
     </footer>
   );
 }
-
 
 
 

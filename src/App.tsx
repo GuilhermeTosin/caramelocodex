@@ -11,6 +11,10 @@ import VerifiedBusinessInfo from "@/pages/VerifiedBusinessInfo";
 import EventPage from "@/pages/EventPage";
 import BusinessShortLink from "@/pages/BusinessShortLink";
 import BusinessWizardPage from "@/pages/BusinessWizardPage";
+import AboutPage from "@/pages/AboutPage";
+import ContactPage from "@/pages/ContactPage";
+import PrivacyPage from "@/pages/PrivacyPage";
+import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
 
 export default function App() {
@@ -24,6 +28,10 @@ export default function App() {
           <Route path="/entrar" element={<Login />} />
           <Route path="/perfil" element={<UserProfile />} />
           <Route path="/negocio-verificado" element={<VerifiedBusinessInfo />} />
+          <Route path="/sobre" element={<AboutPage />} />
+          <Route path="/contato" element={<ContactPage />} />
+          <Route path="/privacidade" element={<PrivacyPage />} />
+          <Route path="/termos" element={<TermsPage />} />
           <Route path="/eventos/:eventId" element={<EventPage />} />
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
