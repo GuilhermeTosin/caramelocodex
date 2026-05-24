@@ -51,6 +51,12 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number } | nul
  * ObtÃ©m localizaÃ§Ã£o aproximada por IP (fallback quando geolocalizaÃ§Ã£o do navegador falha).
  */
 export async function getApproxPositionByIp(): Promise<{ lat: number; lng: number } | null> {
+  const geo = await getApproxGeoByIp();
+  if (!geo) return null;
+  return { lat: geo.lat, lng: geo.lng };
+}
+
+export async function getApproxGeoByIp(): Promise<{ lat: number; lng: number; countryCode?: string } | null> {
   const endpoint = (import.meta.env.VITE_GEOIP_ENDPOINT || "").trim();
   if (!endpoint) return null;
 
@@ -64,8 +70,10 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
 
     const directLat = Number(data?.lat ?? data?.latitude);
     const directLng = Number(data?.lng ?? data?.longitude);
+    const countryCodeRaw = String(data?.country_code || data?.countryCode || "").trim().toLowerCase();
+    const countryCode = countryCodeRaw || undefined;
     if (Number.isFinite(directLat) && Number.isFinite(directLng)) {
-      return { lat: directLat, lng: directLng };
+      return { lat: directLat, lng: directLng, countryCode };
     }
 
     const loc = String(data?.loc || "");
@@ -74,7 +82,7 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
       const lat = Number(latRaw);
       const lng = Number(lngRaw);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return { lat, lng };
+        return { lat, lng, countryCode };
       }
     }
 

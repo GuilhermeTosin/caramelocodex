@@ -8,6 +8,7 @@ export type BusinessSearchInput = {
   query: string;
   categoryFilter: string;
   onlineFilter: string;
+  onlineCountryCode?: string;
   cityFilter: string;
   locationFilter: string;
   countryFilter: string;
@@ -74,6 +75,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     query,
     categoryFilter,
     onlineFilter,
+    onlineCountryCode,
     cityFilter,
     locationFilter,
     countryFilter,
@@ -136,6 +138,13 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
 
   if (onlineFilter === "1") {
     filtered = filtered.filter((b) => b.attendanceType === "online");
+  }
+
+  if (onlineCountryCode) {
+    const country = onlineCountryCode.toLowerCase();
+    filtered = filtered.filter(
+      (b) => b.attendanceType !== "online" || (b.address.countryCode || "").toLowerCase() === country
+    );
   }
 
   if (eventsFilter === "1") {

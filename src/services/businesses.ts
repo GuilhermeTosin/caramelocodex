@@ -377,6 +377,7 @@ export async function getBusinessesByRadiusRpc(params: {
   query?: string;
   city?: string;
   includeOnline?: boolean;
+  onlineCountryCode?: string;
 }): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
   const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
@@ -412,7 +413,11 @@ export async function getBusinessesByRadiusRpc(params: {
     .eq("attendance_type", "online");
 
   if (params.categoryId) onlineWhere.eq("category_id", params.categoryId);
-  if (params.countryCode) onlineWhere.eq("country_code", params.countryCode.toLowerCase());
+  if (params.onlineCountryCode) {
+    onlineWhere.eq("country_code", params.onlineCountryCode.toLowerCase());
+  } else if (params.countryCode) {
+    onlineWhere.eq("country_code", params.countryCode.toLowerCase());
+  }
   if (params.stateCode) onlineWhere.eq("state_code", params.stateCode.toLowerCase());
 
   const [{ data: physicalRows }, { data: onlineRows }] = await Promise.all([
