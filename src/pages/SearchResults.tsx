@@ -825,11 +825,19 @@ export default function SearchResults() {
     } else {
       params.delete("local");
       params.delete("cidade");
-      params.delete("raio");
-      params.delete("origem_lat");
-      params.delete("origem_lng");
-      params.delete("origem_local");
-      params.delete("origem_source");
+      const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
+      // Se a origem atual veio de cidade digitada, limpar ao remover a cidade.
+      // Se veio de GPS/IP (fluxo Farejar), manter raio e origem para preservar busca por proximidade.
+      if (currentOriginSource === "city") {
+        params.delete("raio");
+        params.delete("origem_lat");
+        params.delete("origem_lng");
+        params.delete("origem_local");
+        params.delete("origem_source");
+      } else {
+        // Sem cidade explícita, não precisamos manter origem_local textual.
+        params.delete("origem_local");
+      }
     }
     setSearchParams(params);
   };
@@ -1246,11 +1254,16 @@ export default function SearchResults() {
                   } else {
                     params.delete("local");
                     params.delete("cidade");
-                    params.delete("raio");
-                    params.delete("origem_lat");
-                    params.delete("origem_lng");
-                    params.delete("origem_local");
-                    params.delete("origem_source");
+                    const currentOriginSource = (params.get("origem_source") || "").toLowerCase();
+                    if (currentOriginSource === "city") {
+                      params.delete("raio");
+                      params.delete("origem_lat");
+                      params.delete("origem_lng");
+                      params.delete("origem_local");
+                      params.delete("origem_source");
+                    } else {
+                      params.delete("origem_local");
+                    }
                   }
                   setSearchParams(params);
                 })();
