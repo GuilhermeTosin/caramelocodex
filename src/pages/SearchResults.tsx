@@ -960,6 +960,7 @@ export default function SearchResults() {
     setShowMap(true);
   };
   const getDistanceLabel = (biz: BusinessFrontend): string | null => {
+    if (biz.attendanceType === "online") return "Online";
     if (!distanceOrigin) return null;
     const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, biz.address.lat, biz.address.lng);
     return `${distance.toFixed(distance < 10 ? 1 : 0)} km`;

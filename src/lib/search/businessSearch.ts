@@ -156,13 +156,17 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
   }
 
   if (onlineFilter !== "1" && effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
-    filtered = [];
+    // Sem origem válida para calcular distância: mantém apenas negócios online.
+    filtered = filtered.filter((b) => b.attendanceType === "online");
   } else if (onlineFilter !== "1" && effectiveRadiusKm && distanceOrigin) {
-    filtered = filtered.filter((b) => {
+    // Em busca por raio, negócios físicos respeitam distância; negócios online continuam elegíveis.
+    const onlineBusinesses = filtered.filter((b) => b.attendanceType === "online");
+    const nearbyPhysicalBusinesses = filtered.filter((b) => {
       if (b.attendanceType === "online") return false;
       const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
       return distance <= effectiveRadiusKm;
     });
+    filtered = [...nearbyPhysicalBusinesses, ...onlineBusinesses];
   }
 
   if (onlineFilter !== "1" && filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
@@ -222,6 +226,9 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
         const scoreA = scoreByBusinessId.get(a.id) || 0;
         const scoreB = scoreByBusinessId.get(b.id) || 0;
         if (scoreA !== scoreB) return scoreB - scoreA;
+        if (a.attendanceType === "online" && b.attendanceType !== "online") return 1;
+        if (b.attendanceType === "online" && a.attendanceType !== "online") return -1;
+        if (a.attendanceType === "online" && b.attendanceType === "online") return 0;
         const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
         const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
         return distA - distB;
@@ -237,6 +244,9 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
 
   if (distanceOrigin) {
     return [...filtered].sort((a, b) => {
+      if (a.attendanceType === "online" && b.attendanceType !== "online") return 1;
+      if (b.attendanceType === "online" && a.attendanceType !== "online") return -1;
+      if (a.attendanceType === "online" && b.attendanceType === "online") return 0;
       const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
       const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
       return distA - distB;
