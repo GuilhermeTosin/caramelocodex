@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -356,9 +356,11 @@ export default function SearchResults() {
   const radiusFilter = searchParams.get("raio") || "";
   const autoRadiusFilter = searchParams.get("auto_raio") || "";
   const eventsFilter = searchParams.get("eventos") || "";
+  const onlineFilter = searchParams.get("online") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
+  const isOnlineOnlyMode = onlineFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -406,6 +408,7 @@ export default function SearchResults() {
     return (
       SEARCH_BACKEND === "rpc" &&
       !isEventMode &&
+      !isOnlineOnlyMode &&
       Number.isFinite(initialLat) &&
       Number.isFinite(initialLng) &&
       !!initialRadius &&
@@ -421,6 +424,7 @@ export default function SearchResults() {
     originLocalParam,
     originSourceParam,
     isEventMode,
+    isOnlineOnlyMode,
   ]);
 
   useEffect(() => {
@@ -659,7 +663,16 @@ export default function SearchResults() {
     ? (selectedOriginCoords || locationCoords)
     : (selectedOriginCoords || userCoords);
   const isResolvingDistanceOrigin = !!effectiveRadiusKm && !distanceOrigin && !hasTypedLocation && !geoLookupComplete;
-  const hasActiveFilters = !!(query || categoryFilter || cityFilter || countryFilter || stateFilter || radiusFilter || eventsFilter);
+  const hasActiveFilters = !!(
+    query ||
+    categoryFilter ||
+    cityFilter ||
+    countryFilter ||
+    stateFilter ||
+    radiusFilter ||
+    eventsFilter ||
+    onlineFilter
+  );
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
     if (categoryFilter) {
@@ -695,6 +708,7 @@ export default function SearchResults() {
       allBusinesses,
       query,
       categoryFilter,
+      onlineFilter,
       cityFilter,
       locationFilter,
       countryFilter,
@@ -714,7 +728,22 @@ export default function SearchResults() {
       strictSearchMinScore: STRICT_SEARCH_MIN_SCORE,
       getCategoryLabel,
     });
-  }, [query, categoryFilter, cityFilter, locationFilter, countryFilter, stateFilter, radiusKm, effectiveRadiusKm, hasLocationContext, allBusinesses, distanceOrigin, eventsFilter, categorySynonymsMap]);
+  }, [
+    query,
+    categoryFilter,
+    onlineFilter,
+    cityFilter,
+    locationFilter,
+    countryFilter,
+    stateFilter,
+    radiusKm,
+    effectiveRadiusKm,
+    hasLocationContext,
+    allBusinesses,
+    distanceOrigin,
+    eventsFilter,
+    categorySynonymsMap,
+  ]);
 
   const mapCenter =
     distanceOrigin ||
@@ -967,6 +996,14 @@ export default function SearchResults() {
     setSearchParams(params);
   };
 
+  const handleToggleOnlineOnlyMode = (enabled: boolean) => {
+    const params = getParamsWithCurrentLocation();
+    params.delete("pagina");
+    if (enabled) params.set("online", "1");
+    else params.delete("online");
+    setSearchParams(params);
+  };
+
   const renderFilterControls = () => (
     <div className="space-y-3">
       <Select
@@ -1115,6 +1152,32 @@ export default function SearchResults() {
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
               isEventMode ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+      <div
+        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+          isOnlineOnlyMode ? "bg-emerald-100 border-emerald-500" : "bg-emerald-50 border-emerald-300"
+        }`}
+      >
+        <div className="inline-flex items-center gap-2 text-sm">
+          <Wifi className={`w-3.5 h-3.5 ${isOnlineOnlyMode ? "text-emerald-700" : "text-emerald-600"}`} />
+          <span>Apenas negócios online</span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isOnlineOnlyMode}
+          onClick={() => handleToggleOnlineOnlyMode(!isOnlineOnlyMode)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isOnlineOnlyMode ? "bg-emerald-500" : "bg-muted"
+          }`}
+          title={isOnlineOnlyMode ? "Filtro online ativo" : "Filtro online desativado"}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+              isOnlineOnlyMode ? "translate-x-5" : "translate-x-1"
             }`}
           />
         </button>

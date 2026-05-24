@@ -7,6 +7,7 @@ export type BusinessSearchInput = {
   allBusinesses: BusinessFrontend[];
   query: string;
   categoryFilter: string;
+  onlineFilter: string;
   cityFilter: string;
   locationFilter: string;
   countryFilter: string;
@@ -72,6 +73,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     allBusinesses,
     query,
     categoryFilter,
+    onlineFilter,
     cityFilter,
     locationFilter,
     countryFilter,
@@ -132,6 +134,10 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     );
   }
 
+  if (onlineFilter === "1") {
+    filtered = filtered.filter((b) => b.attendanceType === "online");
+  }
+
   if (eventsFilter === "1") {
     const today = new Date().toISOString().slice(0, 10);
     filtered = filtered.filter((b) => (b.events || []).some((event) => !!event?.date && event.date >= today));
@@ -149,9 +155,9 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     filtered = filtered.filter((b) => b.address.stateCode.toLowerCase() === stateFilter.toLowerCase());
   }
 
-  if (effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
+  if (onlineFilter !== "1" && effectiveRadiusKm && !distanceOrigin && !hasTypedLocation) {
     filtered = [];
-  } else if (effectiveRadiusKm && distanceOrigin) {
+  } else if (onlineFilter !== "1" && effectiveRadiusKm && distanceOrigin) {
     filtered = filtered.filter((b) => {
       if (b.attendanceType === "online") return false;
       const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
@@ -159,7 +165,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     });
   }
 
-  if (filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
+  if (onlineFilter !== "1" && filtered.length === 0 && distanceOrigin && hasLocationContext && !radiusKm) {
     const normalizedQuery = normalizeText(query);
     const baseScoped = baseBusinesses.filter((b) => {
       const passesQuery = !query || matchesBusinessTextQuery(b, normalizedQuery);
