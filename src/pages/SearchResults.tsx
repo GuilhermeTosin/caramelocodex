@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2 } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -533,6 +533,38 @@ export default function SearchResults() {
     setReportDetails("");
     setReportReason("abuso");
   }, [selectedCommunityFind, reportTargetMessageId, reportReason, reportDetails]);
+
+  const shareCommunityFind = useCallback(async (
+    find: CommunityFindWithVote,
+    platform: "whatsapp" | "facebook" | "copy"
+  ) => {
+    const title = `Achadinho: ${find.product_name}`;
+    const text = `${find.product_name} em ${find.location_name}`;
+    const url = `${window.location.origin}/buscar?achadinhos=1&q=${encodeURIComponent(find.product_name)}`;
+
+    if (platform === "copy") {
+      const content = `${title}\n${text}\n${url}`;
+      try {
+        await navigator.clipboard.writeText(content);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    if (platform === "whatsapp") {
+      const waText = encodeURIComponent(`${title}\n${text}\n${url}`);
+      window.open(`https://wa.me/?text=${waText}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const fbQuote = encodeURIComponent(`${title} - ${text}`);
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${fbQuote}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }, []);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -1325,9 +1357,13 @@ export default function SearchResults() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Todos os países</SelectItem>
-          {availableLocations.map((loc) => (
-            <SelectItem key={loc.countryCode} value={loc.countryCode}>{loc.countryName}</SelectItem>
-          ))}
+          {availableLocations
+            .filter((loc) => typeof loc?.countryCode === "string" && loc.countryCode.trim().length > 0)
+            .map((loc) => (
+              <SelectItem key={loc.countryCode} value={loc.countryCode}>
+                {loc.countryName}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
 
@@ -1351,9 +1387,13 @@ export default function SearchResults() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os estados</SelectItem>
-            {selectedCountryData.states.map((s: any) => (
-              <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
-            ))}
+            {selectedCountryData.states
+              .filter((s: any) => typeof s?.code === "string" && s.code.trim().length > 0)
+              .map((s: any) => (
+                <SelectItem key={s.code} value={s.code}>
+                  {s.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       )}
@@ -1373,9 +1413,13 @@ export default function SearchResults() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as cidades</SelectItem>
-            {selectedStateData.cities.map((city: string) => (
-              <SelectItem key={city} value={city}>{city}</SelectItem>
-            ))}
+            {selectedStateData.cities
+              .filter((city: string) => typeof city === "string" && city.trim().length > 0)
+              .map((city: string) => (
+                <SelectItem key={city} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       )}
@@ -1848,6 +1892,37 @@ export default function SearchResults() {
                         >
                           <ThumbsDown className="w-3.5 h-3.5 mr-1" />
                           {find.downvotes}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => void shareCommunityFind(find, "whatsapp")}
+                          title="Compartilhar no WhatsApp"
+                        >
+                          <Share2 className="w-3.5 h-3.5 mr-1" />
+                          WhatsApp
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => void shareCommunityFind(find, "facebook")}
+                          title="Compartilhar no Facebook"
+                        >
+                          Facebook
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => void shareCommunityFind(find, "copy")}
+                          title="Copiar link"
+                        >
+                          Copiar
                         </Button>
                       </div>
                     </Card>
