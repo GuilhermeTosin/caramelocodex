@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,63 @@ export default function Home() {
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
+  const [secretActive, setSecretActive] = useState(false);
+  const progressRef = useRef(0);
+  const previousSearchRef = useRef({ query: "", location: "" });
 
   useEffect(() => {
     setSeoMeta(
       "Caramelinho.com | Encontre negócios brasileiros no exterior",
       "Encontre negócios brasileiros no mundo todo: alimentação, saúde, advocacia, educação e muito mais perto de você."
     );
+  }, []);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const combo = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "b", "a"];
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (
+        activeElement &&
+        (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA" || activeElement.isContentEditable)
+      ) {
+        return;
+      }
+
+      const pressedKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      const expectedKey = combo[progressRef.current];
+
+      if (pressedKey === expectedKey) {
+        progressRef.current += 1;
+        if (progressRef.current === combo.length) {
+          progressRef.current = 0;
+          previousSearchRef.current = { query: searchQuery, location: locationQuery };
+          setSearchQuery("Castlevania");
+          setLocationQuery("Valáquia");
+          setSecretActive(true);
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            setSearchQuery(previousSearchRef.current.query);
+            setLocationQuery(previousSearchRef.current.location);
+            setSecretActive(false);
+          }, 800);
+          const audio = new Audio("/thecode.mp3");
+          audio.volume = 0.85;
+          void audio.play().catch(() => {});
+        }
+      } else {
+        progressRef.current = pressedKey === combo[0] ? 1 : 0;
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
@@ -106,6 +157,7 @@ export default function Home() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (secretActive) return;
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
@@ -273,7 +325,11 @@ export default function Home() {
               <PawPrint className="w-4 h-4 mr-1.5 inline-block text-amber-600" />
               {mascotPhrase}
             </Badge>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground">
+            <h1
+              className={`text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-foreground transition-all duration-500 ${
+                secretActive ? "scale-[1.01]" : ""
+              }`}
+            >
               <span>Encontre </span>
               <span
                 className="bg-clip-text text-transparent"

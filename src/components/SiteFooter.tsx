@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin, Store, ShieldCheck, MessageCircle, FileText, ScrollText, Info, Mail } from "lucide-react";
+import { MapPin, Store, LogIn, FileText, ScrollText, Info, Mail, Instagram, Facebook } from "lucide-react";
 
 export default function SiteFooter() {
   return (
@@ -8,7 +8,7 @@ export default function SiteFooter() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <div className="group flex items-center gap-2">
-              <div className="w-8 h-8 flex items-center justify-center">
+              <div className="w-12 h-12 flex items-center justify-center">
                 <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight">
@@ -33,7 +33,7 @@ export default function SiteFooter() {
                 Cadastrar negócio
               </Link>
               <Link to="/entrar" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                <MessageCircle className="w-4 h-4" />
+                <LogIn className="w-4 h-4" />
                 Entrar na conta
               </Link>
             </div>
@@ -62,13 +62,16 @@ export default function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Confiança</h4>
-            <div className="space-y-2 text-sm text-slate-400">
-              <p className="flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 mt-0.5 text-emerald-400" />
-                Perfis com solicitação de ownership para donos reais.
-              </p>
-              <p>Atualizado para conectar comunidades brasileiras no mundo todo.</p>
+            <h4 className="text-sm font-semibold text-white mb-3">Siga-nos</h4>
+            <div className="space-y-2 text-sm">
+              <a href="" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors" aria-label="Facebook">
+                <Facebook className="w-4 h-4" />
+                Facebook
+              </a>
+              <a href="" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors" aria-label="Instagram">
+                <Instagram className="w-4 h-4" />
+                Instagram
+              </a>
             </div>
           </div>
         </div>
@@ -81,10 +84,3 @@ export default function SiteFooter() {
     </footer>
   );
 }
-
-
-
-
-
-
-
