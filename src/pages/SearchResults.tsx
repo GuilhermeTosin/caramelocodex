@@ -454,6 +454,7 @@ export default function SearchResults() {
               stateCode: stateFilter || undefined,
               query: query || undefined,
               city: rpcCityFilter,
+              includeOnline: true,
             })
           : getAllBusinesses();
 

@@ -376,6 +376,7 @@ export async function getBusinessesByRadiusRpc(params: {
   stateCode?: string;
   query?: string;
   city?: string;
+  includeOnline?: boolean;
 }): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
   const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
@@ -397,19 +398,65 @@ export async function getBusinessesByRadiusRpc(params: {
   const orderedIds: string[] = (hits || [])
     .map((r: any) => r?.business_id)
     .filter((id: any) => typeof id === "string" && id.length > 0);
-  const totalCount = Number((hits && hits[0]?.total_count) ?? 0);
+  let totalCount = Number((hits && hits[0]?.total_count) ?? 0);
 
-  if (orderedIds.length === 0) return { items: [], totalCount };
+  const includeOnline = params.includeOnline !== false;
+  const queryText = (params.query || "").trim();
+  const queryNormalized = queryText.toLowerCase();
+  const hasQuery = queryNormalized.length > 0;
 
-  const { data } = await supabase
+  const onlineWhere = supabase
     .from("businesses")
     .select("*")
     .or("moderation_status.eq.approved,moderation_status.is.null")
-    .in("id", orderedIds);
+    .eq("attendance_type", "online");
 
-  if (!data) return { items: [], totalCount };
+  if (params.categoryId) onlineWhere.eq("category_id", params.categoryId);
+  if (params.countryCode) onlineWhere.eq("country_code", params.countryCode.toLowerCase());
+  if (params.stateCode) onlineWhere.eq("state_code", params.stateCode.toLowerCase());
 
-  const ownerIds = [...new Set((data as Business[]).map((b: Business) => b.owner_id))];
+  const [{ data: physicalRows }, { data: onlineRows }] = await Promise.all([
+    orderedIds.length
+      ? supabase
+          .from("businesses")
+          .select("*")
+          .or("moderation_status.eq.approved,moderation_status.is.null")
+          .in("id", orderedIds)
+      : Promise.resolve({ data: [] as any[] }),
+    includeOnline ? onlineWhere : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const textIncludes = (value: unknown, term: string) => {
+    if (!term) return true;
+    if (typeof value === "string") return value.toLowerCase().includes(term);
+    if (Array.isArray(value)) return value.some((v) => textIncludes(v, term));
+    if (value && typeof value === "object") return JSON.stringify(value).toLowerCase().includes(term);
+    return false;
+  };
+
+  const filteredOnlineRows = (onlineRows || []).filter((b: any) => {
+    if (!hasQuery) return true;
+    return (
+      textIncludes(b.name, queryNormalized) ||
+      textIncludes(b.description, queryNormalized) ||
+      textIncludes(b.keywords, queryNormalized) ||
+      textIncludes(b.services, queryNormalized) ||
+      textIncludes(b.menu, queryNormalized)
+    );
+  });
+
+  const physical = (physicalRows || []) as Business[];
+  const online = filteredOnlineRows as Business[];
+  const mergedRowsMap = new Map<string, Business>();
+  physical.forEach((b) => mergedRowsMap.set(b.id, b));
+  online.forEach((b) => mergedRowsMap.set(b.id, b));
+  const mergedRows = Array.from(mergedRowsMap.values());
+
+  totalCount += online.filter((b) => !orderedIds.includes(b.id)).length;
+
+  if (mergedRows.length === 0) return { items: [], totalCount };
+
+  const ownerIds = [...new Set(mergedRows.map((b: Business) => b.owner_id))];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, name")
@@ -419,7 +466,7 @@ export async function getBusinessesByRadiusRpc(params: {
     (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
   );
 
-  const businessRows = data as Business[];
+  const businessRows = mergedRows;
   const businessIds = businessRows.map((b) => b.id);
   const { data: linkedEventsRows } = await supabase
     .from("events")
@@ -448,8 +495,14 @@ export async function getBusinessesByRadiusRpc(params: {
     ])
   );
 
+  const onlineIdsOrdered = online
+    .map((b) => b.id)
+    .filter((id) => !orderedIds.includes(id));
+
   return {
-    items: orderedIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
+    items: [...orderedIds, ...onlineIdsOrdered]
+      .map((id) => byId.get(id))
+      .filter(Boolean) as BusinessFrontend[],
     totalCount,
   };
 }
