@@ -97,7 +97,12 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
 
   if (query) {
     const q = normalizeText(query);
-    const relatedTerms = searchSynonyms[q] || [];
+    const relatedTerms = Array.from(
+      new Set([
+        ...(searchSynonyms[q] || []),
+        ...getCategoryTermsMatchedBySynonym(q, categorySynonymsMap),
+      ])
+    );
 
     filtered = filtered.filter((b) => {
       const effectiveKeywords = getEffectiveCategoryKeywords(
@@ -211,6 +216,29 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
   }
 
   return filtered;
+}
+
+function getCategoryTermsMatchedBySynonym(
+  normalizedQuery: string,
+  categorySynonymsMap: Record<string, string[]>
+): string[] {
+  if (!normalizedQuery) return [];
+  const terms: string[] = [];
+
+  for (const [categoryLabel, synonyms] of Object.entries(categorySynonymsMap || {})) {
+    const hasMatch = (synonyms || []).some((syn) => {
+      const normalizedSyn = normalizeText(syn || "");
+      if (!normalizedSyn) return false;
+      return (
+        normalizedSyn === normalizedQuery ||
+        matchesNormalizedQueryTokens(normalizedSyn, normalizedQuery) ||
+        matchesNormalizedQueryTokens(normalizedQuery, normalizedSyn)
+      );
+    });
+    if (hasMatch) terms.push(categoryLabel);
+  }
+
+  return terms;
 }
 
 function expandCityTerms(normalizedCity: string, cityAliases: Record<string, string[]>): string[] {
