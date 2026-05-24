@@ -54,8 +54,26 @@ export async function getActiveCommunityFinds(): Promise<CommunityFindWithVote[]
 
   if (error || !data) return [];
 
-  const finds = (data as CommunityFind[]).filter((find) => find.upvotes - find.downvotes >= -3);
-  if (!currentUserId || finds.length === 0) return finds;
+  // Oculta automaticamente achadinhos muito negativos na listagem pública.
+  const finds = (data as CommunityFind[]).filter((find) => find.upvotes - find.downvotes > -5);
+  if (finds.length === 0) return [];
+
+  const ownerIds = Array.from(new Set(finds.map((find) => find.user_id)));
+  const { data: ownerProfiles } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .in("id", ownerIds);
+
+  const ownerNameById = new Map<string, string>(
+    (ownerProfiles || []).map((profile: any) => [profile.id as string, profile.name || "Usuário"])
+  );
+
+  if (!currentUserId) {
+    return finds.map((find) => ({
+      ...find,
+      user_name: ownerNameById.get(find.user_id) || "Usuário",
+    }));
+  }
 
   const ids = finds.map((f) => f.id);
   const { data: votesRows } = await supabase
@@ -71,6 +89,7 @@ export async function getActiveCommunityFinds(): Promise<CommunityFindWithVote[]
   return finds.map((find) => ({
     ...find,
     user_vote: voteByFindId.get(find.id) ?? null,
+    user_name: ownerNameById.get(find.user_id) || "Usuário",
   }));
 }
 

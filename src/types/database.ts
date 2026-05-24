@@ -73,6 +73,7 @@ export interface CommunityFind {
 
 export interface CommunityFindWithVote extends CommunityFind {
   user_vote?: -1 | 1 | null;
+  user_name?: string;
 }
 
 export interface CommunityFindMessage {

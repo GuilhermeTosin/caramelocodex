@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2 } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -371,6 +371,7 @@ export default function SearchResults() {
   const autoRadiusFilter = searchParams.get("auto_raio") || "";
   const eventsFilter = searchParams.get("eventos") || "";
   const communityFindsFilter = searchParams.get("achadinhos") || "";
+  const communityFindIdParam = searchParams.get("achadinho") || "";
   const onlineFilter = searchParams.get("online") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
@@ -441,6 +442,14 @@ export default function SearchResults() {
     setCommunityFindMessages(rows);
     setCommunityFindMessagesLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (!communityFindIdParam) return;
+    if (communityFinds.length === 0) return;
+    const target = communityFinds.find((find) => find.id === communityFindIdParam);
+    if (!target) return;
+    void openCommunityFindDialog(target);
+  }, [communityFindIdParam, communityFinds, openCommunityFindDialog]);
 
   const handleSendCommunityFindMessage = useCallback(async () => {
     if (!selectedCommunityFind) return;
@@ -540,7 +549,7 @@ export default function SearchResults() {
   ) => {
     const title = `Achadinho: ${find.product_name}`;
     const text = `${find.product_name} em ${find.location_name}`;
-    const url = `${window.location.origin}/buscar?achadinhos=1&q=${encodeURIComponent(find.product_name)}`;
+    const url = `${window.location.origin}/buscar?achadinhos=1&achadinho=${encodeURIComponent(find.id)}`;
 
     if (platform === "copy") {
       const content = `${title}\n${text}\n${url}`;
@@ -1824,7 +1833,13 @@ export default function SearchResults() {
                             alt={`Foto do achadinho ${find.product_name}`}
                             className="w-full h-36 object-cover cursor-pointer"
                             loading="lazy"
-                            onClick={() => void openCommunityFindDialog(find)}
+                            onClick={async () => {
+                              await openCommunityFindDialog(find);
+                              const params = new URLSearchParams(searchParams);
+                              params.set("achadinhos", "1");
+                              params.set("achadinho", find.id);
+                              setSearchParams(params, { replace: true });
+                            }}
                           />
                         </div>
                       ) : null}
@@ -1841,7 +1856,13 @@ export default function SearchResults() {
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => void openCommunityFindDialog(find)}
+                                  onClick={async () => {
+                                    await openCommunityFindDialog(find);
+                                    const params = new URLSearchParams(searchParams);
+                                    params.set("achadinhos", "1");
+                                    params.set("achadinho", find.id);
+                                    setSearchParams(params, { replace: true });
+                                  }}
                                   className="font-semibold text-sm text-left hover:text-primary transition-colors"
                                 >
                                   {find.product_name}
@@ -1866,64 +1887,70 @@ export default function SearchResults() {
                         </div>
                         <Badge variant="secondary">{find.category}</Badge>
                       </div>
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 space-y-2">
                         <Button
                           type="button"
-                          variant={find.user_vote === 1 ? "default" : "outline"}
+                          variant="default"
                           size="sm"
-                          className="h-8 px-2"
+                          className="w-full h-8"
                           onClick={async () => {
-                            const direction = find.user_vote === 1 ? "clear" : "upvote";
-                            await voteCommunityFind(find.id, direction);
+                            await openCommunityFindDialog(find);
+                            const params = new URLSearchParams(searchParams);
+                            params.set("achadinhos", "1");
+                            params.set("achadinho", find.id);
+                            setSearchParams(params, { replace: true });
                           }}
                         >
-                          <ThumbsUp className="w-3.5 h-3.5 mr-1" />
-                          {find.upvotes}
+                          Saiba mais
                         </Button>
-                        <Button
-                          type="button"
-                          variant={find.user_vote === -1 ? "destructive" : "outline"}
-                          size="sm"
-                          className="h-8 px-2"
-                          onClick={async () => {
-                            const direction = find.user_vote === -1 ? "clear" : "downvote";
-                            await voteCommunityFind(find.id, direction);
-                          }}
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5 mr-1" />
-                          {find.downvotes}
-                        </Button>
+                        <div className="rounded-md border border-border bg-background/70 p-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Compartilhar achadinho:</p>
+                        <div className="flex flex-wrap items-center gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2"
+                          className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "whatsapp")}
                           title="Compartilhar no WhatsApp"
+                          aria-label="Compartilhar no WhatsApp"
                         >
-                          <Share2 className="w-3.5 h-3.5 mr-1" />
-                          WhatsApp
+                          <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                            <path
+                              fill="#25D366"
+                              d="M20.52 3.48A11.88 11.88 0 0 0 12.06 0C5.49 0 .16 5.34.16 11.9c0 2.1.55 4.15 1.6 5.95L0 24l6.33-1.65a11.9 11.9 0 0 0 5.72 1.46h.01c6.56 0 11.9-5.34 11.9-11.9 0-3.18-1.24-6.16-3.44-8.43zM12.06 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.76.98 1-3.66-.23-.38a9.85 9.85 0 0 1-1.5-5.24c0-5.45 4.44-9.89 9.9-9.89 2.64 0 5.11 1.03 6.97 2.9a9.8 9.8 0 0 1 2.9 6.98c0 5.46-4.44 9.9-9.89 9.9zm5.43-7.42c-.3-.15-1.78-.88-2.05-.98-.27-.1-.47-.15-.67.15-.2.3-.77.98-.95 1.18-.17.2-.35.23-.65.08-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.8-1.67-2.1-.17-.3-.02-.47.13-.62.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.38-.03-.53-.08-.15-.67-1.63-.92-2.23-.24-.58-.48-.5-.67-.51h-.57c-.2 0-.53.08-.8.38-.27.3-1.03 1.01-1.03 2.47s1.06 2.87 1.21 3.07c.15.2 2.08 3.18 5.04 4.46.7.3 1.25.48 1.68.61.7.22 1.34.19 1.84.12.56-.08 1.78-.73 2.03-1.44.25-.71.25-1.31.17-1.43-.08-.12-.27-.2-.57-.35z"
+                            />
+                          </svg>
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2"
+                          className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "facebook")}
                           title="Compartilhar no Facebook"
+                          aria-label="Compartilhar no Facebook"
                         >
-                          Facebook
+                          <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                            <path
+                              fill="#1877F2"
+                              d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.02 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.27h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.09 24 12.07z"
+                            />
+                          </svg>
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2"
+                          className="h-8 w-8 p-0"
                           onClick={() => void shareCommunityFind(find, "copy")}
                           title="Copiar link"
+                          aria-label="Copiar link"
                         >
-                          Copiar
+                          <Copy className="w-4 h-4" />
                         </Button>
+                        </div>
+                        </div>
                       </div>
                     </Card>
                   ))}
@@ -2151,33 +2178,113 @@ export default function SearchResults() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={communityFindDialogOpen} onOpenChange={setCommunityFindDialogOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
-              <DialogDescription>
-                Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
-              </DialogDescription>
-            </DialogHeader>
+        <Dialog
+          open={communityFindDialogOpen}
+          onOpenChange={(open) => {
+            setCommunityFindDialogOpen(open);
+            if (!open) {
+              const params = new URLSearchParams(searchParams);
+              params.delete("achadinho");
+              setSearchParams(params, { replace: true });
+            }
+          }}
+        >
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
+                {selectedCommunityFind?.user_name ? (
+                  <p className="text-sm text-muted-foreground">
+                    Farejado por <strong>{selectedCommunityFind.user_name}</strong>
+                  </p>
+                ) : null}
+              </DialogHeader>
 
             {selectedCommunityFind?.photo_url ? (
               <div className="rounded-lg overflow-hidden border border-border">
                 <img
                   src={selectedCommunityFind.photo_url}
                   alt={`Foto do achadinho ${selectedCommunityFind.product_name}`}
-                  className="w-full h-52 object-cover"
+                  className="w-full h-72 object-cover"
                 />
+              </div>
+            ) : null}
+
+            {selectedCommunityFind ? (
+              <div className="rounded-lg border border-border p-3 bg-card space-y-3">
+                {(() => {
+                  const separatorIndex = selectedCommunityFind.location_name.indexOf(" - ");
+                  const placeName =
+                    separatorIndex >= 0
+                      ? selectedCommunityFind.location_name.slice(0, separatorIndex)
+                      : selectedCommunityFind.location_name;
+                  const address =
+                    separatorIndex >= 0
+                      ? selectedCommunityFind.location_name.slice(separatorIndex + 3)
+                      : "";
+                  const mapsUrl = address
+                    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+                    : "";
+                  return (
+                    <>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Local</p>
+                        <p className="text-sm font-medium">{placeName || "Não informado"}</p>
+                        {address ? (
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {address}
+                          </a>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="w-full text-xs font-medium text-muted-foreground">
+                          Este item ainda está disponível neste local?
+                        </p>
+                        <Button
+                          type="button"
+                          variant={selectedCommunityFind.user_vote === 1 ? "default" : "outline"}
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={async () => {
+                            const direction = selectedCommunityFind.user_vote === 1 ? "clear" : "upvote";
+                            await voteCommunityFind(selectedCommunityFind.id, direction);
+                            const updated = communityFinds.find((find) => find.id === selectedCommunityFind.id);
+                            if (updated) setSelectedCommunityFind(updated);
+                          }}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5 mr-1" />
+                          {selectedCommunityFind.upvotes}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={selectedCommunityFind.user_vote === -1 ? "destructive" : "outline"}
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={async () => {
+                            const direction = selectedCommunityFind.user_vote === -1 ? "clear" : "downvote";
+                            await voteCommunityFind(selectedCommunityFind.id, direction);
+                            const updated = communityFinds.find((find) => find.id === selectedCommunityFind.id);
+                            if (updated) setSelectedCommunityFind(updated);
+                          }}
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5 mr-1" />
+                          {selectedCommunityFind.downvotes}
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             ) : null}
 
             <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
               {communityFindMessagesLoading ? (
                 <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
-              ) : threadedCommunityMessages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Ainda não há mensagens. Seja o primeiro a comentar.
-                </p>
-              ) : (
+              ) : threadedCommunityMessages.length === 0 ? null : (
                 threadedCommunityMessages.map(({ msg, depth }) => (
                   <div
                     key={msg.id}
@@ -2305,24 +2412,9 @@ export default function SearchResults() {
             </div>
 
             <div className="space-y-2">
-              {session ? (
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setReportTargetMessageId(null);
-                      setReportReason("abuso");
-                      setReportDetails("");
-                      setReportDialogOpen(true);
-                    }}
-                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                  >
-                    Denunciar achadinho
-                  </Button>
-                </div>
-              ) : null}
+              <p className="text-sm text-muted-foreground">
+                Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
+              </p>
               {replyToMessageId ? (
                 <div className="text-xs text-muted-foreground flex items-center justify-between">
                   <span>Respondendo uma mensagem</span>
@@ -2345,7 +2437,23 @@ export default function SearchResults() {
               {communityFindMessageError ? (
                 <p className="text-sm text-destructive">{communityFindMessageError}</p>
               ) : null}
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                {session ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setReportTargetMessageId(null);
+                      setReportReason("abuso");
+                      setReportDetails("");
+                      setReportDialogOpen(true);
+                    }}
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    Denunciar achadinho
+                  </Button>
+                ) : <span />}
                 <Button
                   type="button"
                   onClick={() => void handleSendCommunityFindMessage()}
