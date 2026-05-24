@@ -94,6 +94,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
 
   let filtered = allBusinesses;
   const baseBusinesses = allBusinesses;
+  const scoreByBusinessId = new Map<string, number>();
 
   if (query) {
     const q = normalizeText(query);
@@ -120,6 +121,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
         categoryFilterAliases,
         getCategoryLabel
       );
+      scoreByBusinessId.set(b.id, score);
       return strictSearchMode ? score >= strictSearchMinScore : score > 0;
     });
   }
@@ -205,6 +207,25 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
       });
       if (localFallback.length > 0) return localFallback;
     }
+  }
+
+  if (query && filtered.length > 0) {
+    if (distanceOrigin) {
+      return [...filtered].sort((a, b) => {
+        const scoreA = scoreByBusinessId.get(a.id) || 0;
+        const scoreB = scoreByBusinessId.get(b.id) || 0;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        const distA = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, a.address.lat, a.address.lng);
+        const distB = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
+        return distA - distB;
+      });
+    }
+
+    return [...filtered].sort((a, b) => {
+      const scoreA = scoreByBusinessId.get(a.id) || 0;
+      const scoreB = scoreByBusinessId.get(b.id) || 0;
+      return scoreB - scoreA;
+    });
   }
 
   if (distanceOrigin) {
