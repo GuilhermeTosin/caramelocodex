@@ -1284,7 +1284,7 @@ export default function SearchResults() {
             type="button"
             variant="outline"
             size="sm"
-            className="lg:hidden"
+            className="lg:hidden w-full sm:w-auto h-9"
             onClick={() => setFiltersOpen(true)}
           >
             <SlidersHorizontal className="w-4 h-4 mr-2" />
@@ -1575,6 +1575,15 @@ export default function SearchResults() {
               <DialogTitle>Filtros</DialogTitle>
             </DialogHeader>
             {renderFilterControls()}
+            <div className="pt-2">
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => setFiltersOpen(false)}
+              >
+                Aplicar filtros
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

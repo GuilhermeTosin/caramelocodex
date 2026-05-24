@@ -541,7 +541,11 @@ export default function BusinessWizardPage() {
         await updateBusiness(targetBusinessId, updates);
       }
 
-      toast.success(isEditMode ? "Negócio atualizado com sucesso!" : "Negócio criado com sucesso!");
+      toast.success(
+        isEditMode
+          ? "Negócio atualizado com sucesso!"
+          : "Negócio enviado para análise. Esse processo pode levar até 24 horas."
+      );
       navigate("/perfil?tab=negocios");
     } finally {
       setIsSaving(false);

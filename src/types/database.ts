@@ -103,6 +103,9 @@ export interface Business {
   average_rating: number;
   owner_verified?: boolean;
   owner_verified_until?: string | null;
+  moderation_status?: "pending" | "approved" | "rejected";
+  moderation_reviewed_at?: string | null;
+  moderation_reviewed_by?: string | null;
   opening_hours?: string[];
   promotions?: Promotion[];
   events?: BusinessEvent[];
@@ -176,6 +179,9 @@ export interface BusinessFrontend {
   averageRating: number;
   ownerVerified: boolean;
   ownerVerifiedUntil?: string;
+  moderationStatus: "pending" | "approved" | "rejected";
+  moderationReviewedAt?: string;
+  moderationReviewedBy?: string;
   openingHours: string[];
   promotions: Promotion[];
   events: BusinessEvent[];

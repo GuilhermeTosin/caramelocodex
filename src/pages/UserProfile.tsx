@@ -34,6 +34,7 @@ import {
   Lock,
   Leaf,
   WheatOff,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -84,6 +85,8 @@ import {
   isBusinessSlugAvailable,
   getCategoryId,
   getCategoryLabel,
+  getPendingBusinessesForAdmin,
+  setBusinessModerationStatus,
 } from "@/services/businesses";
 import {
   createFeaturedPlacement,
@@ -257,6 +260,9 @@ export default function UserProfile() {
   const [verificationRequests, setVerificationRequests] = useState<BusinessVerificationRequest[]>([]);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [myVerificationRequests, setMyVerificationRequests] = useState<BusinessVerificationRequest[]>([]);
+  const [pendingModerationBusinesses, setPendingModerationBusinesses] = useState<BusinessFrontend[]>([]);
+  const [moderationLoading, setModerationLoading] = useState(false);
+  const [moderationPreviewBusiness, setModerationPreviewBusiness] = useState<BusinessFrontend | null>(null);
   const [myCommunityEvents, setMyCommunityEvents] = useState<CommunityEvent[]>([]);
   const [savingCommunityEvent, setSavingCommunityEvent] = useState(false);
   const [editingCommunityEventId, setEditingCommunityEventId] = useState<string | null>(null);
@@ -544,12 +550,20 @@ export default function UserProfile() {
     setVerificationLoading(false);
   };
 
+  const loadBusinessModerationData = async () => {
+    setModerationLoading(true);
+    const data = await getPendingBusinessesForAdmin();
+    setPendingModerationBusinesses(data);
+    setModerationLoading(false);
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     loadFeaturedAdminData();
     loadOwnershipAdminData();
     loadReportsAdminData();
     loadVerificationAdminData();
+    loadBusinessModerationData();
   }, [isAdmin]);
 
   useEffect(() => {
@@ -618,6 +632,27 @@ export default function UserProfile() {
     }
     toast.success("Denúncia desarquivada.");
     loadReportsAdminData(reportsView);
+  };
+
+  const handleModerationDecision = async (
+    business: BusinessFrontend,
+    status: "approved" | "rejected"
+  ) => {
+    if (!session?.userId) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    const ok = await setBusinessModerationStatus(business.id, status, session.userId);
+    if (!ok) {
+      toast.error("Não foi possível atualizar o status deste negócio.");
+      return;
+    }
+    toast.success(
+      status === "approved"
+        ? "Negócio aprovado e publicado."
+        : "Negócio rejeitado."
+    );
+    setPendingModerationBusinesses((prev) => prev.filter((b) => b.id !== business.id));
   };
 
   const handleApproveOwnership = async (request: OwnerClaimRequest) => {
@@ -1273,7 +1308,7 @@ export default function UserProfile() {
     if (ok) {
       toast.success(
         isCreateMode
-          ? `"${editFormData.name}" criado com sucesso!`
+          ? `"${editFormData.name}" enviado para análise. Esse processo pode levar até 24 horas.`
           : `"${editFormData.name}" atualizado com sucesso!`
       );
       setCreatingBusiness(false);
@@ -1739,6 +1774,12 @@ export default function UserProfile() {
                     </TabsTrigger>
                   )}
                   {isAdmin && (
+                    <TabsTrigger value="analise-negocios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <ClipboardCheck className="w-4 h-4" />
+                      Análise de Negócios
+                    </TabsTrigger>
+                  )}
+                  {isAdmin && (
                     <TabsTrigger value="ownership" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <ShieldCheck className="w-4 h-4" />
                       Ownership
@@ -1956,6 +1997,16 @@ export default function UserProfile() {
                           <Link to={buildBusinessUrl(biz)} className="font-bold text-foreground hover:text-primary transition-colors">
                             {biz.name}
                           </Link>
+                          {biz.moderationStatus === "pending" ? (
+                            <Badge variant="outline" className="border-amber-300 text-amber-800 bg-amber-50">
+                              Em análise
+                            </Badge>
+                          ) : null}
+                          {biz.moderationStatus === "rejected" ? (
+                            <Badge variant="outline" className="border-destructive/30 text-destructive">
+                              Rejeitado
+                            </Badge>
+                          ) : null}
                           {(() => {
                             const status = getMyVerificationStatusByBusiness(biz.id);
                             if (!status) return null;
@@ -2532,6 +2583,73 @@ export default function UserProfile() {
                         </div>
                       );
                     })()
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="analise-negocios" className="mt-0">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Análise de Negócios</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Revise novos cadastros antes de publicar no site.
+                  </p>
+                </div>
+
+                <Card className="border-border overflow-hidden">
+                  <div className="p-5 border-b border-border flex items-center justify-between gap-4">
+                    <h3 className="font-semibold">Negócios em análise</h3>
+                    <Button variant="outline" size="sm" onClick={loadBusinessModerationData} disabled={moderationLoading}>
+                      Atualizar
+                    </Button>
+                  </div>
+
+                  {moderationLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">Carregando negócios pendentes...</div>
+                  ) : pendingModerationBusinesses.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">Nenhum negócio pendente de análise.</div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {pendingModerationBusinesses.map((biz) => (
+                        <div key={biz.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold">{biz.name}</h4>
+                              <Badge variant="outline">Em análise</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {biz.address.city || "Cidade não informada"}
+                              {biz.address.countryCode ? `, ${biz.address.countryCode.toUpperCase()}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Dono: {biz.ownerName || "Usuário"} · Criado em {new Date(biz.createdAt).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setModerationPreviewBusiness(biz)}>
+                              <Eye className="w-3.5 h-3.5 mr-1.5" />
+                              Ver detalhes
+                            </Button>
+                            <Button size="sm" onClick={() => handleModerationDecision(biz, "approved")}>
+                              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={() => handleModerationDecision(biz, "rejected")}
+                            >
+                              <Ban className="w-3.5 h-3.5 mr-1.5" />
+                              Rejeitar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </Card>
               </div>
@@ -3235,6 +3353,142 @@ export default function UserProfile() {
         </div> {/* flex-1 min-w-0 */}
       </Tabs>
     </main>
+
+        {/* Edit Review Dialog */}
+        <Dialog
+          open={!!moderationPreviewBusiness}
+          onOpenChange={(open) => {
+            if (!open) setModerationPreviewBusiness(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Revisão de Negócio</DialogTitle>
+            </DialogHeader>
+            {moderationPreviewBusiness && (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Mídia enviada</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Logo</p>
+                        {moderationPreviewBusiness.logoUrl ? (
+                          <div className="w-20 h-20 rounded-md overflow-hidden border border-border bg-secondary/30">
+                            <img
+                              src={moderationPreviewBusiness.logoUrl}
+                              alt="Logo enviada"
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">Não enviada</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Capa</p>
+                        {moderationPreviewBusiness.heroImage ? (
+                          <div className="w-full max-w-[220px] h-20 rounded-md overflow-hidden border border-border bg-secondary/30">
+                            <img
+                              src={moderationPreviewBusiness.heroImage}
+                              alt="Capa enviada"
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">Não enviada</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Galeria</p>
+                      {moderationPreviewBusiness.photos?.length ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {moderationPreviewBusiness.photos.slice(0, 8).map((url, idx) => (
+                            <div key={`${url}-${idx}`} className="aspect-square rounded-md overflow-hidden border border-border bg-secondary/30">
+                              <img
+                                src={url}
+                                alt={`Foto ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">Nenhuma foto na galeria</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Nome</p>
+                  <p className="font-medium">{moderationPreviewBusiness.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Categoria</p>
+                  <p>{getCategoryLabel(moderationPreviewBusiness.category)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Descrição</p>
+                  <p>{moderationPreviewBusiness.description || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Endereço</p>
+                  <p>
+                    {[
+                      moderationPreviewBusiness.address.street,
+                      moderationPreviewBusiness.address.city,
+                      moderationPreviewBusiness.address.state,
+                      moderationPreviewBusiness.address.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "-"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Telefone</p>
+                    <p>{moderationPreviewBusiness.phone || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p>{moderationPreviewBusiness.email || "-"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setModerationPreviewBusiness(null)}>
+                Fechar
+              </Button>
+              {moderationPreviewBusiness && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={() => {
+                      void handleModerationDecision(moderationPreviewBusiness, "rejected");
+                      setModerationPreviewBusiness(null);
+                    }}
+                  >
+                    Rejeitar
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      void handleModerationDecision(moderationPreviewBusiness, "approved");
+                      setModerationPreviewBusiness(null);
+                    }}
+                  >
+                    Aprovar
+                  </Button>
+                </>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Review Dialog */}
         <Dialog open={!!editingReview} onOpenChange={(open) => !open && setEditingReview(null)}>

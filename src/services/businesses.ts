@@ -206,6 +206,10 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
   const isVerifiedByDate =
     !!b.owner_verified &&
     (!verifiedUntil || new Date(verifiedUntil).getTime() >= Date.now());
+  const moderationStatus =
+    b.moderation_status === "pending" || b.moderation_status === "rejected"
+      ? b.moderation_status
+      : "approved";
   return {
     id: b.id,
     ownerId: b.owner_id,
@@ -257,6 +261,9 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
     averageRating: b.average_rating || 0,
     ownerVerified: isVerifiedByDate,
     ownerVerifiedUntil: verifiedUntil || undefined,
+    moderationStatus,
+    moderationReviewedAt: b.moderation_reviewed_at || undefined,
+    moderationReviewedBy: b.moderation_reviewed_by || undefined,
     openingHours: b.opening_hours || [],
     promotions: b.promotions || [],
     events: b.events || [],
@@ -311,6 +318,7 @@ export async function getAllBusinesses(): Promise<BusinessFrontend[]> {
   const { data } = await supabase
     .from("businesses")
     .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
     .order("created_at", { ascending: false });
 
   if (!data) return [];
@@ -392,6 +400,7 @@ export async function getBusinessesByRadiusRpc(params: {
   const { data } = await supabase
     .from("businesses")
     .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
     .in("id", orderedIds);
 
   if (!data) return { items: [], totalCount };
@@ -450,6 +459,7 @@ export async function getBusinessBySlug(
   const { data } = await supabase
     .from("businesses")
     .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
     .eq("country_code", countryCode.toLowerCase())
     .eq("state_code", stateCode.toLowerCase())
     // Removemos o filtro exato de cidade pois o slug ja a anico e a cidade na URL pode estar slugificada
@@ -511,6 +521,7 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   const { data } = await supabase
     .from("businesses")
     .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
     .eq("slug", normalizedSlug)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -694,6 +705,7 @@ export async function createBusiness(
       is_gluten_free_friendly: !!data.isGlutenFreeFriendly,
       keywords: data.keywords || [],
       photos: data.photos || [],
+      moderation_status: "pending",
       opening_hours: data.openingHours || [],
       events: data.events || [],
     })
@@ -745,6 +757,48 @@ export async function updateBusiness(
 
 export async function deleteBusiness(id: string): Promise<boolean> {
   const { error } = await supabase.from("businesses").delete().eq("id", id);
+  return !error;
+}
+
+export async function getPendingBusinessesForAdmin(): Promise<BusinessFrontend[]> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("moderation_status", "pending")
+    .order("created_at", { ascending: false });
+
+  if (!data) return [];
+
+  const ownerIds = [...new Set((data as Business[]).map((b) => b.owner_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, name")
+    .in("id", ownerIds);
+
+  const ownerNames = new Map(
+    (profiles || []).map((p: { id: string; name: string }) => [p.id, p.name])
+  );
+
+  return (data as Business[]).map((b) => toFrontend(b, ownerNames.get(b.owner_id)));
+}
+
+export async function setBusinessModerationStatus(
+  businessId: string,
+  status: "approved" | "rejected",
+  reviewerId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      moderation_status: status,
+      moderation_reviewed_by: reviewerId,
+      moderation_reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", businessId);
+
+  if (error) {
+    console.error("[setBusinessModerationStatus]", error);
+  }
   return !error;
 }
 
@@ -856,7 +910,8 @@ export function getCountryName(code: string): string {
 export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }[]> {
   const { data } = await supabase
     .from("businesses")
-    .select("country_code, state_code, city");
+    .select("country_code, state_code, city")
+    .or("moderation_status.eq.approved,moderation_status.is.null");
 
   if (!data) return [];
 
@@ -899,7 +954,8 @@ export function getStateName(countryCode: string, stateCode: string): string {
 export async function getSearchSuggestions(): Promise<string[]> {
   const { data } = await supabase
     .from("businesses")
-    .select("name, keywords, services, city, menu, is_vegan_friendly, is_vegetarian_friendly, is_gluten_free_friendly");
+    .select("name, keywords, services, city, menu, is_vegan_friendly, is_vegetarian_friendly, is_gluten_free_friendly")
+    .or("moderation_status.eq.approved,moderation_status.is.null");
 
   if (!data) return [];
 
