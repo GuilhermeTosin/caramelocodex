@@ -496,7 +496,9 @@ export default function Home() {
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {biz.address.city}, {biz.address.country}
+                          {biz.attendanceType === "online"
+                            ? "Atendimento online"
+                            : `${biz.address.city}, ${biz.address.country}`}
                         </p>
                       </div>
                     </div>

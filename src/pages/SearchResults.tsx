@@ -1483,7 +1483,9 @@ export default function SearchResults() {
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {biz.address.city}, {biz.address.country}
+                            {biz.attendanceType === "online"
+                              ? "Atendimento online"
+                              : `${biz.address.city}, ${biz.address.country}`}
                           </p>
                         </div>
                       </div>

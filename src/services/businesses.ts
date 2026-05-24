@@ -232,6 +232,10 @@ export function toFrontend(b: Business, ownerName?: string): BusinessFrontend {
       lat: b.lat,
       lng: b.lng,
     },
+    attendanceType:
+      b.attendance_type === "online" || b.attendance_type === "hibrido"
+        ? b.attendance_type
+        : "presencial",
     services: b.services || [],
     serviceItems: b.service_items || [],
     keywords: b.keywords || [],
@@ -514,6 +518,46 @@ export async function getBusinessBySlug(
   return toFrontend(biz, profile?.name);
 }
 
+export async function getBusinessByCountryAndSlug(
+  countryCode: string,
+  slug: string
+): Promise<BusinessFrontend | null> {
+  const { data } = await supabase
+    .from("businesses")
+    .select("*")
+    .or("moderation_status.eq.approved,moderation_status.is.null")
+    .eq("country_code", countryCode.toLowerCase())
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const biz = data as Business;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", biz.owner_id)
+    .maybeSingle();
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("business_id", biz.id)
+    .order("created_at", { ascending: false });
+
+  biz.reviews = (reviews || []).map((r: any) => ({
+    id: r.id,
+    business_id: r.business_id,
+    user_id: r.user_id,
+    user_name: r.user_name || "Usuário",
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+  })) as Review[];
+
+  return toFrontend(biz, profile?.name);
+}
+
 export async function getBusinessByShortSlug(slug: string): Promise<BusinessFrontend | null> {
   const normalizedSlug = (slug || "").trim().toLowerCase();
   if (!normalizedSlug) return null;
@@ -637,6 +681,7 @@ export async function createBusiness(
     country?: string;
     countryCode?: string;
     stateCode?: string;
+    attendanceType?: "presencial" | "online" | "hibrido";
     postalCode?: string;
     lat?: number;
     lng?: number;
@@ -685,6 +730,7 @@ export async function createBusiness(
       country: data.country || null,
       country_code: data.countryCode || null,
       state_code: data.stateCode || null,
+      attendance_type: data.attendanceType || "presencial",
       postal_code: data.postalCode || null,
       lat: data.lat || 0,
       lng: data.lng || 0,
@@ -879,7 +925,10 @@ export async function getReviewsByUser(userId: string): Promise<(Review & { busi
     comment: r.comment,
     created_at: r.created_at,
     businessName: r.business?.name || "Negócio",
-    businessSlug: `/${r.business?.country_code}/${r.business?.state_code}/${slugify(r.business?.city || "")}/${r.business?.slug}`,
+    businessSlug:
+      r.business?.country_code && r.business?.state_code && r.business?.city
+        ? `/${r.business?.country_code}/${r.business?.state_code}/${slugify(r.business?.city || "")}/${r.business?.slug}`
+        : `/go/${r.business?.slug}`,
   })) as any[];
 }
 
@@ -898,6 +947,10 @@ export function slugify(text: string): string {
 }
 
 export function buildBusinessUrl(biz: BusinessFrontend): string {
+  const isOnlineOnly = biz.attendanceType === "online";
+  if (isOnlineOnly) {
+    return biz.address.countryCode ? `/${biz.address.countryCode}/${biz.slug}` : `/go/${biz.slug}`;
+  }
   const citySlug = slugify(biz.address.city);
   const stateSlug = biz.address.stateCode.toLowerCase();
   return `/${biz.address.countryCode}/${stateSlug}/${citySlug}/${biz.slug}`;

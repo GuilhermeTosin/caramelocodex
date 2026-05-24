@@ -153,6 +153,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     filtered = [];
   } else if (effectiveRadiusKm && distanceOrigin) {
     filtered = filtered.filter((b) => {
+      if (b.attendanceType === "online") return false;
       const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng);
       return distance <= effectiveRadiusKm;
     });
@@ -171,7 +172,7 @@ export function filterBusinesses(input: BusinessSearchInput): BusinessFrontend[]
     });
 
     const within = (km: number) =>
-      baseScoped.filter((b) => calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng) <= km);
+      baseScoped.filter((b) => b.attendanceType !== "online" && calculateDistance(distanceOrigin.lat, distanceOrigin.lng, b.address.lat, b.address.lng) <= km);
 
     const near150 = within(150);
     if (near150.length > 0) {

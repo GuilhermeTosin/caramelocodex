@@ -79,6 +79,7 @@ export interface Business {
   country: string | null;
   country_code: string | null;
   state_code: string | null;
+  attendance_type?: "presencial" | "online" | "hibrido" | null;
   postal_code: string | null;
   lat: number;
   lng: number;
@@ -158,6 +159,7 @@ export interface BusinessFrontend {
     lat: number;
     lng: number;
   };
+  attendanceType: "presencial" | "online" | "hibrido";
   services: string[];
   serviceItems: MenuItem[];
   keywords: string[];

@@ -13,7 +13,9 @@ import AddressAutocomplete, { type AddressResult } from "@/components/AddressAut
 import SiteFooter from "@/components/SiteFooter";
 import {
   BUSINESS_CATEGORY_OPTIONS,
+  COUNTRIES,
   createBusiness,
+  getCountryName,
   getCategoryId,
   getBusinessesByOwner,
   isBusinessSlugAvailable,
@@ -153,6 +155,7 @@ export default function BusinessWizardPage() {
     stateCode: "",
     country: "",
     countryCode: "",
+    attendanceType: "presencial" as "presencial" | "online" | "hibrido",
     postalCode: "",
     lat: 0,
     lng: 0,
@@ -319,6 +322,7 @@ export default function BusinessWizardPage() {
           stateCode: biz.address.stateCode || "",
           country: biz.address.country || "",
           countryCode: biz.address.countryCode || "",
+          attendanceType: biz.attendanceType || "presencial",
           postalCode: biz.address.postalCode || "",
           lat: biz.address.lat || 0,
           lng: biz.address.lng || 0,
@@ -381,7 +385,11 @@ export default function BusinessWizardPage() {
         facebook: "",
         whatsapp: "",
       });
-      if (!form.street.trim() || !form.city.trim() || !form.stateCode.trim()) {
+      if (form.attendanceType === "online" && !form.countryCode.trim()) {
+        toast.error("Selecione o país do negócio online.");
+        return false;
+      }
+      if (form.attendanceType !== "online" && (!form.street.trim() || !form.city.trim() || !form.stateCode.trim())) {
         toast.error("Complete o endereço.");
         return false;
       }
@@ -468,15 +476,16 @@ export default function BusinessWizardPage() {
       slug: normalizeShortSlug(form.shortSlug || form.name),
       categoryId: form.category,
       description: form.description.trim(),
-      street: form.street.trim(),
-      city: form.city.trim(),
-      state: form.state.trim(),
-      stateCode: form.stateCode.trim().toLowerCase(),
-      country: form.country.trim(),
-      countryCode: form.countryCode.trim().toLowerCase(),
-      postalCode: form.postalCode.trim(),
-      lat: form.lat || 0,
-      lng: form.lng || 0,
+      street: form.attendanceType === "online" ? "" : form.street.trim(),
+      city: form.attendanceType === "online" ? "" : form.city.trim(),
+      state: form.attendanceType === "online" ? "" : form.state.trim(),
+      stateCode: form.attendanceType === "online" ? "" : form.stateCode.trim().toLowerCase(),
+      country: form.attendanceType === "online" ? getCountryName(form.countryCode.trim().toLowerCase()) : form.country.trim(),
+      countryCode: form.attendanceType === "online" ? form.countryCode.trim().toLowerCase() : form.countryCode.trim().toLowerCase(),
+      attendanceType: form.attendanceType,
+      postalCode: form.attendanceType === "online" ? "" : form.postalCode.trim(),
+      lat: form.attendanceType === "online" ? 0 : (form.lat || 0),
+      lng: form.attendanceType === "online" ? 0 : (form.lng || 0),
       services: [],
       keywords,
       phone: form.phone.trim(),
@@ -711,6 +720,19 @@ export default function BusinessWizardPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="md:col-span-2">
+                <Label>Tipo de atendimento *</Label>
+                <Select value={form.attendanceType} onValueChange={(v) => updateField("attendanceType", v)}>
+                  <SelectTrigger className="mt-1.5 w-full">
+                    <SelectValue placeholder="Selecione o tipo de atendimento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="presencial">Presencial</SelectItem>
+                    <SelectItem value="online">Somente online</SelectItem>
+                    <SelectItem value="hibrido">Híbrido (presencial e online)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
@@ -830,13 +852,49 @@ export default function BusinessWizardPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label>Endereço *</Label>
+                <Label>Endereço {form.attendanceType === "online" ? "(opcional)" : "*"}</Label>
                 <div className="mt-1.5">
-                  <AddressAutocomplete
-                    value={form.street}
-                    onChange={(v) => updateField("street", v)}
-                    onPlaceSelected={handlePlaceSelected}
-                  />
+                  {form.attendanceType === "online" ? (
+                    <div className="space-y-2">
+                      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                        Negócio 100% online: endereço físico não é obrigatório.
+                      </div>
+                      <div>
+                        <Label>País do negócio online *</Label>
+                        <Select
+                          value={form.countryCode || ""}
+                          onValueChange={(v) => {
+                            updateField("countryCode", v.toLowerCase());
+                            updateField("country", getCountryName(v.toLowerCase()));
+                            updateField("state", "");
+                            updateField("stateCode", "");
+                            updateField("city", "");
+                            updateField("street", "");
+                            updateField("postalCode", "");
+                            updateField("lat", 0);
+                            updateField("lng", 0);
+                          }}
+                        >
+                          <SelectTrigger className="mt-1.5 w-full">
+                            <SelectValue placeholder="Selecione o país" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(COUNTRIES).map(([code, info]) => (
+                              <SelectItem key={code} value={code}>
+                                {info.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    <AddressAutocomplete
+                      value={form.street}
+                      onChange={(v) => updateField("street", v)}
+                      onPlaceSelected={handlePlaceSelected}
+                    />
+                  )}
                 </div>
               </div>
               <div className="md:col-span-2 rounded-md border border-border p-3 text-sm">
@@ -845,14 +903,20 @@ export default function BusinessWizardPage() {
                   Resumo do endereço
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  {form.street?.trim() || "Endereço não preenchido"}<br />
-                  {[
-                    form.city?.trim(),
-                    form.stateCode?.trim() ? form.stateCode.toUpperCase() : "",
-                    form.postalCode?.trim(),
-                  ]
-                    .filter(Boolean)
-                    .join(" ") || "Cidade/UF não preenchidas"}
+                  {form.attendanceType === "online"
+                    ? "Atendimento 100% online"
+                    : (
+                      <>
+                        {form.street?.trim() || "Endereço não preenchido"}<br />
+                        {[
+                          form.city?.trim(),
+                          form.stateCode?.trim() ? form.stateCode.toUpperCase() : "",
+                          form.postalCode?.trim(),
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || "Cidade/UF não preenchidas"}
+                      </>
+                    )}
                 </p>
               </div>
             </div>
@@ -1032,7 +1096,13 @@ export default function BusinessWizardPage() {
                   <p><strong>Negócio:</strong> {form.name || "-"}</p>
                   <p><strong>Link curto:</strong> caramelinho.com/go/{form.shortSlug || slugify(form.name) || "-"}</p>
                   <p><strong>Categoria:</strong> {BUSINESS_CATEGORY_OPTIONS.find((c) => c.id === form.category)?.label || "-"}</p>
-                  <p><strong>Cidade:</strong> {form.city || "-"} ({form.stateCode?.toUpperCase() || "-"})</p>
+                  <p><strong>Atendimento:</strong> {form.attendanceType === "online" ? "Online" : form.attendanceType === "hibrido" ? "Híbrido" : "Presencial"}</p>
+                  <p>
+                    <strong>{form.attendanceType === "online" ? "País:" : "Cidade:"}</strong>{" "}
+                    {form.attendanceType === "online"
+                      ? (form.country || getCountryName(form.countryCode || "") || "-")
+                      : `${form.city || "-"} (${form.stateCode?.toUpperCase() || "-"})`}
+                  </p>
                   <p><strong>Contato:</strong> {form.phone || "-"} / {form.email || "-"}</p>
                   <p><strong>Mídia:</strong> {logoFile ? "logo" : "sem logo"}, {heroFile ? "capa" : "sem capa"}, {photoFiles.length} foto(s)</p>
                 </div>

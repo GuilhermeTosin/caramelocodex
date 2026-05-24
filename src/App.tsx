@@ -48,6 +48,7 @@ export default function App() {
           <Route path="/negocio/wizard" element={<BusinessWizardPage />} />
           <Route path="/go/:businessSlug" element={<BusinessShortLink />} />
           <Route path="/:countryCode/:stateCode/:city/:businessName" element={<BusinessPage />} />
+          <Route path="/:countryCode/:businessName" element={<BusinessPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   BadgeCheck,
   ShieldCheck,
@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { getAllBusinesses, getBusinessBySlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
+import { getAllBusinesses, getBusinessBySlug, getBusinessByCountryAndSlug, getCountryName, getStateName, addReview, updateReview, deleteReview, buildBusinessUrl, getCategoryId, getCategoryLabel } from "@/services/businesses";
 import { getOrCreateConversation } from "@/services/messages";
 import { getMyOwnershipRequests, hasPendingClaimForBusiness, requestBusinessOwnership } from "@/services/ownership";
 import { trackBusinessClick } from "@/services/analytics";
@@ -52,6 +52,7 @@ export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { session, user, refreshUnread, unreadMessages } = useAuth();
 
   const [business, setBusiness] = useState<BusinessFrontend | null>(null);
@@ -66,6 +67,8 @@ export default function BusinessPage() {
   const [editComment, setEditComment] = useState("");
   const [savingEditReview, setSavingEditReview] = useState(false);
   const [hasPendingOwnershipRequest, setHasPendingOwnershipRequest] = useState(false);
+
+  const isOnlineOnly = business?.attendanceType === "online";
   const [requestingOwnership, setRequestingOwnership] = useState(false);
   const [similarBusinesses, setSimilarBusinesses] = useState<BusinessFrontend[]>([]);
   const [reportOpen, setReportOpen] = useState(false);
@@ -101,27 +104,32 @@ export default function BusinessPage() {
       ? requestedTab
       : "about";
 
-  useEffect(() => {
+  const loadBusiness = async () => {
+    let biz: BusinessFrontend | null = null;
     if (countryCode && stateCode && city && businessName) {
-      window.scrollTo({ top: 0, behavior: "auto" });
-      getBusinessBySlug(countryCode, stateCode, city, businessName).then((biz) => {
-        setBusiness(biz);
-        setLoading(false);
-        if (biz) {
-          getAllBusinesses().then((businesses) => {
-            setSimilarBusinesses(
-              businesses
-                .filter((item) => item.id !== biz.id)
-                .filter((item) =>
-                  item.address.countryCode === biz.address.countryCode &&
-                  (item.address.city === biz.address.city || item.category === biz.category)
-                )
-                .slice(0, 3)
-            );
-          });
-        }
-      });
+      biz = await getBusinessBySlug(countryCode, stateCode, city, businessName);
+    } else if (countryCode && businessName) {
+      biz = await getBusinessByCountryAndSlug(countryCode, businessName);
     }
+    setBusiness(biz);
+    setLoading(false);
+    if (biz) {
+      const businesses = await getAllBusinesses();
+      setSimilarBusinesses(
+        businesses
+          .filter((item) => item.id !== biz!.id)
+          .filter((item) =>
+            item.address.countryCode === biz!.address.countryCode &&
+            (item.address.city === biz!.address.city || item.category === biz!.category)
+          )
+          .slice(0, 3)
+      );
+    }
+  };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    void loadBusiness();
   }, [countryCode, stateCode, city, businessName]);
 
   useEffect(() => {
@@ -137,11 +145,12 @@ export default function BusinessPage() {
     const keywordSnippet = (business.keywords || []).filter(Boolean).slice(0, 3).join(", ");
     const serviceSnippet = (business.services || []).filter(Boolean).slice(0, 3).join(", ");
     const details = keywordSnippet || serviceSnippet;
+    const locationLabel = isOnlineOnly ? "atendimento online" : `em ${business.address.city}`;
     setSeoMeta(
-      `${business.name} em ${business.address.city} | ${categoryLabel} | Caramelinho.com`,
-      `${business.name} em ${business.address.city}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações, contato e localização para escolher com confiança.`
+      `${business.name} ${locationLabel} | ${categoryLabel} | Caramelinho.com`,
+      `${business.name} ${locationLabel}. ${details ? `Especialidades: ${details}. ` : ""}Veja avaliações e contato para escolher com confiança.`
     );
-  }, [business]);
+  }, [business, isOnlineOnly]);
 
   useEffect(() => {
     if (!selectedPhoto || !business) return;
@@ -186,7 +195,7 @@ export default function BusinessPage() {
     }
     if (!business || !session) {
       toast.error("Faça login para avaliar");
-      navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
     if ((business.reviews || []).some((r) => r.user_id === session.userId)) {
@@ -206,13 +215,7 @@ export default function BusinessPage() {
     const success = await addReview(business.id, reviewData);
     if (success) {
       // Recarregar o negócio para mostrar a nova avaliação
-      const updated = await getBusinessBySlug(
-        countryCode || "",
-        stateCode || "",
-        city || "",
-        businessName || ""
-      );
-      if (updated) setBusiness(updated);
+      await loadBusiness();
       toast.success("Avaliação enviada com sucesso!");
     } else {
       toast.error("Erro ao enviar avaliação.");
@@ -226,7 +229,7 @@ export default function BusinessPage() {
   const handleSendMessage = async () => {
     if (!session) {
       toast.info("Faça login para enviar mensagem");
-      navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
     if (!business) return;
@@ -277,13 +280,7 @@ export default function BusinessPage() {
       comment: editComment,
     });
     if (ok) {
-      const updated = await getBusinessBySlug(
-        countryCode || "",
-        stateCode || "",
-        city || "",
-        businessName || ""
-      );
-      if (updated) setBusiness(updated);
+      await loadBusiness();
       toast.success("Avaliação atualizada!");
       cancelEditReview();
     } else {
@@ -296,13 +293,7 @@ export default function BusinessPage() {
     if (!confirm("Tem certeza que deseja remover sua avaliação?")) return;
     const ok = await deleteReview(reviewId);
     if (ok) {
-      const updated = await getBusinessBySlug(
-        countryCode || "",
-        stateCode || "",
-        city || "",
-        businessName || ""
-      );
-      if (updated) setBusiness(updated);
+      await loadBusiness();
       toast.success("Avaliação removida!");
       if (editingReviewId === reviewId) cancelEditReview();
     } else {
@@ -320,6 +311,10 @@ export default function BusinessPage() {
 
   const handleRoute = () => {
     if (!business) return;
+    if (isOnlineOnly) {
+      toast.info("Este negócio atende somente online.");
+      return;
+    }
     trackBusinessClick(business.id, "route", session?.userId);
     const query = business.address.lat && business.address.lng
       ? `${business.address.lat},${business.address.lng}`
@@ -349,7 +344,7 @@ export default function BusinessPage() {
   const handleRequestOwnership = async () => {
     if (!session) {
       toast.info("Crie uma conta ou entre para reivindicar este negócio.");
-      navigate(`/entrar?redirect=/${countryCode}/${stateCode}/${city}/${businessName}`);
+      navigate(`/entrar?redirect=${encodeURIComponent(location.pathname + location.search)}`);
       return;
     }
     if (!business || session.userId === business.ownerId) return;
@@ -515,7 +510,7 @@ export default function BusinessPage() {
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
                 <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full border border-white/10">
                   <MapPin className="w-4 h-4 text-primary" />
-                  {business.address.city}
+                  {isOnlineOnly ? "Atendimento online" : business.address.city}
                 </div>
                 {business.averageRating > 0 && (
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
@@ -1030,11 +1025,17 @@ export default function BusinessPage() {
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <div className="text-sm">
-                      <p>{business.address.street}</p>
-                      <p className="text-muted-foreground">
-                        {business.address.city}, {getStateName(business.address.countryCode, business.address.stateCode)}
-                      </p>
-                      <p className="text-muted-foreground">{getCountryName(business.address.countryCode)} &mdash; {business.address.postalCode}</p>
+                      {isOnlineOnly ? (
+                        <p className="text-muted-foreground">Atendimento 100% online</p>
+                      ) : (
+                        <>
+                          <p>{business.address.street}</p>
+                          <p className="text-muted-foreground">
+                            {business.address.city}, {getStateName(business.address.countryCode, business.address.stateCode)}
+                          </p>
+                          <p className="text-muted-foreground">{getCountryName(business.address.countryCode)} &mdash; {business.address.postalCode}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
