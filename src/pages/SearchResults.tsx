@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -39,8 +39,11 @@ import { setSeoMeta } from "@/lib/seo";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
+import type { CommunityFindWithVote } from "@/types/database";
 import { buildCityAliases, cityMatches, filterBusinesses, normalizeText } from "@/lib/search/businessSearch";
 import { buildEventResults } from "@/lib/search/eventSearch";
+import { useCommunityFinds } from "@/hooks/useCommunityFinds";
+import AddCommunityFindForm from "@/components/AddCommunityFindForm";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -393,7 +396,13 @@ export default function SearchResults() {
   const [initialLoading, setInitialLoading] = useState(true);
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
+  const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
   const effectivePage = currentPage;
+  const {
+    finds: communityFinds,
+    vote: voteCommunityFind,
+    reload: reloadCommunityFinds,
+  } = useCommunityFinds();
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -1470,10 +1479,103 @@ export default function SearchResults() {
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 <MapView
                   businesses={results}
+                  communityFinds={communityFinds as CommunityFindWithVote[]}
                   center={mapCenter}
                 />
               </div>
             )}
+
+            <div className="mb-6 rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold">Achadinhos da comunidade</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Descobertas temporárias publicadas por usuários próximos.
+                  </p>
+                </div>
+                {session && (
+                  <Button
+                    type="button"
+                    variant={showCommunityFindForm ? "outline" : "default"}
+                    onClick={() => setShowCommunityFindForm((prev) => !prev)}
+                  >
+                    {showCommunityFindForm ? "Fechar" : "Adicionar achadinho"}
+                  </Button>
+                )}
+              </div>
+
+              {showCommunityFindForm && session && (
+                <div className="mt-4">
+                  <AddCommunityFindForm
+                    onCreated={() => {
+                      setShowCommunityFindForm(false);
+                      void reloadCommunityFinds();
+                    }}
+                  />
+                </div>
+              )}
+
+              {communityFinds.length > 0 ? (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {communityFinds.slice(0, 9).map((find) => (
+                    <Card key={find.id} className="p-3 border-border">
+                      {find.photo_url ? (
+                        <div className="mb-3 rounded-md overflow-hidden border border-border">
+                          <img
+                            src={find.photo_url}
+                            alt={`Foto do achadinho ${find.product_name}`}
+                            className="w-full h-36 object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">{find.product_name}</p>
+                          <p className="text-xs text-muted-foreground">{find.location_name}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {new Date(find.created_at).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <Badge variant="secondary">{find.category}</Badge>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant={find.user_vote === 1 ? "default" : "outline"}
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={async () => {
+                            const direction = find.user_vote === 1 ? "clear" : "upvote";
+                            await voteCommunityFind(find.id, direction);
+                          }}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5 mr-1" />
+                          {find.upvotes}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={find.user_vote === -1 ? "destructive" : "outline"}
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={async () => {
+                            const direction = find.user_vote === -1 ? "clear" : "downvote";
+                            await voteCommunityFind(find.id, direction);
+                          }}
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5 mr-1" />
+                          {find.downvotes}
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Ainda não há achadinhos ativos na sua região.
+                </p>
+              )}
+            </div>
 
             {isEventMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">

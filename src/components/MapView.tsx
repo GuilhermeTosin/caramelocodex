@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { buildBusinessUrl } from "@/services/businesses";
-import type { BusinessFrontend } from "@/types/database";
+import type { BusinessFrontend, CommunityFindWithVote } from "@/types/database";
 import { MapPin, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface MapViewProps {
   businesses: BusinessFrontend[];
+  communityFinds?: CommunityFindWithVote[];
   center?: { lat: number; lng: number };
   zoom?: number;
 }
 
-export default function MapView({ businesses, center, zoom = 11 }: MapViewProps) {
+export default function MapView({ businesses, communityFinds = [], center, zoom = 11 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<GoogleMapMarker[]>([]);
@@ -22,11 +23,15 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
   // Calcular centro automático baseado nos negócios
   const autoCenter = useCallback((): { lat: number; lng: number } => {
     if (center) return center;
-    if (businesses.length === 0) return { lat: 45.5017, lng: -73.5673 }; // Montreal
-    const avgLat = businesses.reduce((s, b) => s + b.address.lat, 0) / businesses.length;
-    const avgLng = businesses.reduce((s, b) => s + b.address.lng, 0) / businesses.length;
+    const points: Array<{ lat: number; lng: number }> = [
+      ...businesses.map((b) => ({ lat: b.address.lat, lng: b.address.lng })),
+      ...communityFinds.map((f) => ({ lat: f.lat, lng: f.lng })),
+    ];
+    if (points.length === 0) return { lat: 45.5017, lng: -73.5673 }; // Montreal
+    const avgLat = points.reduce((s, p) => s + p.lat, 0) / points.length;
+    const avgLng = points.reduce((s, p) => s + p.lng, 0) / points.length;
     return { lat: avgLat, lng: avgLng };
-  }, [businesses, center]);
+  }, [businesses, communityFinds, center]);
 
   useEffect(() => {
     if (!maps || !mapRef.current || mapInstanceRef.current) return;
@@ -76,18 +81,33 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
         markersRef.current.push(marker);
       });
 
-      // Ajustar bounds ou centro
-      if (businesses.length > 0) {
-        if (businesses.length === 1) {
-          const biz = businesses[0];
-          mapInstanceRef.current.setCenter({ lat: biz.address.lat, lng: biz.address.lng });
+      communityFinds.forEach((find) => {
+        const marker = new maps.Marker({
+          position: { lat: find.lat, lng: find.lng },
+          map: mapInstanceRef.current!,
+          title: `${find.product_name} · ${find.location_name}`,
+          icon: {
+            url: svgToDataUrl(getCommunityFindPinSvg()),
+            scaledSize: new google.maps.Size(34, 42),
+            anchor: new google.maps.Point(17, 41),
+          },
+        });
+        markersRef.current.push(marker);
+      });
+
+      const points: Array<{ lat: number; lng: number }> = [
+        ...businesses.map((biz) => ({ lat: biz.address.lat, lng: biz.address.lng })),
+        ...communityFinds.map((find) => ({ lat: find.lat, lng: find.lng })),
+      ];
+
+      if (points.length > 0) {
+        if (points.length === 1) {
+          mapInstanceRef.current.setCenter(points[0]);
           mapInstanceRef.current.setZoom(14);
         } else {
           const bounds = new maps.LatLngBounds();
-          businesses.forEach((biz) => {
-            if (biz.address.lat && biz.address.lng) {
-              bounds.extend({ lat: biz.address.lat, lng: biz.address.lng });
-            }
+          points.forEach((point) => {
+            bounds.extend(point);
           });
           mapInstanceRef.current.fitBounds(bounds, 50);
         }
@@ -157,23 +177,49 @@ export default function MapView({ businesses, center, zoom = 11 }: MapViewProps)
       markersRef.current.push(marker);
     });
 
+    communityFinds.forEach((find) => {
+      const pinElement = document.createElement("div");
+      pinElement.className = "cursor-default";
+      pinElement.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.25));">
+          ${getCommunityFindPinSvg()}
+          <div style="
+            margin-top:-2px;background:white;color:#1f2937;padding:2px 8px;border-radius:10px;
+            font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.15);
+            border:1px solid rgba(0,0,0,0.08);max-width:140px;overflow:hidden;text-overflow:ellipsis;
+          ">
+            ${escapeHtml(find.product_name.length > 20 ? find.product_name.slice(0, 18) + "..." : find.product_name)}
+          </div>
+        </div>
+      `;
+
+      const marker = new maps.marker.AdvancedMarkerElement({
+        position: { lat: find.lat, lng: find.lng },
+        map: mapInstanceRef.current!,
+        content: pinElement,
+        title: `${find.product_name} · ${find.location_name}`,
+      });
+      markersRef.current.push(marker);
+    });
+
     // Ajustar zoom para mostrar todos ou focar em um
-    if (businesses.length > 0) {
-      if (businesses.length === 1) {
-        const biz = businesses[0];
-        mapInstanceRef.current.setCenter({ lat: biz.address.lat, lng: biz.address.lng });
+    const points: Array<{ lat: number; lng: number }> = [
+      ...businesses.map((biz) => ({ lat: biz.address.lat, lng: biz.address.lng })),
+      ...communityFinds.map((find) => ({ lat: find.lat, lng: find.lng })),
+    ];
+    if (points.length > 0) {
+      if (points.length === 1) {
+        mapInstanceRef.current.setCenter(points[0]);
         mapInstanceRef.current.setZoom(14);
       } else {
         const bounds = new maps.LatLngBounds();
-        businesses.forEach((biz) => {
-          if (biz.address.lat && biz.address.lng) {
-            bounds.extend({ lat: biz.address.lat, lng: biz.address.lng });
-          }
+        points.forEach((point) => {
+          bounds.extend(point);
         });
         mapInstanceRef.current.fitBounds(bounds, 50);
       }
     }
-  }, [maps, businesses, selectedId, navigate]);
+  }, [maps, businesses, communityFinds, selectedId, navigate]);
 
   if (!available) {
     return (
@@ -247,6 +293,16 @@ function getBrazilFlagPinSvg(isSelected: boolean): string {
       <circle cx="18.8" cy="21.5" r="0.75" fill="#ffffff"/>
       <circle cx="23" cy="23.4" r="0.7" fill="#ffffff"/>
       <circle cx="26.1" cy="21.3" r="0.65" fill="#ffffff"/>
+    </svg>
+  `;
+}
+
+function getCommunityFindPinSvg(): string {
+  return `
+    <svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M17 1.8C9.1 1.8 2.7 8 2.7 15.6c0 9.7 11.7 21.4 13.2 22.8.4.4.9.4 1.3 0 1.5-1.4 13.2-13.1 13.2-22.8 0-7.6-6.4-13.8-14.4-13.8Z" fill="#16a34a" stroke="#fff" stroke-width="2"/>
+      <circle cx="17" cy="15.5" r="8.8" fill="#f59e0b"/>
+      <circle cx="17" cy="15.5" r="4.2" fill="#fff"/>
     </svg>
   `;
 }

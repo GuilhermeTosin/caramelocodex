@@ -52,6 +52,29 @@ export interface CommunityEvent {
   updated_at: string;
 }
 
+export type CommunityFindCategory = "comida" | "beleza" | "casa" | "outros";
+
+export interface CommunityFind {
+  id: string;
+  user_id: string;
+  product_name: string;
+  location_name: string;
+  category: CommunityFindCategory;
+  lat: number;
+  lng: number;
+  accuracy_meters: number | null;
+  photo_url: string | null;
+  upvotes: number;
+  downvotes: number;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityFindWithVote extends CommunityFind {
+  user_vote?: -1 | 1 | null;
+}
+
 export interface Review {
   id: string;
   business_id: string;
