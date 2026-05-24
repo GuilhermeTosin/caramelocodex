@@ -379,12 +379,18 @@ export async function getBusinessesByRadiusRpc(params: {
   includeOnline?: boolean;
   onlineCountryCode?: string;
 }): Promise<{ items: BusinessFrontend[]; totalCount: number }> {
+  const requestedLimit = Math.max(1, params.limit ?? 300);
+  const requestedOffset = Math.max(0, params.offset ?? 0);
+  const rpcLimit = requestedOffset + requestedLimit;
+
   const { data: hits, error: rpcError } = await supabase.rpc("search_businesses_radius", {
     p_origin_lat: params.originLat,
     p_origin_lng: params.originLng,
     p_radius_km: params.radiusKm,
-    p_limit: params.limit ?? 300,
-    p_offset: params.offset ?? 0,
+    // Para combinar corretamente com online e evitar duplicação entre páginas,
+    // buscamos a janela acumulada até a página atual e paginamos no merge final.
+    p_limit: rpcLimit,
+    p_offset: 0,
     p_category_id: params.categoryId || null,
     p_country_code: params.countryCode || null,
     p_state_code: params.stateCode || null,
@@ -399,7 +405,7 @@ export async function getBusinessesByRadiusRpc(params: {
   const orderedIds: string[] = (hits || [])
     .map((r: any) => r?.business_id)
     .filter((id: any) => typeof id === "string" && id.length > 0);
-  let totalCount = Number((hits && hits[0]?.total_count) ?? 0);
+  const physicalTotalCount = Number((hits && hits[0]?.total_count) ?? 0);
 
   const includeOnline = params.includeOnline !== false;
   const queryText = (params.query || "").trim();
@@ -457,7 +463,10 @@ export async function getBusinessesByRadiusRpc(params: {
   online.forEach((b) => mergedRowsMap.set(b.id, b));
   const mergedRows = Array.from(mergedRowsMap.values());
 
-  totalCount += online.filter((b) => !orderedIds.includes(b.id)).length;
+  const onlineIdsOrdered = online
+    .map((b) => b.id)
+    .filter((id) => !orderedIds.includes(id));
+  const totalCount = physicalTotalCount + onlineIdsOrdered.length;
 
   if (mergedRows.length === 0) return { items: [], totalCount };
 
@@ -500,14 +509,11 @@ export async function getBusinessesByRadiusRpc(params: {
     ])
   );
 
-  const onlineIdsOrdered = online
-    .map((b) => b.id)
-    .filter((id) => !orderedIds.includes(id));
+  const mergedOrderedIds = [...orderedIds, ...onlineIdsOrdered];
+  const pageIds = mergedOrderedIds.slice(requestedOffset, requestedOffset + requestedLimit);
 
   return {
-    items: [...orderedIds, ...onlineIdsOrdered]
-      .map((id) => byId.get(id))
-      .filter(Boolean) as BusinessFrontend[],
+    items: pageIds.map((id) => byId.get(id)).filter(Boolean) as BusinessFrontend[],
     totalCount,
   };
 }
