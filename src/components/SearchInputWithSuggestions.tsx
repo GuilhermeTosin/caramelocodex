@@ -68,8 +68,10 @@ export default function SearchInputWithSuggestions({
     if (suggestionsDisabled) return [];
     if (canUseGooglePlaces) return [];
     if (value.length < 2) return [];
+    const query = value.toLowerCase();
     return suggestions
-      .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+      .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      .filter((s) => s.toLowerCase().includes(query))
       .slice(0, 6);
   }, [suggestions, value, canUseGooglePlaces, suggestionsDisabled]);
 

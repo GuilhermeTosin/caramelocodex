@@ -16,6 +16,7 @@ import { createCommunityFind } from "@/services/communityFinds";
 import { getApproxGeoByIp } from "@/lib/utils/geo";
 import { uploadImage, generateImagePath } from "@/services/storage";
 import { supabase } from "@/lib/supabase";
+import AddressAutocomplete, { type AddressResult } from "@/components/AddressAutocomplete";
 
 const CATEGORY_OPTIONS: Array<{ value: CommunityFindCategory; label: string }> = [
   { value: "comida", label: "Comida" },
@@ -30,7 +31,9 @@ type Props = {
 
 export default function AddCommunityFindForm({ onCreated }: Props) {
   const [productName, setProductName] = useState("");
-  const [locationName, setLocationName] = useState("");
+  const [placeName, setPlaceName] = useState("");
+  const [locationAddress, setLocationAddress] = useState("");
+  const [selectedPlace, setSelectedPlace] = useState<AddressResult | null>(null);
   const [category, setCategory] = useState<CommunityFindCategory>("comida");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +46,17 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
     setError(null);
     setSuccess(null);
 
-    if (!productName.trim() || !locationName.trim()) {
-      setError("Preencha o nome do produto e o local.");
+    if (!productName.trim() || !placeName.trim() || !locationAddress.trim()) {
+      setError("Preencha o nome do produto, o nome do local e o endereço.");
       return;
     }
 
     setLoading(true);
 
-    const publishWithCoords = async (coords: { lat: number; lng: number; accuracy?: number | null }, source: "gps" | "ip") => {
+    const publishWithCoords = async (
+      coords: { lat: number; lng: number; accuracy?: number | null },
+      source: "gps" | "ip" | "place"
+    ) => {
       let photoUrl: string | null = null;
       if (photoFile) {
         const { data: authData } = await supabase.auth.getUser();
@@ -66,7 +72,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
 
       const result = await createCommunityFind({
         productName: productName.trim(),
-        locationName: locationName.trim(),
+        locationName: `${placeName.trim()} - ${locationAddress.trim()}`,
         category,
         lat: coords.lat,
         lng: coords.lng,
@@ -81,14 +87,18 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       }
 
       setProductName("");
-      setLocationName("");
+      setPlaceName("");
+      setLocationAddress("");
+      setSelectedPlace(null);
       setCategory("comida");
       setPhotoFile(null);
       setPhotoPreview(null);
       setSuccess(
-        source === "gps"
-          ? "Achadinho publicado com sucesso."
-          : "Achadinho publicado com sucesso usando localização aproximada por IP."
+        source === "place"
+          ? "Achadinho publicado com sucesso com a localização do local selecionado."
+          : source === "gps"
+            ? "Achadinho publicado com sucesso."
+            : "Achadinho publicado com sucesso usando localização aproximada por IP."
       );
       setLoading(false);
       onCreated?.();
@@ -103,6 +113,14 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       }
       await publishWithCoords({ lat: approx.lat, lng: approx.lng, accuracy: null }, "ip");
     };
+
+    if (selectedPlace && Number.isFinite(selectedPlace.lat) && Number.isFinite(selectedPlace.lng)) {
+      await publishWithCoords(
+        { lat: selectedPlace.lat, lng: selectedPlace.lng, accuracy: null },
+        "place"
+      );
+      return;
+    }
 
     if (!navigator.geolocation) {
       await tryIpFallback();
@@ -132,7 +150,7 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-foreground">Adicionar Achadinho</h3>
         <p className="text-sm text-muted-foreground">
-          Compartilhe uma descoberta da comunidade com sua localização atual.
+          Compartilhe uma descoberta da comunidade com localização precisa do local.
         </p>
       </div>
 
@@ -150,15 +168,34 @@ export default function AddCommunityFindForm({ onCreated }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="find-location-name">Nome do local</Label>
+          <Label htmlFor="find-place-name">Nome do local</Label>
           <Input
-            id="find-location-name"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
+            id="find-place-name"
+            value={placeName}
+            onChange={(e) => setPlaceName(e.target.value)}
             placeholder="Ex.: Walmart Downtown Montreal"
             maxLength={180}
             required
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="find-location-name">Endereço/local</Label>
+          <AddressAutocomplete
+            value={locationAddress}
+            onChange={(address) => {
+              setLocationAddress(address);
+              setSelectedPlace(null);
+            }}
+            onPlaceSelected={(place) => {
+              setSelectedPlace(place);
+              setLocationAddress(place.formattedAddress || `${place.city}, ${place.country}`);
+            }}
+            placeholder="Ex.: Walmart, 123 Main St, Montreal"
+          />
+          <p className="text-xs text-muted-foreground">
+            Selecione uma opção da lista para usar a localização exata do local.
+          </p>
         </div>
 
         <div className="space-y-2">

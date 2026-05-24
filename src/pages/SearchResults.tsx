@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -12,12 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   getAllBusinesses, 
   getBusinessesByRadiusRpc,
@@ -40,10 +43,18 @@ import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
 import type { CommunityFindWithVote } from "@/types/database";
+import type { CommunityFindMessage } from "@/types/database";
 import { buildCityAliases, cityMatches, filterBusinesses, normalizeText } from "@/lib/search/businessSearch";
 import { buildEventResults } from "@/lib/search/eventSearch";
 import { useCommunityFinds } from "@/hooks/useCommunityFinds";
 import AddCommunityFindForm from "@/components/AddCommunityFindForm";
+import {
+  addCommunityFindMessage,
+  deleteCommunityFindMessage,
+  getCommunityFindMessages,
+  updateCommunityFindMessage,
+} from "@/services/communityFinds";
+import { createCommunityFindReport } from "@/services/communityFindReports";
 
 const SEARCH_SYNONYMS: Record<string, string[]> = {
   dentista: ["Saúde & Beleza", "Clínica Dental", "Odontologia", "Dente"],
@@ -359,10 +370,12 @@ export default function SearchResults() {
   const radiusFilter = searchParams.get("raio") || "";
   const autoRadiusFilter = searchParams.get("auto_raio") || "";
   const eventsFilter = searchParams.get("eventos") || "";
+  const communityFindsFilter = searchParams.get("achadinhos") || "";
   const onlineFilter = searchParams.get("online") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
+  const isCommunityFindsMode = communityFindsFilter === "1";
   const isOnlineOnlyMode = onlineFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
@@ -397,12 +410,129 @@ export default function SearchResults() {
   const resultsTopRef = useRef<HTMLDivElement | null>(null);
   const [rpcTotalCount, setRpcTotalCount] = useState<number | null>(null);
   const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
+  const [communityFindDialogOpen, setCommunityFindDialogOpen] = useState(false);
+  const [selectedCommunityFind, setSelectedCommunityFind] = useState<CommunityFindWithVote | null>(null);
+  const [communityFindMessages, setCommunityFindMessages] = useState<CommunityFindMessage[]>([]);
+  const [communityFindMessageInput, setCommunityFindMessageInput] = useState("");
+  const [communityFindMessagesLoading, setCommunityFindMessagesLoading] = useState(false);
+  const [communityFindMessageSubmitting, setCommunityFindMessageSubmitting] = useState(false);
+  const [communityFindMessageError, setCommunityFindMessageError] = useState<string | null>(null);
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageInput, setEditingMessageInput] = useState("");
+  const [reportTargetMessageId, setReportTargetMessageId] = useState<string | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<"spam" | "abuso" | "fraude" | "ofensivo" | "desinformacao" | "outro">("abuso");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const effectivePage = currentPage;
   const {
     finds: communityFinds,
     vote: voteCommunityFind,
     reload: reloadCommunityFinds,
   } = useCommunityFinds();
+
+  const openCommunityFindDialog = useCallback(async (find: CommunityFindWithVote) => {
+    setSelectedCommunityFind(find);
+    setCommunityFindDialogOpen(true);
+    setCommunityFindMessagesLoading(true);
+    setCommunityFindMessageError(null);
+    const rows = await getCommunityFindMessages(find.id);
+    setCommunityFindMessages(rows);
+    setCommunityFindMessagesLoading(false);
+  }, []);
+
+  const handleSendCommunityFindMessage = useCallback(async () => {
+    if (!selectedCommunityFind) return;
+    setCommunityFindMessageSubmitting(true);
+    setCommunityFindMessageError(null);
+    const result = await addCommunityFindMessage(
+      selectedCommunityFind.id,
+      communityFindMessageInput,
+      replyToMessageId
+    );
+    if (!result.ok) {
+      setCommunityFindMessageError(result.error || "Não foi possível enviar a mensagem.");
+      setCommunityFindMessageSubmitting(false);
+      return;
+    }
+    setCommunityFindMessageInput("");
+    setReplyToMessageId(null);
+    const rows = await getCommunityFindMessages(selectedCommunityFind.id);
+    setCommunityFindMessages(rows);
+    setCommunityFindMessageSubmitting(false);
+  }, [selectedCommunityFind, communityFindMessageInput, replyToMessageId]);
+
+  const handleSaveEditCommunityFindMessage = useCallback(async () => {
+    if (!editingMessageId) return;
+    const result = await updateCommunityFindMessage(editingMessageId, editingMessageInput);
+    if (!result.ok) {
+      setCommunityFindMessageError(result.error || "Não foi possível editar a mensagem.");
+      return;
+    }
+    if (selectedCommunityFind) {
+      const rows = await getCommunityFindMessages(selectedCommunityFind.id);
+      setCommunityFindMessages(rows);
+    }
+    setEditingMessageId(null);
+    setEditingMessageInput("");
+  }, [editingMessageId, editingMessageInput, selectedCommunityFind]);
+
+  const handleDeleteCommunityFindMessage = useCallback(async (messageId: string) => {
+    if (!window.confirm("Tem certeza que deseja apagar esta mensagem?")) return;
+    const result = await deleteCommunityFindMessage(messageId);
+    if (!result.ok) {
+      setCommunityFindMessageError(result.error || "Não foi possível apagar a mensagem.");
+      return;
+    }
+    if (selectedCommunityFind) {
+      const rows = await getCommunityFindMessages(selectedCommunityFind.id);
+      setCommunityFindMessages(rows);
+    }
+  }, [selectedCommunityFind]);
+
+  const threadedCommunityMessages = useMemo(() => {
+    const byParent = new Map<string, CommunityFindMessage[]>();
+    const roots: CommunityFindMessage[] = [];
+    communityFindMessages.forEach((msg) => {
+      const parent = msg.parent_message_id || "";
+      if (!parent) {
+        roots.push(msg);
+        return;
+      }
+      const list = byParent.get(parent) || [];
+      list.push(msg);
+      byParent.set(parent, list);
+    });
+
+    const flatten = (items: CommunityFindMessage[], depth: number): Array<{ msg: CommunityFindMessage; depth: number }> => {
+      return items.flatMap((item) => {
+        const children = byParent.get(item.id) || [];
+        return [{ msg: item, depth }, ...flatten(children, Math.min(depth + 1, 3))];
+      });
+    };
+
+    return flatten(roots, 0);
+  }, [communityFindMessages]);
+
+  const handleSubmitCommunityFindReport = useCallback(async () => {
+    if (!selectedCommunityFind) return;
+    setReportSubmitting(true);
+    const result = await createCommunityFindReport({
+      findId: selectedCommunityFind.id,
+      reportedMessageId: reportTargetMessageId,
+      reason: reportReason,
+      details: reportDetails,
+    });
+    setReportSubmitting(false);
+    if (!result.ok) {
+      setCommunityFindMessageError(result.error || "Não foi possível enviar a denúncia.");
+      return;
+    }
+    setReportTargetMessageId(null);
+    setReportDetails("");
+    setReportReason("abuso");
+  }, [selectedCommunityFind, reportTargetMessageId, reportReason, reportDetails]);
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
@@ -701,6 +831,7 @@ export default function SearchResults() {
     countryFilter ||
     stateFilter ||
     radiusFilter ||
+    communityFindsFilter ||
     eventsFilter ||
     onlineFilter
   );
@@ -796,7 +927,9 @@ export default function SearchResults() {
     });
   }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
-  const totalResults = isEventMode
+  const totalResults = isCommunityFindsMode
+    ? communityFinds.length
+    : isEventMode
     ? eventResults.length
     : canUseRpcRadiusMode && rpcTotalCount !== null
     ? rpcTotalCount
@@ -814,6 +947,11 @@ export default function SearchResults() {
   const paginatedEvents = useMemo(
     () => eventResults.slice(pageStart, pageEnd),
     [eventResults, pageStart, pageEnd]
+  );
+
+  const paginatedCommunityFinds = useMemo(
+    () => communityFinds.slice(pageStart, pageEnd),
+    [communityFinds, pageStart, pageEnd]
   );
 
   useEffect(() => {
@@ -1038,8 +1176,23 @@ export default function SearchResults() {
   const handleToggleEventsMode = (enabled: boolean) => {
     const params = getParamsWithCurrentLocation();
     params.delete("pagina");
-    if (enabled) params.set("eventos", "1");
+    if (enabled) {
+      params.set("eventos", "1");
+      params.delete("achadinhos");
+    }
     else params.delete("eventos");
+    setSearchParams(params);
+  };
+
+  const handleToggleCommunityFindsMode = (enabled: boolean) => {
+    const params = getParamsWithCurrentLocation();
+    params.delete("pagina");
+    if (enabled) {
+      params.set("achadinhos", "1");
+      params.delete("eventos");
+    } else {
+      params.delete("achadinhos");
+    }
     setSearchParams(params);
   };
 
@@ -1179,12 +1332,38 @@ export default function SearchResults() {
       </Select>
       <div
         className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
+          isCommunityFindsMode ? "bg-blue-100 border-blue-500" : "bg-blue-50 border-blue-300"
+        }`}
+      >
+        <div className="inline-flex items-center gap-2 text-sm">
+          <MapPin className={`w-3.5 h-3.5 ${isCommunityFindsMode ? "text-blue-700" : "text-blue-600"}`} />
+          <span>Achadinhos</span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isCommunityFindsMode}
+          onClick={() => handleToggleCommunityFindsMode(!isCommunityFindsMode)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isCommunityFindsMode ? "bg-blue-500" : "bg-muted"
+          }`}
+          title={isCommunityFindsMode ? "Filtro de achadinhos ativo" : "Filtro de achadinhos desativado"}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+              isCommunityFindsMode ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+      <div
+        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
           isEventMode ? "bg-amber-100 border-amber-500" : "bg-amber-50 border-amber-300"
         }`}
       >
         <div className="inline-flex items-center gap-2 text-sm">
           <PartyPopper className={`w-3.5 h-3.5 ${isEventMode ? "text-amber-700" : "text-amber-600"}`} />
-          <span>Buscar festas e eventos</span>
+          <span>Festas e eventos</span>
         </div>
         <button
           type="button"
@@ -1423,6 +1602,8 @@ export default function SearchResults() {
         <p className="text-sm text-muted-foreground mb-6">
           {initialLoading || isResolvingDistanceOrigin
             ? "Carregando resultados..."
+            : isCommunityFindsMode
+            ? `${communityFinds.length} achadinho${communityFinds.length !== 1 ? "s" : ""} encontrado${communityFinds.length !== 1 ? "s" : ""}`
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
             : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
@@ -1441,7 +1622,7 @@ export default function SearchResults() {
           </aside>
 
           <div ref={resultsTopRef}>
-            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? communityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -1478,13 +1659,14 @@ export default function SearchResults() {
             {showMap && (
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 <MapView
-                  businesses={results}
+                  businesses={isCommunityFindsMode ? [] : results}
                   communityFinds={communityFinds as CommunityFindWithVote[]}
                   center={mapCenter}
                 />
               </div>
             )}
 
+            {isCommunityFindsMode && (
             <div className="mb-6 rounded-xl border border-border bg-card p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -1515,24 +1697,53 @@ export default function SearchResults() {
                 </div>
               )}
 
-              {communityFinds.length > 0 ? (
+              {paginatedCommunityFinds.length > 0 ? (
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {communityFinds.slice(0, 9).map((find) => (
+                  {paginatedCommunityFinds.map((find) => (
                     <Card key={find.id} className="p-3 border-border">
                       {find.photo_url ? (
                         <div className="mb-3 rounded-md overflow-hidden border border-border">
                           <img
                             src={find.photo_url}
                             alt={`Foto do achadinho ${find.product_name}`}
-                            className="w-full h-36 object-cover"
+                            className="w-full h-36 object-cover cursor-pointer"
                             loading="lazy"
+                            onClick={() => void openCommunityFindDialog(find)}
                           />
                         </div>
                       ) : null}
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-semibold text-sm">{find.product_name}</p>
-                          <p className="text-xs text-muted-foreground">{find.location_name}</p>
+                          {(() => {
+                            const separatorIndex = find.location_name.indexOf(" - ");
+                            const placeName = separatorIndex >= 0 ? find.location_name.slice(0, separatorIndex) : find.location_name;
+                            const address = separatorIndex >= 0 ? find.location_name.slice(separatorIndex + 3) : "";
+                            const mapsUrl = address
+                              ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+                              : "";
+                            return (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => void openCommunityFindDialog(find)}
+                                  className="font-semibold text-sm text-left hover:text-primary transition-colors"
+                                >
+                                  {find.product_name}
+                                </button>
+                                <p className="text-xs text-muted-foreground">{placeName}</p>
+                                {address ? (
+                                  <a
+                                    href={mapsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer nofollow"
+                                    className="text-xs text-primary hover:underline"
+                                  >
+                                    {address}
+                                  </a>
+                                ) : null}
+                              </>
+                            );
+                          })()}
                           <p className="text-[11px] text-muted-foreground mt-1">
                             {new Date(find.created_at).toLocaleDateString("pt-BR")}
                           </p>
@@ -1576,8 +1787,9 @@ export default function SearchResults() {
                 </p>
               )}
             </div>
+            )}
 
-            {isEventMode ? (
+            {!isCommunityFindsMode && (isEventMode ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {paginatedEvents.map((item) => (
                   <Link
@@ -1732,7 +1944,7 @@ export default function SearchResults() {
                 </Link>
               ))}
             </div>
-            )}
+            ))}
             {totalResults > RESULTS_PER_PAGE && (
               <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
                 <Button
@@ -1789,6 +2001,274 @@ export default function SearchResults() {
                 Aplicar filtros
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={communityFindDialogOpen} onOpenChange={setCommunityFindDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
+              <DialogDescription>
+                Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedCommunityFind?.photo_url ? (
+              <div className="rounded-lg overflow-hidden border border-border">
+                <img
+                  src={selectedCommunityFind.photo_url}
+                  alt={`Foto do achadinho ${selectedCommunityFind.product_name}`}
+                  className="w-full h-52 object-cover"
+                />
+              </div>
+            ) : null}
+
+            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+              {communityFindMessagesLoading ? (
+                <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
+              ) : threadedCommunityMessages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Ainda não há mensagens. Seja o primeiro a comentar.
+                </p>
+              ) : (
+                threadedCommunityMessages.map(({ msg, depth }) => (
+                  <div
+                    key={msg.id}
+                    className="rounded-md border border-border p-3"
+                    style={{ marginLeft: `${depth * 16}px` }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {msg.user_avatar ? (
+                          <img
+                            src={msg.user_avatar}
+                            alt={`Avatar de ${msg.user_name || "Usuário"}`}
+                            className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold flex items-center justify-center shrink-0">
+                            {(msg.user_name || "U").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{msg.user_name || "Usuário"}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(msg.created_at).toLocaleString("pt-BR")}
+                            {msg.updated_at && msg.updated_at !== msg.created_at ? " · editado" : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {session && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => {
+                              setReplyToMessageId(msg.id);
+                              setCommunityFindMessageInput(`@${msg.user_name || "Usuário"} `);
+                            }}
+                          >
+                            <Reply className="w-3.5 h-3.5 mr-1" />
+                            Responder
+                          </Button>
+                        )}
+                        {session && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-amber-700 hover:text-amber-800"
+                            onClick={() => {
+                              setReportTargetMessageId(msg.id);
+                              setReportReason("abuso");
+                              setReportDetails("");
+                              setReportDialogOpen(true);
+                            }}
+                          >
+                            Denunciar
+                          </Button>
+                        )}
+                        {session?.userId === msg.user_id && (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setEditingMessageId(msg.id);
+                                setEditingMessageInput(msg.message);
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                              onClick={() => void handleDeleteCommunityFindMessage(msg.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" />
+                              Apagar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {editingMessageId === msg.id ? (
+                      <div className="mt-2 space-y-2">
+                        <Textarea
+                          value={editingMessageInput}
+                          onChange={(e) => setEditingMessageInput(e.target.value)}
+                          rows={2}
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingMessageId(null);
+                              setEditingMessageInput("");
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void handleSaveEditCommunityFindMessage()}
+                            disabled={!editingMessageInput.trim()}
+                          >
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{msg.message}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {session ? (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setReportTargetMessageId(null);
+                      setReportReason("abuso");
+                      setReportDetails("");
+                      setReportDialogOpen(true);
+                    }}
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    Denunciar achadinho
+                  </Button>
+                </div>
+              ) : null}
+              {replyToMessageId ? (
+                <div className="text-xs text-muted-foreground flex items-center justify-between">
+                  <span>Respondendo uma mensagem</span>
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => setReplyToMessageId(null)}
+                  >
+                    cancelar resposta
+                  </button>
+                </div>
+              ) : null}
+              <Textarea
+                value={communityFindMessageInput}
+                onChange={(e) => setCommunityFindMessageInput(e.target.value)}
+                placeholder={session ? "Escreva sua mensagem..." : "Faça login para participar da discussão."}
+                disabled={!session || communityFindMessageSubmitting}
+                rows={3}
+              />
+              {communityFindMessageError ? (
+                <p className="text-sm text-destructive">{communityFindMessageError}</p>
+              ) : null}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => void handleSendCommunityFindMessage()}
+                  disabled={!session || communityFindMessageSubmitting || !communityFindMessageInput.trim()}
+                >
+                  {communityFindMessageSubmitting ? "Enviando..." : "Enviar mensagem"}
+                </Button>
+              </div>
+            </div>
+            {session && (
+              <Dialog open={reportDialogOpen} onOpenChange={(open) => {
+                setReportDialogOpen(open);
+                if (!open) {
+                  setReportTargetMessageId(null);
+                  setReportDetails("");
+                  setReportReason("abuso");
+                }
+              }}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Denunciar conteúdo</DialogTitle>
+                    <DialogDescription>
+                      Sua denúncia será analisada pela equipe de administração.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Motivo</Label>
+                      <Select value={reportReason} onValueChange={(v) => setReportReason(v as any)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="abuso">Abuso</SelectItem>
+                          <SelectItem value="spam">Spam</SelectItem>
+                          <SelectItem value="fraude">Fraude</SelectItem>
+                          <SelectItem value="ofensivo">Ofensivo</SelectItem>
+                          <SelectItem value="desinformacao">Desinformação</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Detalhes (opcional)</Label>
+                      <Textarea
+                        value={reportDetails}
+                        onChange={(e) => setReportDetails(e.target.value)}
+                        placeholder="Descreva brevemente o problema."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setReportTargetMessageId(null);
+                          setReportDetails("");
+                          setReportReason("abuso");
+                          setReportDialogOpen(false);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="button" onClick={() => void handleSubmitCommunityFindReport()} disabled={reportSubmitting}>
+                        {reportSubmitting ? "Enviando..." : "Enviar denúncia"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </DialogContent>
         </Dialog>
       </div>

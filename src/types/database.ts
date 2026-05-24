@@ -75,6 +75,40 @@ export interface CommunityFindWithVote extends CommunityFind {
   user_vote?: -1 | 1 | null;
 }
 
+export interface CommunityFindMessage {
+  id: string;
+  find_id: string;
+  user_id: string;
+  parent_message_id?: string | null;
+  message: string;
+  created_at: string;
+  updated_at?: string;
+  user_name?: string;
+  user_avatar?: string | null;
+}
+
+export interface CommunityFindReport {
+  id: string;
+  find_id: string;
+  reported_message_id: string | null;
+  reporter_user_id: string | null;
+  reason: "spam" | "abuso" | "fraude" | "ofensivo" | "desinformacao" | "outro";
+  details: string | null;
+  status: "pending" | "reviewing" | "resolved" | "rejected";
+  archived_at: string | null;
+  archived_by: string | null;
+  created_at: string;
+  find?: {
+    id: string;
+    product_name: string;
+    location_name: string;
+  } | null;
+  message?: {
+    id: string;
+    message: string;
+  } | null;
+}
+
 export interface Review {
   id: string;
   business_id: string;

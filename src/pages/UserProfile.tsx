@@ -101,6 +101,12 @@ import {
   transferBusinessOwnershipByEmail,
 } from "@/services/ownership";
 import { archiveReport, getReportsForAdmin, unarchiveReport, updateReportStatus } from "@/services/reports";
+import {
+  archiveCommunityFindReport,
+  getCommunityFindReportsForAdmin,
+  unarchiveCommunityFindReport,
+  updateCommunityFindReportStatus,
+} from "@/services/communityFindReports";
 import { getCurrencyPrefixForCountry } from "@/lib/currency";
 import {
   DEFAULT_CATEGORY_SYNONYMS,
@@ -116,6 +122,8 @@ import {
   setVerificationRequestStatus,
 } from "@/services/verification";
 import { createCommunityEvent, deleteCommunityEvent, getCommunityEventsByOwner, getCommunityEventsByOwnerAndBusiness, replaceBusinessLinkedEvents, updateCommunityEvent } from "@/services/events";
+import { deleteCommunityFind, getCommunityFindsByOwner, updateCommunityFind } from "@/services/communityFinds";
+import AddCommunityFindForm from "@/components/AddCommunityFindForm";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import type { AddressResult } from "@/components/AddressAutocomplete";
 import type {
@@ -131,6 +139,8 @@ import type {
   Promotion,
   Review,
   CommunityEvent,
+  CommunityFindReport,
+  CommunityFind,
 } from "@/types/database";
 
 export default function UserProfile() {
@@ -251,8 +261,10 @@ export default function UserProfile() {
   const [transferEmail, setTransferEmail] = useState("");
   const [featuredPlacements, setFeaturedPlacements] = useState<FeaturedPlacementFrontend[]>([]);
   const [reports, setReports] = useState<BusinessReport[]>([]);
+  const [communityFindReports, setCommunityFindReports] = useState<CommunityFindReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsView, setReportsView] = useState<"active" | "archived">("active");
+  const [reportsKind, setReportsKind] = useState<"negocios" | "achadinhos">("negocios");
   const [featuredLoading, setFeaturedLoading] = useState(false);
   const [verificationBusiness, setVerificationBusiness] = useState<BusinessFrontend | null>(null);
   const [verificationSubmitting, setVerificationSubmitting] = useState(false);
@@ -264,6 +276,19 @@ export default function UserProfile() {
   const [moderationLoading, setModerationLoading] = useState(false);
   const [moderationPreviewBusiness, setModerationPreviewBusiness] = useState<BusinessFrontend | null>(null);
   const [myCommunityEvents, setMyCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [myCommunityFinds, setMyCommunityFinds] = useState<CommunityFind[]>([]);
+  const [showCommunityFindForm, setShowCommunityFindForm] = useState(false);
+  const [editingCommunityFind, setEditingCommunityFind] = useState<CommunityFind | null>(null);
+  const [editingCommunityFindSubmitting, setEditingCommunityFindSubmitting] = useState(false);
+  const [editingCommunityFindForm, setEditingCommunityFindForm] = useState<{
+    productName: string;
+    locationName: string;
+    category: CommunityFind["category"];
+  }>({
+    productName: "",
+    locationName: "",
+    category: "comida",
+  });
   const [savingCommunityEvent, setSavingCommunityEvent] = useState(false);
   const [editingCommunityEventId, setEditingCommunityEventId] = useState<string | null>(null);
   const [communityEventFlyerFile, setCommunityEventFlyerFile] = useState<File | null>(null);
@@ -377,6 +402,7 @@ export default function UserProfile() {
       setMyReviews(reviews);
     });
     getCommunityEventsByOwner(session.userId).then(setMyCommunityEvents);
+    getCommunityFindsByOwner(session.userId).then(setMyCommunityFinds);
 
     // Load reviews made by this user
     getReviewsByUser(session.userId).then((reviews) => {
@@ -514,6 +540,51 @@ export default function UserProfile() {
     }
   };
 
+  const handleDeleteCommunityFind = async (findId: string) => {
+    if (!confirm("Excluir este achadinho?")) return;
+    const result = await deleteCommunityFind(findId);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível excluir o achadinho.");
+      return;
+    }
+    setMyCommunityFinds((prev) => prev.filter((find) => find.id !== findId));
+    toast.success("Achadinho excluído.");
+  };
+
+  const handleStartEditCommunityFind = (find: CommunityFind) => {
+    setEditingCommunityFind(find);
+    setEditingCommunityFindForm({
+      productName: find.product_name || "",
+      locationName: find.location_name || "",
+      category: find.category || "outros",
+    });
+  };
+
+  const handleSaveCommunityFindEdit = async () => {
+    if (!editingCommunityFind) return;
+    if (!editingCommunityFindForm.productName.trim() || !editingCommunityFindForm.locationName.trim()) {
+      toast.error("Preencha o nome do produto e o local.");
+      return;
+    }
+    setEditingCommunityFindSubmitting(true);
+    const result = await updateCommunityFind(editingCommunityFind.id, {
+      productName: editingCommunityFindForm.productName,
+      locationName: editingCommunityFindForm.locationName,
+      category: editingCommunityFindForm.category,
+    });
+    setEditingCommunityFindSubmitting(false);
+    if (!result.ok) {
+      toast.error(result.error || "Não foi possível editar o achadinho.");
+      return;
+    }
+    if (session?.userId) {
+      const finds = await getCommunityFindsByOwner(session.userId);
+      setMyCommunityFinds(finds);
+    }
+    setEditingCommunityFind(null);
+    toast.success("Achadinho atualizado.");
+  };
+
   const loadFeaturedAdminData = async () => {
     setFeaturedLoading(true);
     const [placements, businesses] = await Promise.all([
@@ -538,8 +609,13 @@ export default function UserProfile() {
 
   const loadReportsAdminData = async (mode: "active" | "archived" = reportsView) => {
     setReportsLoading(true);
-    const data = await getReportsForAdmin(mode);
-    setReports(data);
+    if (reportsKind === "negocios") {
+      const data = await getReportsForAdmin(mode);
+      setReports(data);
+    } else {
+      const data = await getCommunityFindReportsForAdmin(mode);
+      setCommunityFindReports(data);
+    }
     setReportsLoading(false);
   };
 
@@ -569,7 +645,7 @@ export default function UserProfile() {
   useEffect(() => {
     if (!isAdmin) return;
     loadReportsAdminData(reportsView);
-  }, [isAdmin, reportsView]);
+  }, [isAdmin, reportsView, reportsKind]);
 
   const handleReportStatus = async (id: string, status: BusinessReport["status"]) => {
     const result = await updateReportStatus(id, status);
@@ -631,6 +707,47 @@ export default function UserProfile() {
       return;
     }
     toast.success("Denúncia desarquivada.");
+    loadReportsAdminData(reportsView);
+  };
+
+  const handleCommunityFindReportStatus = async (
+    id: string,
+    status: CommunityFindReport["status"]
+  ) => {
+    const result = await updateCommunityFindReportStatus(id, status);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao atualizar denúncia de achadinho.");
+      return;
+    }
+    toast.success("Denúncia de achadinho atualizada.");
+    loadReportsAdminData(reportsView);
+  };
+
+  const handleArchiveCommunityFindReport = async (report: CommunityFindReport) => {
+    if (!session?.userId) {
+      toast.error("Sessão inválida.");
+      return;
+    }
+    if (report.status !== "resolved" && report.status !== "rejected") {
+      toast.error("Só é possível arquivar denúncias resolvidas ou rejeitadas.");
+      return;
+    }
+    const result = await archiveCommunityFindReport(report.id, session.userId);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao arquivar denúncia de achadinho.");
+      return;
+    }
+    toast.success("Denúncia de achadinho arquivada.");
+    loadReportsAdminData(reportsView);
+  };
+
+  const handleUnarchiveCommunityFindReport = async (report: CommunityFindReport) => {
+    const result = await unarchiveCommunityFindReport(report.id);
+    if (!result.ok) {
+      toast.error(result.error || "Erro ao desarquivar denúncia de achadinho.");
+      return;
+    }
+    toast.success("Denúncia de achadinho desarquivada.");
     loadReportsAdminData(reportsView);
   };
 
@@ -1767,6 +1884,10 @@ export default function UserProfile() {
                     <Calendar className="w-4 h-4" />
                     Meus Eventos
                   </TabsTrigger>
+                  <TabsTrigger value="achadinhos" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                    <MapPin className="w-4 h-4" />
+                    Achadinhos
+                  </TabsTrigger>
                   {isAdmin && (
                     <TabsTrigger value="verificacoes" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <BadgeCheck className="w-4 h-4" />
@@ -2482,6 +2603,152 @@ export default function UserProfile() {
             </div>
           </TabsContent>
 
+          <TabsContent value="achadinhos" className="mt-0">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground">Achadinhos</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Gerencie os achadinhos que você publicou para a comunidade.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                  onClick={() => setShowCommunityFindForm((prev) => !prev)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {showCommunityFindForm ? "Fechar formulário" : "Novo achadinho"}
+                </Button>
+              </div>
+
+              {showCommunityFindForm && (
+                <AddCommunityFindForm
+                  onCreated={async () => {
+                    if (!session?.userId) return;
+                    const finds = await getCommunityFindsByOwner(session.userId);
+                    setMyCommunityFinds(finds);
+                    setShowCommunityFindForm(false);
+                  }}
+                />
+              )}
+
+              <Card className="border-border overflow-hidden">
+                <div className="p-5 border-b border-border">
+                  <h3 className="font-semibold">Meus achadinhos publicados</h3>
+                </div>
+                {myCommunityFinds.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">Você ainda não publicou nenhum achadinho.</div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {myCommunityFinds.map((find) => (
+                      <div key={find.id} className="p-5 flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold">{find.product_name}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">{find.location_name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Publicado em {new Date(find.created_at).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">
+                            {find.category}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStartEditCommunityFind(find)}
+                          >
+                            <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            onClick={() => handleDeleteCommunityFind(find.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </TabsContent>
+
+          <Dialog open={!!editingCommunityFind} onOpenChange={(open) => !open && setEditingCommunityFind(null)}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Editar achadinho</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-find-product">Nome do produto</Label>
+                  <Input
+                    id="edit-find-product"
+                    className="mt-1.5"
+                    value={editingCommunityFindForm.productName}
+                    onChange={(e) =>
+                      setEditingCommunityFindForm((prev) => ({ ...prev, productName: e.target.value }))
+                    }
+                    maxLength={140}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-find-location">Nome do local</Label>
+                  <Input
+                    id="edit-find-location"
+                    className="mt-1.5"
+                    value={editingCommunityFindForm.locationName}
+                    onChange={(e) =>
+                      setEditingCommunityFindForm((prev) => ({ ...prev, locationName: e.target.value }))
+                    }
+                    maxLength={180}
+                  />
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Select
+                    value={editingCommunityFindForm.category}
+                    onValueChange={(value) =>
+                      setEditingCommunityFindForm((prev) => ({
+                        ...prev,
+                        category: value as CommunityFind["category"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="comida">Comida</SelectItem>
+                      <SelectItem value="beleza">Beleza</SelectItem>
+                      <SelectItem value="casa">Casa</SelectItem>
+                      <SelectItem value="outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingCommunityFind(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                  onClick={handleSaveCommunityFindEdit}
+                  disabled={editingCommunityFindSubmitting}
+                >
+                  {editingCommunityFindSubmitting ? "Salvando..." : "Salvar alterações"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {isAdmin && (
             <TabsContent value="verificacoes" className="mt-0">
               <div className="space-y-6">
@@ -2779,6 +3046,22 @@ export default function UserProfile() {
                     <h3 className="font-semibold">Fila de denúncias</h3>
                     <div className="flex items-center gap-2">
                       <Button
+                        variant={reportsKind === "negocios" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setReportsKind("negocios")}
+                        disabled={reportsLoading}
+                      >
+                        Negócios
+                      </Button>
+                      <Button
+                        variant={reportsKind === "achadinhos" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setReportsKind("achadinhos")}
+                        disabled={reportsLoading}
+                      >
+                        Achadinhos
+                      </Button>
+                      <Button
                         variant={reportsView === "active" ? "default" : "outline"}
                         size="sm"
                         onClick={() => setReportsView("active")}
@@ -2806,11 +3089,15 @@ export default function UserProfile() {
                   </div>
                   {reportsLoading ? (
                     <div className="p-8 text-center text-muted-foreground">Carregando denúncias...</div>
-                  ) : reports.length === 0 ? (
+                  ) : reportsKind === "negocios" && reports.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
                       {reportsView === "archived" ? "Nenhuma denúncia arquivada." : "Nenhuma denúncia registrada."}
                     </div>
-                  ) : (
+                  ) : reportsKind === "achadinhos" && communityFindReports.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      {reportsView === "archived" ? "Nenhuma denúncia de achadinho arquivada." : "Nenhuma denúncia de achadinho registrada."}
+                    </div>
+                  ) : reportsKind === "negocios" ? (
                     <div className="divide-y divide-border">
                       {reports.map((r) => (
                         <div key={r.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
@@ -2856,6 +3143,56 @@ export default function UserProfile() {
                                 variant="outline"
                                 className="text-sky-700 border-sky-300 hover:bg-sky-50"
                                 onClick={() => handleUnarchiveReport(r)}
+                              >
+                                Desarquivar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {communityFindReports.map((r) => (
+                        <div key={r.id} className="p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold">{r.find?.product_name || "Achadinho"}</h4>
+                              <Badge variant={r.status === "pending" ? "secondary" : "default"}>{r.status}</Badge>
+                              <Badge variant="outline">{r.reason}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {r.find?.location_name || "Local não informado"}
+                            </p>
+                            {r.message?.message ? (
+                              <p className="text-sm mt-2 text-foreground/80">
+                                Mensagem reportada: "{r.message.message}"
+                              </p>
+                            ) : null}
+                            {r.details && <p className="text-sm mt-2">{r.details}</p>}
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(r.created_at).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleCommunityFindReportStatus(r.id, "reviewing")}>Em análise</Button>
+                            <Button size="sm" onClick={() => handleCommunityFindReportStatus(r.id, "resolved")}>Resolver</Button>
+                            <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleCommunityFindReportStatus(r.id, "rejected")}>Rejeitar</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={reportsView === "archived" ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50" : ""}
+                              disabled={reportsView === "archived" || (r.status !== "resolved" && r.status !== "rejected")}
+                              onClick={() => handleArchiveCommunityFindReport(r)}
+                            >
+                              Arquivar
+                            </Button>
+                            {reportsView === "archived" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-sky-700 border-sky-300 hover:bg-sky-50"
+                                onClick={() => handleUnarchiveCommunityFindReport(r)}
                               >
                                 Desarquivar
                               </Button>
