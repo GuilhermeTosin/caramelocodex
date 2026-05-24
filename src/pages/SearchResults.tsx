@@ -927,8 +927,61 @@ export default function SearchResults() {
     });
   }, [isEventMode, results, communityEvents, query, allBusinesses]);
 
+  const filteredCommunityFinds = useMemo(() => {
+    let rows = [...communityFinds];
+    const normalizedQuery = normalizeText(query || "");
+    const normalizedCityOrLocal = normalizeText((cityFilter || locationFilter || "").trim());
+    const cityCenter = selectedOriginCoords || locationCoords;
+    const cityBoundingKm = 35;
+    const activeRadius = effectiveRadiusKm;
+
+    if (normalizedQuery) {
+      rows = rows.filter((find) => {
+        const product = normalizeText(find.product_name || "");
+        const location = normalizeText(find.location_name || "");
+        const category = normalizeText(find.category || "");
+        return (
+          product.includes(normalizedQuery) ||
+          location.includes(normalizedQuery) ||
+          category.includes(normalizedQuery)
+        );
+      });
+    }
+
+    if (normalizedCityOrLocal) {
+      rows = rows.filter((find) => {
+        const location = normalizeText(find.location_name || "");
+        const textMatch = location.includes(normalizedCityOrLocal);
+        if (textMatch) return true;
+        if (!cityCenter) return false;
+        if (!Number.isFinite(find.lat) || !Number.isFinite(find.lng)) return false;
+        const distanceToCityCenter = calculateDistance(cityCenter.lat, cityCenter.lng, find.lat, find.lng);
+        return distanceToCityCenter <= cityBoundingKm;
+      });
+    }
+
+    if (activeRadius && distanceOrigin) {
+      rows = rows.filter((find) => {
+        if (!Number.isFinite(find.lat) || !Number.isFinite(find.lng)) return false;
+        const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, find.lat, find.lng);
+        return distance <= activeRadius;
+      });
+    }
+
+    return rows;
+  }, [
+    communityFinds,
+    query,
+    cityFilter,
+    locationFilter,
+    selectedOriginCoords,
+    locationCoords,
+    effectiveRadiusKm,
+    distanceOrigin,
+  ]);
+
   const totalResults = isCommunityFindsMode
-    ? communityFinds.length
+    ? filteredCommunityFinds.length
     : isEventMode
     ? eventResults.length
     : canUseRpcRadiusMode && rpcTotalCount !== null
@@ -950,8 +1003,8 @@ export default function SearchResults() {
   );
 
   const paginatedCommunityFinds = useMemo(
-    () => communityFinds.slice(pageStart, pageEnd),
-    [communityFinds, pageStart, pageEnd]
+    () => filteredCommunityFinds.slice(pageStart, pageEnd),
+    [filteredCommunityFinds, pageStart, pageEnd]
   );
 
   useEffect(() => {
@@ -1603,7 +1656,7 @@ export default function SearchResults() {
           {initialLoading || isResolvingDistanceOrigin
             ? "Carregando resultados..."
             : isCommunityFindsMode
-            ? `${communityFinds.length} achadinho${communityFinds.length !== 1 ? "s" : ""} encontrado${communityFinds.length !== 1 ? "s" : ""}`
+            ? `${filteredCommunityFinds.length} achadinho${filteredCommunityFinds.length !== 1 ? "s" : ""} encontrado${filteredCommunityFinds.length !== 1 ? "s" : ""}`
             : isEventMode
             ? `${eventResults.length} evento${eventResults.length !== 1 ? "s" : ""} encontrado${eventResults.length !== 1 ? "s" : ""}`
             : `${totalResults} negócio${totalResults !== 1 ? "s" : ""} encontrado${totalResults !== 1 ? "s" : ""}`}
@@ -1622,7 +1675,7 @@ export default function SearchResults() {
           </aside>
 
           <div ref={resultsTopRef}>
-            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? communityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
+            {!initialLoading && !isResolvingDistanceOrigin && !showMap && (isCommunityFindsMode ? filteredCommunityFinds.length === 0 : isEventMode ? eventResults.length === 0 : results.length === 0) ? (
               <div className="rounded-xl border border-border bg-card p-8 text-center lg:text-left">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-5">
                   <PawPrint className="w-14 h-14 text-muted-foreground/25 mx-auto lg:mx-0 shrink-0" />
@@ -1660,7 +1713,7 @@ export default function SearchResults() {
               <div className="mb-8 rounded-xl overflow-hidden border border-border h-[400px]">
                 <MapView
                   businesses={isCommunityFindsMode ? [] : results}
-                  communityFinds={communityFinds as CommunityFindWithVote[]}
+                  communityFinds={(isCommunityFindsMode ? filteredCommunityFinds : communityFinds) as CommunityFindWithVote[]}
                   center={mapCenter}
                 />
               </div>
