@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [unreadMessages, setUnreadMessages] = useState(0);
   
-  // Ref para evitar mÃºltiplas chamadas simultÃ¢neas de carregamento de perfil
+  // Ref para evitar m?ltiplas chamadas simult?neas de carregamento de perfil
   const loadingUserIdRef = useRef<string | null>(null);
 
   const buildSession = useCallback(
@@ -32,14 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         userId: supaSession.user.id,
         email: supaSession.user.email || "",
-        name: supaSession.user.user_metadata?.name || supaSession.user.email?.split("@")[0] || "UsuÃ¡rio",
+        name: supaSession.user.user_metadata?.name || supaSession.user.email?.split("@")[0] || "Usuário",
       };
     },
     []
   );
 
   const loadUserAndUnread = useCallback(async (userId: string, email: string) => {
-    // Se jÃ¡ estiver carregando ESTE usuÃ¡rio, ignora mas garante que o loading termine
+    // Se j? estiver carregando ESTE Usuário, ignora mas garante que o loading termine
     if (loadingUserIdRef.current === userId) {
       setIsLoading(false);
       return;
@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let profile = await getProfileById(userId);
       
       if (!profile) {
-        console.log("AuthContext: Perfil nÃ£o encontrado, tentando criar...");
-        const defaultName = email.split("@")[0] || "UsuÃ¡rio";
+        console.log("AuthContext: Perfil não encontrado, tentando criar...");
+        const defaultName = email.split("@")[0] || "Usuário";
         const success = await updateProfile(userId, { name: defaultName });
         if (success) {
           profile = await getProfileById(userId);

@@ -118,7 +118,7 @@ export default function VerifiedBusinessInfo() {
             <Card className="p-5 border-border">
               <p className="text-xs font-bold text-muted-foreground">PASSO 1</p>
               <p className="font-semibold mt-1">Solicitação</p>
-              <p className="text-sm text-muted-foreground mt-2">Você envia o link do post no painel �SMeus Negócios⬝.</p>
+              <p className="text-sm text-muted-foreground mt-2">Você envia o link do post no painel "Meus Negócios".</p>
             </Card>
             <Card className="p-5 border-border">
               <p className="text-xs font-bold text-muted-foreground">PASSO 2</p>
@@ -138,5 +138,3 @@ export default function VerifiedBusinessInfo() {
     </div>
   );
 }
-
-

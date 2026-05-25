@@ -1,7 +1,7 @@
 import { utf8Fetch } from "@/lib/http/utf8";
 
 /**
- * Calcula a distÃ¢ncia entre dois pontos (lat/lng) em quilÃ´metros usando a fÃ³rmula de Haversine.
+ * Calcula a distância entre dois pontos (lat/lng) em quilômetros usando a fórmula de Haversine.
  */
 export function calculateDistance(
   lat1: number,
@@ -23,7 +23,7 @@ export function calculateDistance(
 }
 
 /**
- * ObtÃ©m a localizaÃ§Ã£o atual do usuÃ¡rio via API do Navegador.
+ * Obtém a localização atual do usuário via API do Navegador.
  */
 export function getCurrentPosition(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
@@ -48,7 +48,7 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number } | nul
 }
 
 /**
- * ObtÃ©m localizaÃ§Ã£o aproximada por IP (fallback quando geolocalizaÃ§Ã£o do navegador falha).
+ * Obtém localização aproximada por IP (fallback quando geolocalização do navegador falha).
  */
 export async function getApproxPositionByIp(): Promise<{ lat: number; lng: number } | null> {
   const geo = await getApproxGeoByIp();
@@ -91,4 +91,3 @@ export async function getApproxGeoByIp(): Promise<{ lat: number; lng: number; co
     return null;
   }
 }
-
