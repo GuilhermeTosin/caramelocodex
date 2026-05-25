@@ -1284,6 +1284,9 @@ export default function SearchResults() {
     if (enabled) {
       params.set("achadinhos", "1");
       params.delete("eventos");
+      // Achadinhos não deve herdar contexto de busca de negócios/categorias
+      params.delete("categoria");
+      params.delete("q");
     } else {
       params.delete("achadinhos");
     }
