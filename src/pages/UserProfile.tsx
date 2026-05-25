@@ -761,7 +761,7 @@ export default function UserProfile() {
     }
     const ok = await setBusinessModerationStatus(business.id, status, session.userId);
     if (!ok) {
-      toast.error("Não foi possível atualizar o status deste negï¿½cio.");
+      toast.error("Não foi possível atualizar o status deste negócio.");
       return;
     }
     toast.success(
@@ -794,7 +794,7 @@ export default function UserProfile() {
 
   const handleOpenVerificationModal = (biz: BusinessFrontend) => {
     if (getMyVerificationStatusByBusiness(biz.id) === "pending") {
-      toast.info("Este negï¿½cio já possui uma solicitação de verificação pendente.");
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
       return;
     }
     setInstagramPostUrl("");
@@ -804,15 +804,15 @@ export default function UserProfile() {
   const handleSubmitVerificationRequest = async () => {
     if (!verificationBusiness || !session?.userId) return;
     if (getMyVerificationStatusByBusiness(verificationBusiness.id) === "pending") {
-      toast.info("Este negï¿½cio já possui uma solicitação de verificação pendente.");
+      toast.info("Este negócio já possui uma solicitação de verificação pendente.");
       return;
     }
     if (verificationBusiness.reviews.length < 5) {
-      toast.error("Seu negï¿½cio precisa ter pelo menos 5 avaliações para solicitar verificação.");
+      toast.error("Seu negócio precisa ter pelo menos 5 avaliações para solicitar verificação.");
       return;
     }
     if (!verificationBusiness.instagram?.trim()) {
-      toast.error("Adicione o Instagram do negï¿½cio antes de solicitar verificação.");
+      toast.error("Adicione o Instagram do negócio antes de solicitar verificação.");
       return;
     }
     if (!instagramPostUrl.trim()) {
@@ -1180,7 +1180,7 @@ export default function UserProfile() {
 
     if (normalized.includes("caramelinho")) {
       setShortSlugStatus("invalid");
-      setShortSlugMessage('Não use "caramelinho" no link curto. Escolha algo único do seu negï¿½cio.');
+      setShortSlugMessage('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
       return;
     }
 
@@ -1319,7 +1319,7 @@ export default function UserProfile() {
       .filter(Boolean);
     const desiredSlug = slugify((editFormData.shortSlug || editFormData.name).trim());
     if (!desiredSlug) {
-      toast.error("Defina um link curto válido para o negï¿½cio.");
+      toast.error("Defina um link curto válido para o negócio.");
       return;
     }
     if (!/^[a-z0-9-]+$/.test(desiredSlug)) {
@@ -1327,7 +1327,7 @@ export default function UserProfile() {
       return;
     }
     if (desiredSlug.includes("caramelinho")) {
-      toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negï¿½cio.');
+      toast.error('Não use "caramelinho" no link curto. Escolha algo único do seu negócio.');
       return;
     }
     const slugAvailable = await isBusinessSlugAvailable(desiredSlug, editingBusiness?.id);
@@ -2100,7 +2100,7 @@ export default function UserProfile() {
               {myBusinesses.length === 0 ? (
                 <Card className="p-8 text-center border-border">
                   <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                  <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negï¿½cio.</p>
+                  <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
                   <Link to="/negocio/wizard"><Button>
                     <Plus className="w-4 h-4 mr-2" />
                     Cadastrar negócio
@@ -2575,7 +2575,7 @@ export default function UserProfile() {
                               negócio vinculado:{" "}
                               <strong>
                                 {evt.business_id
-                                  ? (myBusinesses.find((b) => b.id === evt.business_id)?.name || "negï¿½cio não encontrado")
+                                  ? (myBusinesses.find((b) => b.id === evt.business_id)?.name || "negócio não encontrado")
                                   : "Não vinculado"}
                               </strong>
                             </p>
@@ -2768,7 +2768,7 @@ export default function UserProfile() {
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">Verificações</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Analise solicitações de negï¿½cios que querem o selo de verificado.
+                      Analise solicitações de negócios que querem o selo de verificado.
                     </p>
                   </div>
                   <Card className="border-border overflow-hidden">
@@ -2873,7 +2873,7 @@ export default function UserProfile() {
               <TabsContent value="analise-negocios" className="mt-0">
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Análise de negï¿½cios</h2>
+                    <h2 className="text-2xl font-bold text-foreground">Análise de negócios</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                       Revise novos cadastros antes de publicar no site.
                     </p>
@@ -2881,7 +2881,7 @@ export default function UserProfile() {
 
                   <Card className="border-border overflow-hidden">
                     <div className="p-5 border-b border-border flex items-center justify-between gap-4">
-                      <h3 className="font-semibold">negï¿½cios em análise</h3>
+                      <h3 className="font-semibold">negócios em análise</h3>
                       <Button variant="outline" size="sm" onClick={loadBusinessModerationData} disabled={moderationLoading}>
                         Atualizar
                       </Button>
@@ -2942,7 +2942,7 @@ export default function UserProfile() {
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">Ownership</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Aprove solicitações de donos ou transfira um negï¿½cio diretamente por email.
+                      Aprove solicitações de donos ou transfira um negócio diretamente por email.
                     </p>
                   </div>
 
@@ -2981,7 +2981,7 @@ export default function UserProfile() {
                       <div>
                         <h3 className="font-semibold">Solicitações pendentes</h3>
                         <p className="text-sm text-muted-foreground">
-                          Pedidos feitos pelo botão "Sou dono deste negï¿½cio".
+                          Pedidos feitos pelo botão "Sou dono deste negócio".
                         </p>
                       </div>
                       <Button variant="outline" size="sm" onClick={loadOwnershipAdminData} disabled={ownershipLoading}>
@@ -3486,7 +3486,7 @@ export default function UserProfile() {
                   {myReviews.length === 0 ? (
                     <Card className="p-8 text-center border-border">
                       <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground">Seus negï¿½cios ainda não receberam avaliações.</p>
+                      <p className="text-muted-foreground">Seus negócios ainda não receberam avaliações.</p>
                     </Card>
                   ) : (
                     <div className="space-y-4">
@@ -3528,7 +3528,7 @@ export default function UserProfile() {
                   {givenReviews.length === 0 ? (
                     <Card className="p-8 text-center border-border">
                       <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground">Você ainda não avaliou nenhum negï¿½cio.</p>
+                      <p className="text-muted-foreground">Você ainda não avaliou nenhum negócio.</p>
                     </Card>
                   ) : (
                     <div className="space-y-4">
@@ -3608,8 +3608,8 @@ export default function UserProfile() {
                           key={conv.id}
                           onClick={() => handleSelectConversation(conv)}
                           className={`w-full text-left p-3 rounded-lg transition-colors ${selectedConv?.id === conv.id
-                              ? "bg-amber-100"
-                              : "hover:bg-secondary"
+                            ? "bg-amber-100"
+                            : "hover:bg-secondary"
                             }`}
                         >
                           <p className="font-medium text-sm truncate">
@@ -3649,8 +3649,8 @@ export default function UserProfile() {
                           >
                             <div
                               className={`max-w-[80%] p-3 rounded-lg text-sm ${msg.senderId === session.userId
-                                  ? "bg-amber-500 text-white rounded-br-sm"
-                                  : "bg-secondary rounded-bl-sm"
+                                ? "bg-amber-500 text-white rounded-br-sm"
+                                : "bg-secondary rounded-bl-sm"
                                 }`}
                             >
                               <p>{msg.text}</p>
@@ -3711,7 +3711,7 @@ export default function UserProfile() {
       >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Revisão de negï¿½cio</DialogTitle>
+            <DialogTitle>Revisão de negócio</DialogTitle>
           </DialogHeader>
           {moderationPreviewBusiness && (
             <div className="space-y-3 text-sm">
@@ -3864,8 +3864,8 @@ export default function UserProfile() {
                     >
                       <Star
                         className={`w-6 h-6 ${star <= editingReview.rating
-                            ? "fill-amber-500 text-amber-500"
-                            : "text-muted-foreground/30"
+                          ? "fill-amber-500 text-amber-500"
+                          : "text-muted-foreground/30"
                           }`}
                       />
                     </button>
@@ -3989,17 +3989,17 @@ export default function UserProfile() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Este é o link simples para compartilhar seu negï¿½cio em redes sociais, WhatsApp e cartões.
+                  Este é o link simples para compartilhar seu negócio em redes sociais, WhatsApp e cartões.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Exemplo: caramelinho.com/go/{editFormData.shortSlug || "pizzaria-do-ze"}
                 </p>
                 <p
                   className={`mt-1 text-xs ${shortSlugStatus === "available"
-                      ? "text-emerald-700"
-                      : shortSlugStatus === "taken" || shortSlugStatus === "invalid"
-                        ? "text-red-600"
-                        : "text-muted-foreground"
+                    ? "text-emerald-700"
+                    : shortSlugStatus === "taken" || shortSlugStatus === "invalid"
+                      ? "text-red-600"
+                      : "text-muted-foreground"
                     }`}
                 >
                   {shortSlugMessage}
@@ -4029,7 +4029,7 @@ export default function UserProfile() {
                 <Label htmlFor="edit-description">Descrição *</Label>
                 <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
                   <p className="text-sm text-amber-900/90 leading-relaxed">
-                    Esta é a informação mais importante da página do seu negï¿½cio. ï¿½0 ela que ajuda o cliente a entender
+                    Esta é a informação mais importante da página do seu negócio. ï¿½0 ela que ajuda o cliente a entender
                     rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara,
                     objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos
                     fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
@@ -4048,7 +4048,7 @@ export default function UserProfile() {
                 <div className="sm:col-span-2 rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4">
                   <h3 className="text-base font-semibold text-emerald-900">Públicos também atendidos</h3>
                   <p className="text-sm text-emerald-900/80 mt-1">
-                    Marque os selos que seu negï¿½cio atende. Isso aparece no card, na página do negï¿½cio e também entra como critério de busca.
+                    Marque os selos que seu negócio atende. Isso aparece no card, na página do negócio e também entra como critério de busca.
                   </p>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <label className="inline-flex items-center gap-2 text-sm text-foreground">
@@ -4097,7 +4097,7 @@ export default function UserProfile() {
               <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
                 <h3 className="text-base font-semibold text-amber-900">âÅ¡ ï¸ Palavras-chave para busca (muito importante)</h3>
                 <p className="text-sm text-amber-900/80 mt-2 leading-relaxed">
-                  Essas palavras ajudam seu negï¿½cio a aparecer quando alguém procura por produtos e serviços. Use termos reais
+                  Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais
                   que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para <strong>mecânico</strong>, também use
                   <strong> oficina</strong>, <strong>manutenção automotiva</strong>, <strong>troca de óleo</strong>. Para <strong>restaurante brasileiro</strong>, adicione <strong>comida brasileira</strong>,
                   <strong> prato feito</strong>, <strong>almoço</strong>, <strong>jantar</strong>, <strong>delivery</strong>. Separe por vírgula e evite termos muito genéricos.
@@ -4352,7 +4352,7 @@ export default function UserProfile() {
               Cancelar
             </Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={handleSaveBusiness} disabled={isUploading}>
-              {isUploading ? "Enviando Imagens..." : creatingBusiness ? "Criar negï¿½cio" : "Salvar Alterações"}
+              {isUploading ? "Enviando Imagens..." : creatingBusiness ? "Criar negócio" : "Salvar Alterações"}
             </Button>
           </div>
         </DialogContent>
@@ -4361,7 +4361,7 @@ export default function UserProfile() {
       <Dialog open={!!couponBusiness} onOpenChange={(open) => !open && setCouponBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Promoções - {couponBusiness?.name || "negï¿½cio"}</DialogTitle>
+            <DialogTitle>Promoções - {couponBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
@@ -4478,7 +4478,7 @@ export default function UserProfile() {
       <Dialog open={!!menuBusiness} onOpenChange={(open) => !open && setMenuBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Cardápio - {menuBusiness?.name || "negï¿½cio"}</DialogTitle>
+            <DialogTitle>Cardápio - {menuBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
@@ -4653,7 +4653,7 @@ export default function UserProfile() {
       <Dialog open={!!serviceBusiness} onOpenChange={(open) => !open && setServiceBusiness(null)}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Serviços - {serviceBusiness?.name || "negï¿½cio"}</DialogTitle>
+            <DialogTitle>Serviços - {serviceBusiness?.name || "negócio"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-5 py-4">
@@ -5064,7 +5064,7 @@ export default function UserProfile() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Requisitos: mínimo de 5 avaliações e Instagram do negï¿½cio configurado.
+              Requisitos: mínimo de 5 avaliações e Instagram do negócio configurado.
             </div>
             <div className="text-sm text-muted-foreground">
               negócio: <strong>{verificationBusiness?.name}</strong><br />
