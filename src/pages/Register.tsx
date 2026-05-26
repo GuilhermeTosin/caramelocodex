@@ -94,7 +94,7 @@ export default function Register() {
         <div className="mb-8">
           <Link to="/" className="flex items-center gap-3 mb-4">
             <div className="w-20 h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
             <div className="leading-tight text-left">
                 <div className="font-extrabold text-[2rem] sm:text-[2.2rem] tracking-tight caramelo-text-gradient">Caramelinho</div>

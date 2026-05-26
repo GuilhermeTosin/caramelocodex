@@ -46,7 +46,7 @@ import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
-import { setSeoMeta } from "@/lib/seo";
+import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
 
 export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
@@ -176,6 +176,80 @@ export default function BusinessPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedPhoto, selectedPhotoIndex, business]);
+
+  useEffect(() => {
+    if (!business) return;
+
+    const canonicalUrl = `${window.location.origin}${location.pathname}`;
+    setCanonical(canonicalUrl);
+    setHreflang("pt-BR", canonicalUrl);
+    setHreflang("x-default", canonicalUrl);
+    setRobots("index,follow,max-image-preview:large");
+
+    const localBusinessJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      name: business.name,
+      description: business.description || undefined,
+      image: [business.heroImage, business.logoUrl].filter(Boolean),
+      url: canonicalUrl,
+      telephone: business.phone || undefined,
+      email: business.email || undefined,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: business.address.street || undefined,
+        addressLocality: business.address.city || undefined,
+        addressRegion: business.address.state || undefined,
+        postalCode: business.address.postalCode || undefined,
+        addressCountry: business.address.countryCode?.toUpperCase() || undefined,
+      },
+      geo:
+        Number.isFinite(business.address.lat) && Number.isFinite(business.address.lng)
+          ? {
+              "@type": "GeoCoordinates",
+              latitude: business.address.lat,
+              longitude: business.address.lng,
+            }
+          : undefined,
+      sameAs: [business.instagram, business.facebook, business.website].filter(Boolean),
+      aggregateRating:
+        business.reviews.length > 0
+          ? {
+              "@type": "AggregateRating",
+              ratingValue: Number(business.averageRating.toFixed(1)),
+              reviewCount: business.reviews.length,
+            }
+          : undefined,
+    };
+
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Início",
+          item: `${window.location.origin}/`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Buscar",
+          item: `${window.location.origin}/buscar`,
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: business.name,
+          item: canonicalUrl,
+        },
+      ],
+    };
+
+    setJsonLd("business-local", localBusinessJsonLd);
+    setJsonLd("business-breadcrumb", breadcrumbJsonLd);
+  }, [business, location.pathname]);
 
   useEffect(() => {
     if (!session || !business || session.userId === business.ownerId) {
@@ -448,7 +522,7 @@ export default function BusinessPage() {
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>

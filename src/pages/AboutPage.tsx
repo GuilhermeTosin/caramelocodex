@@ -61,7 +61,7 @@ export default function AboutPage() {
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
@@ -117,7 +117,7 @@ export default function AboutPage() {
         <section className="mt-6 rounded-2xl border border-border/60 bg-gradient-to-br from-emerald-100 via-amber-50 to-sky-100 p-3 sm:p-4">
           <div className="flex justify-center">
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt="Mascote Caramelinho farejando negócios brasileiros pelo mundo"
               title="Caramelinho - O seu faro fora do Brasil"
               width={280}

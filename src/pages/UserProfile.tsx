@@ -1832,7 +1832,7 @@ export default function UserProfile() {
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img src="/logo.webp" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
@@ -4095,7 +4095,7 @@ export default function UserProfile() {
               {null}
 
               <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
-                <h3 className="text-base font-semibold text-amber-900">âÅ¡ ï¸ Palavras-chave para busca (muito importante)</h3>
+                <h3 className="text-base font-semibold text-amber-900">⚠️ Palavras-chave para busca (muito importante)</h3>
                 <p className="text-sm text-amber-900/80 mt-2 leading-relaxed">
                   Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais
                   que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para <strong>mecânico</strong>, também use
@@ -5215,6 +5215,5 @@ function formatIsoToBr(value: string): string {
   if (!m) return v;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
-
 
 

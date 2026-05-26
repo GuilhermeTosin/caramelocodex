@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, User, Utensils, HeartPulse, Car, Hammer, Scale, GraduationCap, Landmark, ShoppingBag, Truck, Building2, Music, SprayCan, MoreHorizontal, Lock, Leaf, WheatOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -296,7 +296,15 @@ export default function Home() {
           <div className="flex items-center justify-between h-16 sm:h-24">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
-                <img src="/logo.png" alt="Caramelinho logo" className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110" />
+                <img
+                  src="/logo.webp"
+                  alt="Caramelinho logo"
+                  width={112}
+                  height={112}
+                  decoding="async"
+                  fetchPriority="high"
+                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
+                />
               </div>
               <div className="leading-tight min-w-0">
                 <div className="font-extrabold text-lg sm:text-2xl tracking-tight caramelo-text-gradient truncate">Caramelinho</div>
@@ -621,8 +629,12 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mx-auto mb-6">
             <img
-              src="/brazil-map-pin.png"
+              src="/brazil-map-pin.webp"
               alt="Ícone de localização com bandeira do Brasil"
+              width={112}
+              height={112}
+              loading="lazy"
+              decoding="async"
               className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
             />
           </div>
