@@ -61,6 +61,7 @@ export default function Home() {
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
+  const [isResolvingLocationInput, setIsResolvingLocationInput] = useState(false);
   const [secretActive, setSecretActive] = useState(false);
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
@@ -168,25 +169,30 @@ export default function Home() {
   }, []);
 
   const handleUseCurrentLocationInput = async () => {
+    setIsResolvingLocationInput(true);
     suppressSubmitUntilRef.current = Date.now() + 700;
-    const coords = await getCurrentPosition();
-    if (!coords) {
-      setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
-      setLocationNoticeOpen(true);
-      return;
-    }
-    setUserCoords(coords);
-    const nearestWithCity = allBusinesses
-      .filter((biz) => !!biz.address?.city)
-      .map((biz) => ({
-        city: biz.address.city,
-        distance: calculateDistance(coords.lat, coords.lng, biz.address.lat, biz.address.lng),
-      }))
-      .sort((a, b) => a.distance - b.distance)[0];
+    try {
+      const coords = await getCurrentPosition();
+      if (!coords) {
+        setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+        setLocationNoticeOpen(true);
+        return;
+      }
+      setUserCoords(coords);
+      const nearestWithCity = allBusinesses
+        .filter((biz) => !!biz.address?.city)
+        .map((biz) => ({
+          city: biz.address.city,
+          distance: calculateDistance(coords.lat, coords.lng, biz.address.lat, biz.address.lng),
+        }))
+        .sort((a, b) => a.distance - b.distance)[0];
 
-    const inferredCity = nearestWithCity?.city || CURRENT_LOCATION_LABEL;
-    setLocationQuery("");
-    window.setTimeout(() => setLocationQuery(inferredCity), 0);
+      const inferredCity = nearestWithCity?.city || CURRENT_LOCATION_LABEL;
+      setLocationQuery("");
+      window.setTimeout(() => setLocationQuery(inferredCity), 0);
+    } finally {
+      setIsResolvingLocationInput(false);
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -439,6 +445,7 @@ export default function Home() {
                   onChange={setLocationQuery}
                   suggestions={citySuggestions}
                   onUseCurrentLocation={handleUseCurrentLocationInput}
+                  isLoading={isResolvingLocationInput}
                   placeholder="Em qual cidade?"
                   icon="location"
                   inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"

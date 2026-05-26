@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "./ui/input";
-import { Search, MapPin, X } from "lucide-react";
+import { Search, MapPin, X, Loader2 } from "lucide-react";
 import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
 
 interface SearchInputWithSuggestionsProps {
@@ -26,6 +26,8 @@ interface SearchInputWithSuggestionsProps {
   locationBias?: { lat: number; lng: number } | null;
   disableLocalSuggestions?: boolean;
   onUseCurrentLocation?: () => void | Promise<void>;
+  isLoading?: boolean;
+  loadingText?: string;
 }
 
 function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
@@ -58,14 +60,25 @@ export default function SearchInputWithSuggestions({
   locationBias = null,
   disableLocalSuggestions = false,
   onUseCurrentLocation,
+  isLoading = false,
+  loadingText = "Buscando cidade",
 }: SearchInputWithSuggestionsProps) {
   const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
+  const [loadingDots, setLoadingDots] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const locateActionLockRef = useRef(false);
   const canUseGooglePlaces = !suggestionsDisabled && useGooglePlaces && icon === "location" && isMapsApiAvailable();
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = window.setInterval(() => {
+      setLoadingDots((prev) => (prev >= 3 ? 1 : prev + 1));
+    }, 350);
+    return () => window.clearInterval(timer);
+  }, [isLoading]);
 
   const filteredSuggestions = useMemo(() => {
     if (suggestionsDisabled) return [];
@@ -223,7 +236,12 @@ export default function SearchInputWithSuggestions({
         className={`h-full pl-14 pr-12 text-lg border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/85 w-full ${inputClassName}`}
       />
 
-      {value && (
+      {isLoading && icon === "location" ? (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-muted-foreground pointer-events-none">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <span className="hidden sm:inline whitespace-nowrap">{`${loadingText}${".".repeat(loadingDots)}`}</span>
+        </div>
+      ) : value ? (
         <button
           type="button"
           onClick={() => {
@@ -234,7 +252,7 @@ export default function SearchInputWithSuggestions({
         >
           <X className="w-4 h-4" />
         </button>
-      )}
+      ) : null}
 
       {showSuggestions && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border shadow-2xl rounded-2xl overflow-hidden z-[10000] animate-in fade-in slide-in-from-top-2 duration-200">

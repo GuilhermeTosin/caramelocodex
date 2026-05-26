@@ -1183,117 +1183,119 @@ export default function SearchResults() {
   const handleLocateMe = async (requireExactGps = false) => {
     setLocatingMe(true);
     let geoError: GeolocationPositionError | null = null;
-    let coords = await getCurrentPosition();
+    try {
+      let coords = await getCurrentPosition();
 
-    if (!coords && navigator.geolocation) {
-      coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) =>
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            }),
-          (err) => {
-            geoError = err;
-            resolve(null);
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      if (!coords && navigator.geolocation) {
+        coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) =>
+              resolve({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              }),
+            (err) => {
+              geoError = err;
+              resolve(null);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          );
+        });
+      }
+
+      if (!coords) {
+        if (requireExactGps) {
+          showLocationNotice("Localização necessária", "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+          return;
+        }
+        const approxGeo = await getApproxGeoByIp();
+        if (approxGeo) {
+          setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
+          if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
+          const inferredCity = inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL;
+          setLocationInput("");
+          window.setTimeout(() => setLocationInput(inferredCity), 0);
+
+          const params = new URLSearchParams(searchParams);
+          params.delete("pagina");
+          params.delete("local");
+          params.delete("cidade");
+          params.delete("origem_local");
+          params.set("raio", "50");
+          params.set("auto_raio", "1");
+          params.set("origem_lat", String(approxGeo.lat));
+          params.set("origem_lng", String(approxGeo.lng));
+          params.set("origem_source", "ip");
+          if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode);
+          else params.delete("origem_pais");
+          setSearchParams(params);
+          setShowMap(true);
+          showLocationNotice(
+            "Usando localização aproximada",
+            "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
+          );
+          return;
+        }
+
+        if (!window.isSecureContext) {
+          showLocationNotice(
+            "Localização indisponível",
+            "Geolocalização bloqueada e a localização aproximada por IP não está disponível agora."
+          );
+          return;
+        }
+        if (geoError?.code === 1) {
+          showLocationNotice(
+            "Permissão negada",
+            "Permissão de localização negada e não foi possível obter localização aproximada por IP."
+          );
+          return;
+        }
+        if (geoError?.code === 2) {
+          showLocationNotice(
+            "Localização indisponível",
+            "Localização indisponível no momento e não foi possível obter localização aproximada por IP."
+          );
+          return;
+        }
+        if (geoError?.code === 3) {
+          showLocationNotice(
+            "Tempo esgotado",
+            "O tempo para obter sua localização se esgotou e não foi possível usar localização aproximada por IP."
+          );
+          return;
+        }
+        showLocationNotice(
+          "Não foi possível localizar",
+          "Não consegui acessar sua localização e o fallback por IP também falhou."
         );
-      });
+        return;
+      }
+
+      setUserCoords(coords);
+      const inferredCity = inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL;
+      setLocationInput("");
+      window.setTimeout(() => setLocationInput(inferredCity), 0);
+
+      const params = new URLSearchParams(searchParams);
+      params.delete("pagina");
+      params.delete("local");
+      params.delete("cidade");
+      params.set("origem_lat", String(coords.lat));
+      params.set("origem_lng", String(coords.lng));
+      params.delete("origem_local");
+      params.set("origem_source", "gps");
+      if (countryFilter) params.set("origem_pais", countryFilter.toLowerCase());
+      else if (originCountryParam) params.set("origem_pais", originCountryParam.toLowerCase());
+      else if (approxCountryCode) params.set("origem_pais", approxCountryCode.toLowerCase());
+      else params.delete("origem_pais");
+      params.set("raio", "50");
+      params.set("auto_raio", "1");
+      setSearchParams(params);
+      setShowMap(true);
+    } finally {
+      setLocatingMe(false);
     }
-
-    setLocatingMe(false);
-
-    if (!coords) {
-      if (requireExactGps) {
-        showLocationNotice("Localização necessária", "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
-        return;
-      }
-      const approxGeo = await getApproxGeoByIp();
-      if (approxGeo) {
-        setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
-        if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-        const inferredCity = inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL;
-        setLocationInput("");
-        window.setTimeout(() => setLocationInput(inferredCity), 0);
-
-        const params = new URLSearchParams(searchParams);
-        params.delete("pagina");
-        params.delete("local");
-        params.delete("cidade");
-        params.delete("origem_local");
-        params.set("raio", "50");
-        params.set("auto_raio", "1");
-        params.set("origem_lat", String(approxGeo.lat));
-        params.set("origem_lng", String(approxGeo.lng));
-        params.set("origem_source", "ip");
-        if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode);
-        else params.delete("origem_pais");
-        setSearchParams(params);
-        setShowMap(true);
-        showLocationNotice(
-          "Usando localização aproximada",
-          "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
-        );
-        return;
-      }
-
-      if (!window.isSecureContext) {
-        showLocationNotice(
-          "Localização indisponível",
-          "Geolocalização bloqueada e a localização aproximada por IP não está disponível agora."
-        );
-        return;
-      }
-      if (geoError?.code === 1) {
-        showLocationNotice(
-          "Permissão negada",
-          "Permissão de localização negada e não foi possível obter localização aproximada por IP."
-        );
-        return;
-      }
-      if (geoError?.code === 2) {
-        showLocationNotice(
-          "Localização indisponível",
-          "Localização indisponível no momento e não foi possível obter localização aproximada por IP."
-        );
-        return;
-      }
-      if (geoError?.code === 3) {
-        showLocationNotice(
-          "Tempo esgotado",
-          "O tempo para obter sua localização se esgotou e não foi possível usar localização aproximada por IP."
-        );
-        return;
-      }
-      showLocationNotice(
-        "Não foi possível localizar",
-        "Não consegui acessar sua localização e o fallback por IP também falhou."
-      );
-      return;
-    }
-
-    setUserCoords(coords);
-    const inferredCity = inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL;
-    setLocationInput("");
-    window.setTimeout(() => setLocationInput(inferredCity), 0);
-
-    const params = new URLSearchParams(searchParams);
-    params.delete("pagina");
-    params.delete("local");
-    params.delete("cidade");
-    params.set("origem_lat", String(coords.lat));
-    params.set("origem_lng", String(coords.lng));
-    params.delete("origem_local");
-    params.set("origem_source", "gps");
-    if (countryFilter) params.set("origem_pais", countryFilter.toLowerCase());
-    else if (originCountryParam) params.set("origem_pais", originCountryParam.toLowerCase());
-    else if (approxCountryCode) params.set("origem_pais", approxCountryCode.toLowerCase());
-    else params.delete("origem_pais");
-    params.set("raio", "50");
-    params.set("auto_raio", "1");
-    setSearchParams(params);
-    setShowMap(true);
   };
   const getDistanceLabel = (biz: BusinessFrontend): string | null => {
     if (biz.attendanceType === "online") return "Online";
@@ -1686,6 +1688,7 @@ export default function SearchResults() {
               onChange={setLocationInput}
               suggestions={citySuggestions}
               onUseCurrentLocation={() => handleLocateMe(true)}
+              isLoading={locatingMe}
               placeholder="Em qual cidade?"
               icon="location"
               onSubmit={(selectedValue, meta) => {
