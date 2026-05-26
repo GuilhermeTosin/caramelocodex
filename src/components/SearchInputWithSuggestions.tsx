@@ -258,20 +258,18 @@ export default function SearchInputWithSuggestions({
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    triggerUseCurrentLocation();
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    triggerUseCurrentLocation();
-                  }}
                   className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors border-b border-border/60"
                 >
                   <MapPin className="w-4 h-4 text-primary" />
-                  <span className="text-foreground font-semibold">Usar minha localização</span>
+                  <span className="text-foreground font-semibold text-xs lg:text-[11px] whitespace-nowrap">
+                    Usar minha localização
+                  </span>
                 </button>
               </li>
             )}
