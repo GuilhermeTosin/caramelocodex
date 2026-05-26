@@ -64,6 +64,7 @@ export default function Home() {
   const [secretActive, setSecretActive] = useState(false);
   const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
   const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
+  const suppressSubmitUntilRef = useRef(0);
   const progressRef = useRef(0);
   const previousSearchRef = useRef({ query: "", location: "" });
 
@@ -167,6 +168,7 @@ export default function Home() {
   }, []);
 
   const handleUseCurrentLocationInput = async () => {
+    suppressSubmitUntilRef.current = Date.now() + 700;
     const coords = await getCurrentPosition();
     if (!coords) {
       setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
@@ -189,6 +191,7 @@ export default function Home() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (Date.now() < suppressSubmitUntilRef.current) return;
     if (secretActive) return;
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
