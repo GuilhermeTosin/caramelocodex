@@ -357,6 +357,7 @@ const CITY_ALIAS_GROUPS: string[][] = [
 ];
 
 const CITY_ALIASES: Record<string, string[]> = buildCityAliases(CITY_ALIAS_GROUPS);
+const CURRENT_LOCATION_LABEL = "Minha localização";
 
 export default function SearchResults() {
   const navigate = useNavigate();
@@ -831,6 +832,17 @@ export default function SearchResults() {
     return top?.[0] || null;
   }, [allBusinesses]);
 
+  const inferNearestCityFromCoords = useCallback((coords: { lat: number; lng: number }): string | null => {
+    const nearest = allBusinesses
+      .filter((biz) => !!biz.address?.city)
+      .map((biz) => ({
+        city: biz.address.city,
+        distance: calculateDistance(coords.lat, coords.lng, biz.address.lat, biz.address.lng),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    return nearest?.city || null;
+  }, [allBusinesses]);
+
   const selectedOriginCoords = useMemo(() => {
     const lat = Number(originLatParam);
     const lng = Number(originLngParam);
@@ -1091,8 +1103,12 @@ export default function SearchResults() {
     params.delete("pagina");
     if (searchInput.trim()) params.set("q", searchInput.trim());
     else params.delete("q");
-    if (locationInput.trim()) {
-      const typedLocation = locationInput.trim();
+    const locationText = locationInput.trim();
+    const isCurrentLocationText =
+      normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
+    const hasExplicitCity = !!locationText && !isCurrentLocationText;
+    if (hasExplicitCity) {
+      const typedLocation = locationText;
       params.set("local", typedLocation);
       params.set("cidade", typedLocation);
       // Cidade escolhida no campo principal deve prevalecer sobre filtros laterais antigos.
@@ -1183,7 +1199,7 @@ export default function SearchResults() {
       if (approxGeo) {
         setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
         if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-        setLocationInput("");
+        setLocationInput(inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL);
 
         const params = new URLSearchParams(searchParams);
         params.delete("pagina");
@@ -1242,7 +1258,7 @@ export default function SearchResults() {
     }
 
     setUserCoords(coords);
-    setLocationInput("");
+    setLocationInput(inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL);
 
     const params = new URLSearchParams(searchParams);
     params.delete("pagina");
@@ -1660,8 +1676,13 @@ export default function SearchResults() {
                   setLocationInput(nextValue);
                   const params = new URLSearchParams(searchParams);
                   params.delete("pagina");
-                  if (nextValue.trim()) {
-                    const typedLocation = nextValue.trim();
+                  const trimmedValue = nextValue.trim();
+                  const isCurrentLocationText =
+                    normalizeText(trimmedValue) === normalizeText(CURRENT_LOCATION_LABEL);
+                  const hasExplicitCity = !!trimmedValue && !isCurrentLocationText;
+
+                  if (hasExplicitCity) {
+                    const typedLocation = trimmedValue;
                     params.set("local", typedLocation);
                     params.set("cidade", typedLocation);
                     // A cidade da barra principal não deve impor filtros administrativos,

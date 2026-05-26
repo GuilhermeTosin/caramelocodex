@@ -39,6 +39,7 @@ const CATEGORIES = [
   { name: "Diaristas", icon: SprayCan, aliases: ["Diaristas", "Diarista", "Faxina", "Limpeza"] },
   { name: "Outros", icon: MoreHorizontal, aliases: ["Outros"] },
 ];
+const CURRENT_LOCATION_LABEL = "Minha localização";
 
 const countryCodeToFlag = (countryCode: string) => {
   const normalized = (countryCode || "").trim().toUpperCase();
@@ -173,7 +174,15 @@ export default function Home() {
       return;
     }
     setUserCoords(coords);
-    setLocationQuery("");
+    const nearestWithCity = allBusinesses
+      .filter((biz) => !!biz.address?.city)
+      .map((biz) => ({
+        city: biz.address.city,
+        distance: calculateDistance(coords.lat, coords.lng, biz.address.lat, biz.address.lng),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+
+    setLocationQuery(nearestWithCity?.city || CURRENT_LOCATION_LABEL);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -182,11 +191,15 @@ export default function Home() {
     setIsSubmittingSearch(true);
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    if (locationQuery.trim()) {
-      params.set("cidade", locationQuery.trim());
-      params.set("local", locationQuery.trim());
+    const locationText = locationQuery.trim();
+    const isCurrentLocationText =
+      normalizeText(locationText) === normalizeText(CURRENT_LOCATION_LABEL);
+    const hasExplicitCity = !!locationText && !isCurrentLocationText;
+    if (hasExplicitCity) {
+      params.set("cidade", locationText);
+      params.set("local", locationText);
     }
-    if (!locationQuery.trim()) {
+    if (!hasExplicitCity) {
       const coords = userCoords || (await getCurrentPosition());
       if (coords) {
         setUserCoords(coords);
