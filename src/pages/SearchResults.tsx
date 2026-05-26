@@ -2205,7 +2205,7 @@ export default function SearchResults() {
             }
           }}
         >
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>{selectedCommunityFind?.product_name || "Discussão do achadinho"}</DialogTitle>
                 {selectedCommunityFind?.user_name ? (
@@ -2220,7 +2220,7 @@ export default function SearchResults() {
                 <img
                   src={selectedCommunityFind.photo_url}
                   alt={`Foto do achadinho ${selectedCommunityFind.product_name}`}
-                  className="w-full h-72 object-cover"
+                  className="w-full h-48 sm:h-72 object-cover"
                 />
               </div>
             ) : null}
@@ -2297,131 +2297,145 @@ export default function SearchResults() {
               </div>
             ) : null}
 
-            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1">
+            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-3 pr-1">
               {communityFindMessagesLoading ? (
                 <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
               ) : threadedCommunityMessages.length === 0 ? null : (
                 threadedCommunityMessages.map(({ msg, depth }) => (
                   <div
                     key={msg.id}
-                    className="rounded-md border border-border p-3"
-                    style={{ marginLeft: `${depth * 16}px` }}
+                    className="rounded-lg border border-border bg-card p-3 sm:p-4 overflow-x-hidden"
+                    style={{ marginLeft: `${Math.min(depth * 12, 28)}px` }}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {msg.user_avatar ? (
-                          <img
-                            src={msg.user_avatar}
-                            alt={`Avatar de ${msg.user_name || "Usuário"}`}
-                            className="w-7 h-7 rounded-full object-cover border border-border shrink-0"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold flex items-center justify-center shrink-0">
-                            {(msg.user_name || "U").charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{msg.user_name || "Usuário"}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(msg.created_at).toLocaleString("pt-BR")}
+                    <div className="flex items-start gap-3">
+                      {msg.user_avatar ? (
+                        <img
+                          src={msg.user_avatar}
+                          alt={`Avatar de ${msg.user_name || "Usuário"}`}
+                          className="w-9 h-9 rounded-full object-cover border border-border shrink-0 mt-0.5"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-secondary text-secondary-foreground text-sm font-semibold flex items-center justify-center shrink-0 mt-0.5">
+                          {(msg.user_name || "U").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {msg.user_name || "Usuário"}
+                          </p>
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(msg.created_at).toLocaleDateString("pt-BR")} às{" "}
+                            {new Date(msg.created_at).toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                             {msg.updated_at && msg.updated_at !== msg.created_at ? " · editado" : ""}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {session && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2"
-                            onClick={() => {
-                              setReplyToMessageId(msg.id);
-                              setCommunityFindMessageInput(`@${msg.user_name || "Usuário"} `);
-                            }}
-                          >
-                            <Reply className="w-3.5 h-3.5 mr-1" />
-                            Responder
-                          </Button>
+
+                        {editingMessageId === msg.id ? (
+                          <div className="mt-2 space-y-2">
+                            <Textarea
+                              value={editingMessageInput}
+                              onChange={(e) => setEditingMessageInput(e.target.value)}
+                              rows={2}
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingMessageId(null);
+                                  setEditingMessageInput("");
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => void handleSaveEditCommunityFindMessage()}
+                                disabled={!editingMessageInput.trim()}
+                              >
+                                Salvar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2 rounded-md bg-muted/40 px-3 py-2.5">
+                            <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                              {msg.message}
+                            </p>
+                          </div>
                         )}
-                        {session && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-amber-700 hover:text-amber-800"
-                            onClick={() => {
-                              setReportTargetMessageId(msg.id);
-                              setReportReason("abuso");
-                              setReportDetails("");
-                              setReportDialogOpen(true);
-                            }}
-                          >
-                            Denunciar
-                          </Button>
-                        )}
-                        {session?.userId === msg.user_id && (
-                          <>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {session && (
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="h-7 px-2"
+                              className="h-7 px-2 text-xs"
                               onClick={() => {
-                                setEditingMessageId(msg.id);
-                                setEditingMessageInput(msg.message);
+                                setReplyToMessageId(msg.id);
+                                setCommunityFindMessageInput(`@${msg.user_name || "Usuário"} `);
                               }}
                             >
-                              <Pencil className="w-3.5 h-3.5 mr-1" />
-                              Editar
+                              <Reply className="w-3.5 h-3.5 mr-1" />
+                              Responder
                             </Button>
+                          )}
+                          {session && (
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="h-7 px-2 text-destructive hover:text-destructive"
-                              onClick={() => void handleDeleteCommunityFindMessage(msg.id)}
+                              className="h-7 px-2 text-xs text-amber-700 hover:text-amber-800"
+                              onClick={() => {
+                                setReportTargetMessageId(msg.id);
+                                setReportReason("abuso");
+                                setReportDetails("");
+                                setReportDialogOpen(true);
+                              }}
                             >
-                              <Trash2 className="w-3.5 h-3.5 mr-1" />
-                              Apagar
+                              Denunciar
                             </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {editingMessageId === msg.id ? (
-                      <div className="mt-2 space-y-2">
-                        <Textarea
-                          value={editingMessageInput}
-                          onChange={(e) => setEditingMessageInput(e.target.value)}
-                          rows={2}
-                        />
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingMessageId(null);
-                              setEditingMessageInput("");
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void handleSaveEditCommunityFindMessage()}
-                            disabled={!editingMessageInput.trim()}
-                          >
-                            Salvar
-                          </Button>
+                          )}
+                          {session?.userId === msg.user_id && (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => {
+                                  setEditingMessageId(msg.id);
+                                  setEditingMessageInput(msg.message);
+                                }}
+                              >
+                                <Pencil className="w-3.5 h-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                                onClick={() => void handleDeleteCommunityFindMessage(msg.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Apagar
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">{msg.message}</p>
-                    )}
+                    </div>
                   </div>
                 ))
               )}
@@ -2432,7 +2446,7 @@ export default function SearchResults() {
                 Converse com a comunidade sobre disponibilidade, preço e reposição deste produto.
               </p>
               {replyToMessageId ? (
-                <div className="text-xs text-muted-foreground flex items-center justify-between">
+                <div className="text-xs text-muted-foreground flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span>Respondendo uma mensagem</span>
                   <button
                     type="button"
@@ -2453,7 +2467,7 @@ export default function SearchResults() {
               {communityFindMessageError ? (
                 <p className="text-sm text-destructive">{communityFindMessageError}</p>
               ) : null}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {session ? (
                   <Button
                     type="button"
@@ -2465,7 +2479,7 @@ export default function SearchResults() {
                       setReportDetails("");
                       setReportDialogOpen(true);
                     }}
-                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                    className="w-full sm:w-auto text-amber-700 border-amber-300 hover:bg-amber-50"
                   >
                     Denunciar achadinho
                   </Button>
@@ -2474,6 +2488,7 @@ export default function SearchResults() {
                   type="button"
                   onClick={() => void handleSendCommunityFindMessage()}
                   disabled={!session || communityFindMessageSubmitting || !communityFindMessageInput.trim()}
+                  className="w-full sm:w-auto"
                 >
                   {communityFindMessageSubmitting ? "Enviando..." : "Enviar mensagem"}
                 </Button>
