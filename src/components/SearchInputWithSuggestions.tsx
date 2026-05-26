@@ -199,7 +199,7 @@ export default function SearchInputWithSuggestions({
         }}
         onFocus={() => !canUseGooglePlaces && value.length >= 2 && filteredSuggestions.length > 0 && setIsOpen(true)}
         placeholder={placeholder}
-        className={`h-full pl-14 pr-12 text-lg border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50 w-full ${inputClassName}`}
+        className={`h-full pl-14 pr-12 text-lg border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/85 w-full ${inputClassName}`}
       />
 
       {value && (

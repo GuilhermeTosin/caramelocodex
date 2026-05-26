@@ -16,7 +16,7 @@ export default function SiteFooter() {
                 <div className="text-[11px] font-semibold tracking-wide text-amber-200">{"O SEU FARO FORA DO BRASIL"}</div>
               </div>
             </div>
-            <p className="mt-3 text-sm text-slate-400 max-w-md leading-relaxed">
+            <p className="mt-3 text-sm text-slate-300 max-w-md leading-relaxed">
               Encontre negócios brasileiros onde você estiver. Busca local, contato direto e informações confiáveis em um só lugar.
             </p>
           </div>
@@ -24,15 +24,15 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Navegação</h4>
             <div className="space-y-2 text-sm">
-              <Link to="/buscar" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/buscar" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <MapPin className="w-4 h-4" />
                 Buscar negócios
               </Link>
-              <Link to="/cadastro" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/cadastro" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Store className="w-4 h-4" />
                 Cadastrar negócio
               </Link>
-              <Link to="/entrar" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/entrar" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <LogIn className="w-4 h-4" />
                 Entrar na conta
               </Link>
@@ -42,19 +42,19 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Institucional</h4>
             <div className="space-y-2 text-sm">
-              <Link to="/sobre" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/sobre" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Info className="w-4 h-4" />
                 Sobre
               </Link>
-              <Link to="/contato" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/contato" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <Mail className="w-4 h-4" />
                 Contato
               </Link>
-              <Link to="/privacidade" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/privacidade" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <FileText className="w-4 h-4" />
                 Privacidade
               </Link>
-              <Link to="/termos" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+              <Link to="/termos" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
                 <ScrollText className="w-4 h-4" />
                 Termos e Condições
               </Link>
@@ -64,11 +64,11 @@ export default function SiteFooter() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Siga-nos</h4>
             <div className="space-y-2 text-sm">
-              <a href="" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors" aria-label="Facebook">
+              <a href="" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Facebook">
                 <Facebook className="w-4 h-4" />
                 Facebook
               </a>
-              <a href="" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors" aria-label="Instagram">
+              <a href="" className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors" aria-label="Instagram">
                 <Instagram className="w-4 h-4" />
                 Instagram
               </a>
@@ -76,7 +76,7 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <p>© 2026 Caramelinho.com. Todos os direitos reservados.</p>
           <p>Feito para facilitar a vida de quem mora fora.</p>
         </div>
