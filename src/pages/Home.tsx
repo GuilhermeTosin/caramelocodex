@@ -157,20 +157,10 @@ export default function Home() {
   }, []);
 
   const handleUseCurrentLocationInput = async () => {
-    const exact = await getCurrentPosition();
-    const coords = exact || (await getApproxPositionByIp());
+    const coords = (await getCurrentPosition()) || (await getApproxPositionByIp());
     if (!coords) return;
     setUserCoords(coords);
     setLocationQuery("");
-
-    const params = new URLSearchParams();
-    if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    params.set("raio", "50");
-    params.set("auto_raio", "1");
-    params.set("origem_lat", String(coords.lat));
-    params.set("origem_lng", String(coords.lng));
-    params.set("origem_source", exact ? "gps" : "ip");
-    navigate(`/buscar?${params.toString()}`);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
