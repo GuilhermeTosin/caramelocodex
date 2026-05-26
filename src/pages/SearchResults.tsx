@@ -427,12 +427,21 @@ export default function SearchResults() {
   const [reportReason, setReportReason] = useState<"spam" | "abuso" | "fraude" | "ofensivo" | "desinformacao" | "outro">("abuso");
   const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
+  const [locationNoticeTitle, setLocationNoticeTitle] = useState("Aviso");
+  const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
   const effectivePage = currentPage;
   const {
     finds: communityFinds,
     vote: voteCommunityFind,
     reload: reloadCommunityFinds,
   } = useCommunityFinds();
+
+  const showLocationNotice = useCallback((title: string, message: string) => {
+    setLocationNoticeTitle(title);
+    setLocationNoticeMessage(message);
+    setLocationNoticeOpen(true);
+  }, []);
 
   const openCommunityFindDialog = useCallback(async (find: CommunityFindWithVote) => {
     setSelectedCommunityFind(find);
@@ -1167,7 +1176,7 @@ export default function SearchResults() {
 
     if (!coords) {
       if (requireExactGps) {
-        window.alert("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+        showLocationNotice("Localização necessária", "Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
         return;
       }
       const approxGeo = await getApproxGeoByIp();
@@ -1190,27 +1199,45 @@ export default function SearchResults() {
         else params.delete("origem_pais");
         setSearchParams(params);
         setShowMap(true);
-        window.alert("Não consegui acessar sua localização exata. Centralizei o mapa usando uma localização aproximada por IP.");
+        showLocationNotice(
+          "Usando localização aproximada",
+          "Não consegui acessar sua localização exata. O mapa foi centralizado usando uma localização aproximada por IP."
+        );
         return;
       }
 
       if (!window.isSecureContext) {
-        window.alert("Geolocalização bloqueada e a localização aproximada por IP não está disponível agora.");
+        showLocationNotice(
+          "Localização indisponível",
+          "Geolocalização bloqueada e a localização aproximada por IP não está disponível agora."
+        );
         return;
       }
       if (geoError?.code === 1) {
-        window.alert("Permissão de localização negada e não foi possível obter localização aproximada por IP.");
+        showLocationNotice(
+          "Permissão negada",
+          "Permissão de localização negada e não foi possível obter localização aproximada por IP."
+        );
         return;
       }
       if (geoError?.code === 2) {
-        window.alert("Localização indisponível no momento e não foi possível obter localização aproximada por IP.");
+        showLocationNotice(
+          "Localização indisponível",
+          "Localização indisponível no momento e não foi possível obter localização aproximada por IP."
+        );
         return;
       }
       if (geoError?.code === 3) {
-        window.alert("Tempo esgotado para obter localização e não foi possível obter localização aproximada por IP.");
+        showLocationNotice(
+          "Tempo esgotado",
+          "O tempo para obter sua localização se esgotou e não foi possível usar localização aproximada por IP."
+        );
         return;
       }
-      window.alert("Não consegui acessar sua localização e o fallback por IP também falhou.");
+      showLocationNotice(
+        "Não foi possível localizar",
+        "Não consegui acessar sua localização e o fallback por IP também falhou."
+      );
       return;
     }
 
@@ -2556,6 +2583,20 @@ export default function SearchResults() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog open={locationNoticeOpen} onOpenChange={setLocationNoticeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{locationNoticeTitle}</DialogTitle>
+            <DialogDescription>{locationNoticeMessage}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setLocationNoticeOpen(false)}>
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <SiteFooter />
     </div>
   );

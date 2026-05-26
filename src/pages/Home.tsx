@@ -4,6 +4,13 @@ import { MapPin, Star, Store, Briefcase, ChevronRight, PawPrint, MessageCircle, 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { siteContent, MASCOT_PHRASES } from "@/data/siteContent";
 import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSuggestions } from "@/services/businesses";
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
@@ -54,6 +61,8 @@ export default function Home() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [secretActive, setSecretActive] = useState(false);
+  const [locationNoticeOpen, setLocationNoticeOpen] = useState(false);
+  const [locationNoticeMessage, setLocationNoticeMessage] = useState("");
   const progressRef = useRef(0);
   const previousSearchRef = useRef({ query: "", location: "" });
 
@@ -159,7 +168,8 @@ export default function Home() {
   const handleUseCurrentLocationInput = async () => {
     const coords = await getCurrentPosition();
     if (!coords) {
-      window.alert("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+      setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+      setLocationNoticeOpen(true);
       return;
     }
     setUserCoords(coords);
@@ -684,6 +694,20 @@ export default function Home() {
       </section>
 
       <SiteFooter />
+
+      <Dialog open={locationNoticeOpen} onOpenChange={setLocationNoticeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Localização indisponível</DialogTitle>
+            <DialogDescription>{locationNoticeMessage}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setLocationNoticeOpen(false)}>
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
