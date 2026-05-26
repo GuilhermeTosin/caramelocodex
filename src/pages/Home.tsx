@@ -115,7 +115,7 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       const businesses = await getAllBusinesses();
-      const coords = await getCurrentPosition();
+      const coords = await getApproxPositionByIp();
       let regionalBusinesses = [...businesses];
       let region: FeaturedRegion | null = null;
       
@@ -155,6 +155,23 @@ export default function Home() {
     });
     getSearchSuggestions().then(setSearchSuggestions);
   }, []);
+
+  const handleUseCurrentLocationInput = async () => {
+    const exact = await getCurrentPosition();
+    const coords = exact || (await getApproxPositionByIp());
+    if (!coords) return;
+    setUserCoords(coords);
+    setLocationQuery("");
+
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    params.set("raio", "50");
+    params.set("auto_raio", "1");
+    params.set("origem_lat", String(coords.lat));
+    params.set("origem_lng", String(coords.lng));
+    params.set("origem_source", exact ? "gps" : "ip");
+    navigate(`/buscar?${params.toString()}`);
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -400,6 +417,7 @@ export default function Home() {
                   value={locationQuery}
                   onChange={setLocationQuery}
                   suggestions={citySuggestions}
+                  onUseCurrentLocation={handleUseCurrentLocationInput}
                   placeholder="Em qual cidade?"
                   icon="location"
                   inputClassName="h-12 sm:h-full text-base sm:text-2xl placeholder:text-[11px] sm:placeholder:text-sm"

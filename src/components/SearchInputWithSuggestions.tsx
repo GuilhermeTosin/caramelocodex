@@ -25,6 +25,7 @@ interface SearchInputWithSuggestionsProps {
   useGooglePlaces?: boolean;
   locationBias?: { lat: number; lng: number } | null;
   disableLocalSuggestions?: boolean;
+  onUseCurrentLocation?: () => void | Promise<void>;
 }
 
 function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
@@ -56,12 +57,14 @@ export default function SearchInputWithSuggestions({
   useGooglePlaces = false,
   locationBias = null,
   disableLocalSuggestions = false,
+  onUseCurrentLocation,
 }: SearchInputWithSuggestionsProps) {
   const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const locateActionLockRef = useRef(false);
   const canUseGooglePlaces = !suggestionsDisabled && useGooglePlaces && icon === "location" && isMapsApiAvailable();
 
   const filteredSuggestions = useMemo(() => {
@@ -75,7 +78,8 @@ export default function SearchInputWithSuggestions({
       .slice(0, 6);
   }, [suggestions, value, canUseGooglePlaces, suggestionsDisabled]);
 
-  const showSuggestions = isOpen && filteredSuggestions.length > 0;
+  const showLocateAction = icon === "location" && typeof onUseCurrentLocation === "function";
+  const showSuggestions = isOpen && (filteredSuggestions.length > 0 || showLocateAction);
 
   useEffect(() => {
     if (!canUseGooglePlaces || !inputRef.current) return;
@@ -170,6 +174,17 @@ export default function SearchInputWithSuggestions({
     if (onSubmit) onSubmit(suggestion);
   };
 
+  const triggerUseCurrentLocation = () => {
+    if (locateActionLockRef.current) return;
+    locateActionLockRef.current = true;
+    setIsOpen(false);
+    void Promise.resolve(onUseCurrentLocation?.()).finally(() => {
+      window.setTimeout(() => {
+        locateActionLockRef.current = false;
+      }, 120);
+    });
+  };
+
   return (
     <div ref={containerRef} className={`relative flex-1 ${className}`}>
       {icon === "search" ? (
@@ -186,7 +201,7 @@ export default function SearchInputWithSuggestions({
         onChange={(e) => {
           onChange(e.target.value);
           if (!canUseGooglePlaces) {
-            setIsOpen(e.target.value.length >= 2);
+            setIsOpen(showLocateAction || e.target.value.length >= 2);
           }
         }}
         onBlur={() => {
@@ -197,7 +212,12 @@ export default function SearchInputWithSuggestions({
             }
           }
         }}
-        onFocus={() => !canUseGooglePlaces && value.length >= 2 && filteredSuggestions.length > 0 && setIsOpen(true)}
+        onFocus={() => {
+          if (canUseGooglePlaces) return;
+          if (showLocateAction || (value.length >= 2 && filteredSuggestions.length > 0)) {
+            setIsOpen(true);
+          }
+        }}
         placeholder={placeholder}
         className={`h-full pl-14 pr-12 text-lg border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/85 w-full ${inputClassName}`}
       />
@@ -220,12 +240,39 @@ export default function SearchInputWithSuggestions({
           <ul
             className="py-2"
             onMouseDown={(e) => {
-              if (e.target === e.currentTarget && filteredSuggestions.length === 1) {
+              if (
+                e.target === e.currentTarget &&
+                filteredSuggestions.length === 1 &&
+                !showLocateAction
+              ) {
                 e.preventDefault();
                 handleSelect(filteredSuggestions[0]);
               }
             }}
           >
+            {showLocateAction && (
+              <li onMouseDown={(e) => e.preventDefault()}>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    triggerUseCurrentLocation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    triggerUseCurrentLocation();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    triggerUseCurrentLocation();
+                  }}
+                  className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors border-b border-border/60"
+                >
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-foreground font-semibold">Usar minha localização</span>
+                </button>
+              </li>
+            )}
             {filteredSuggestions.map((suggestion, index) => (
               <li key={index} onMouseDown={(e) => e.preventDefault()}>
                 <button

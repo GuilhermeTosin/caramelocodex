@@ -691,18 +691,11 @@ export default function SearchResults() {
     loadInitialData();
   }, [radiusFilter, originLatParam, originLngParam, originLocalParam, originSourceParam, originCountryParam, categoryFilter, countryFilter, stateFilter, query, cityFilter, locationFilter, currentPage, canUseRpcRadiusMode]);
 
-  // Geolocalização em segundo plano: não deve bloquear a renderização inicial dos resultados.
+  // Localização aproximada em segundo plano (sem pedir permissão de GPS na abertura).
   useEffect(() => {
     let cancelled = false;
     setGeoLookupComplete(false);
     (async () => {
-      const coords = await getCurrentPosition();
-      if (cancelled) return;
-      if (coords) {
-        setUserCoords(coords);
-        setGeoLookupComplete(true);
-        return;
-      }
       const approxGeo = await getApproxGeoByIp();
       if (cancelled) return;
       if (approxGeo) {
@@ -1627,6 +1620,7 @@ export default function SearchResults() {
               value={locationInput}
               onChange={setLocationInput}
               suggestions={citySuggestions}
+              onUseCurrentLocation={handleLocateMe}
               placeholder="Em qual cidade?"
               icon="location"
               onSubmit={(selectedValue, meta) => {
