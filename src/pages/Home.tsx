@@ -157,8 +157,11 @@ export default function Home() {
   }, []);
 
   const handleUseCurrentLocationInput = async () => {
-    const coords = (await getCurrentPosition()) || (await getApproxPositionByIp());
-    if (!coords) return;
+    const coords = await getCurrentPosition();
+    if (!coords) {
+      window.alert("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+      return;
+    }
     setUserCoords(coords);
     setLocationQuery("");
   };

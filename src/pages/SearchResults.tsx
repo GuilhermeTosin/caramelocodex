@@ -1141,7 +1141,7 @@ export default function SearchResults() {
     navigate("/buscar");
   };
 
-  const handleLocateMe = async () => {
+  const handleLocateMe = async (requireExactGps = false) => {
     setLocatingMe(true);
     let geoError: GeolocationPositionError | null = null;
     let coords = await getCurrentPosition();
@@ -1166,6 +1166,10 @@ export default function SearchResults() {
     setLocatingMe(false);
 
     if (!coords) {
+      if (requireExactGps) {
+        window.alert("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
+        return;
+      }
       const approxGeo = await getApproxGeoByIp();
       if (approxGeo) {
         setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
@@ -1620,7 +1624,7 @@ export default function SearchResults() {
               value={locationInput}
               onChange={setLocationInput}
               suggestions={citySuggestions}
-              onUseCurrentLocation={handleLocateMe}
+              onUseCurrentLocation={() => handleLocateMe(true)}
               placeholder="Em qual cidade?"
               icon="location"
               onSubmit={(selectedValue, meta) => {
