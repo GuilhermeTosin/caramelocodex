@@ -182,7 +182,9 @@ export default function Home() {
       }))
       .sort((a, b) => a.distance - b.distance)[0];
 
-    setLocationQuery(nearestWithCity?.city || CURRENT_LOCATION_LABEL);
+    const inferredCity = nearestWithCity?.city || CURRENT_LOCATION_LABEL;
+    setLocationQuery("");
+    window.setTimeout(() => setLocationQuery(inferredCity), 0);
   };
 
   const handleSearch = async (e: React.FormEvent) => {

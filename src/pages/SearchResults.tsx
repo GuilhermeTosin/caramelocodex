@@ -781,8 +781,22 @@ export default function SearchResults() {
   }, [query]);
 
   useEffect(() => {
-    Promise.resolve().then(() => setLocationInput(locationFilter));
-  }, [locationFilter]);
+    Promise.resolve().then(() => {
+      if (locationFilter.trim()) {
+        setLocationInput(locationFilter);
+        return;
+      }
+
+      // Quando a origem é GPS/IP, mantemos o texto atual do campo
+      // (cidade inferida ou "Minha localização"), sem limpar automaticamente.
+      if ((originSourceParam === "gps" || originSourceParam === "ip") && !cityFilter.trim()) {
+        setLocationInput((prev) => prev.trim() || CURRENT_LOCATION_LABEL);
+        return;
+      }
+
+      setLocationInput("");
+    });
+  }, [locationFilter, originSourceParam, cityFilter]);
 
   const selectedCountryData = useMemo(() => {
     return availableLocations.find(l => l.countryCode === countryFilter);
@@ -1199,7 +1213,9 @@ export default function SearchResults() {
       if (approxGeo) {
         setApproxCoords({ lat: approxGeo.lat, lng: approxGeo.lng });
         if (approxGeo.countryCode) setApproxCountryCode(approxGeo.countryCode);
-        setLocationInput(inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL);
+        const inferredCity = inferNearestCityFromCoords(approxGeo) || CURRENT_LOCATION_LABEL;
+        setLocationInput("");
+        window.setTimeout(() => setLocationInput(inferredCity), 0);
 
         const params = new URLSearchParams(searchParams);
         params.delete("pagina");
@@ -1258,7 +1274,9 @@ export default function SearchResults() {
     }
 
     setUserCoords(coords);
-    setLocationInput(inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL);
+    const inferredCity = inferNearestCityFromCoords(coords) || CURRENT_LOCATION_LABEL;
+    setLocationInput("");
+    window.setTimeout(() => setLocationInput(inferredCity), 0);
 
     const params = new URLSearchParams(searchParams);
     params.delete("pagina");
