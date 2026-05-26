@@ -177,7 +177,8 @@ export default function SearchInputWithSuggestions({
   const triggerUseCurrentLocation = () => {
     if (locateActionLockRef.current) return;
     locateActionLockRef.current = true;
-    setIsOpen(false);
+    // Fecha após o ciclo do click para evitar "click-through" no botão do formulário.
+    window.setTimeout(() => setIsOpen(false), 0);
     void Promise.resolve(onUseCurrentLocation?.()).finally(() => {
       window.setTimeout(() => {
         locateActionLockRef.current = false;
@@ -256,14 +257,15 @@ export default function SearchInputWithSuggestions({
                   type="button"
                   onPointerDown={(e) => {
                     e.preventDefault();
-                    triggerUseCurrentLocation();
+                    e.stopPropagation();
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    triggerUseCurrentLocation();
+                    e.stopPropagation();
                   }}
                   onClick={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     triggerUseCurrentLocation();
                   }}
                   className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors border-b border-border/60"
