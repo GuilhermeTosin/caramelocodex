@@ -1131,20 +1131,20 @@ export default function BusinessWizardPage() {
             </div>
           )}
 
-          <div className="mt-8 flex items-center gap-3">
-            <Button variant="outline" onClick={goBack} disabled={step === 1 || isSaving}>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button variant="outline" onClick={goBack} disabled={step === 1 || isSaving} className="w-full sm:w-auto">
               <ChevronLeft className="w-4 h-4 mr-1" />
               Voltar
             </Button>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             {step < TOTAL_STEPS ? (
-              <Button onClick={goNext} disabled={isSaving} className="order-2">
+              <Button onClick={goNext} disabled={isSaving} className="order-1 w-full sm:w-auto">
                 Próximo
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             ) : (
-              <Button onClick={handleSave} disabled={isSaving} className="order-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0">
+              <Button onClick={handleSave} disabled={isSaving} className="order-2 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-0">
                 {isSaving ? (
                   <>
                     <Upload className="w-4 h-4 mr-2 animate-pulse" />
@@ -1159,7 +1159,7 @@ export default function BusinessWizardPage() {
               </Button>
             )}
             {isEditMode && step < TOTAL_STEPS ? (
-              <Button onClick={handleSave} disabled={isSaving} className="order-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0">
+              <Button onClick={handleSave} disabled={isSaving} className="order-1 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-0">
                 {isSaving ? "Salvando..." : "Salvar modificações"}
               </Button>
             ) : null}

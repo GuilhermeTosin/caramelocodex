@@ -17,6 +17,7 @@
         "migrate:webp:db": "node scripts/migrate-db-image-urls-to-webp.mjs"
     },
     "dependencies": {
+        "@fontsource/inter": "^5.2.8",
         "@radix-ui/react-avatar": "^1.1.11",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-label": "^2.1.8",

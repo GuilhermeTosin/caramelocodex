@@ -13,6 +13,7 @@ import { calculateDistance, getApproxPositionByIp, getCurrentPosition } from "@/
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 
 const CATEGORIES = [
   { name: "Alimentação", icon: Utensils, aliases: ["Alimentação", "Alimentacao"] },
@@ -495,10 +496,22 @@ export default function Home() {
                 <Card className="overflow-hidden border-border h-full">
                   <div className="aspect-[16/9] bg-muted relative overflow-hidden">
                     <img
-                      src={biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"}
+                      src={getOptimizedImageUrl(
+                        biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                        { width: 768, quality: 80, format: "webp" }
+                      )}
+                      srcSet={
+                        getOptimizedImageSrcSet(
+                          biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                          [480, 768, 1024],
+                          80
+                        ) || undefined
+                      }
+                      sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                       alt={biz.name}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       loading="lazy"
+                      decoding="async"
                     />
                     <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
                       {biz.category.split("(")[0].trim()}

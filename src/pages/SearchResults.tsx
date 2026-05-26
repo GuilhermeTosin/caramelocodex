@@ -39,6 +39,7 @@ import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { getPublishedCommunityEvents } from "@/services/events";
 import { getCategorySynonymsConfig, getGlobalCategorySynonymsConfig } from "@/services/searchPreferences";
 import type { CommunityEvent } from "@/types/database";
@@ -2037,10 +2038,22 @@ export default function SearchResults() {
                   <Card className="overflow-hidden border-border h-full">
                     <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       <img
-                        src={biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"}
+                        src={getOptimizedImageUrl(
+                          biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                          { width: 768, quality: 80, format: "webp" }
+                        )}
+                        srcSet={
+                          getOptimizedImageSrcSet(
+                            biz.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                            [480, 768, 1024],
+                            80
+                          ) || undefined
+                        }
+                        sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 31vw"
                         alt={biz.name}
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                         loading="lazy"
+                        decoding="async"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                       <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">

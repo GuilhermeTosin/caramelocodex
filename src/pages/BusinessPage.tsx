@@ -47,6 +47,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
+import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 
 export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
@@ -1289,7 +1290,24 @@ export default function BusinessPage() {
                 <Link key={item.id} to={buildBusinessUrl(item)} className="group">
                   <Card className="overflow-hidden border-border card-hover h-full">
                     <div className="aspect-[16/10] bg-muted overflow-hidden">
-                      <img src={item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"} alt={item.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out" />
+                      <img
+                        src={getOptimizedImageUrl(
+                          item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                          { width: 768, quality: 80, format: "webp" }
+                        )}
+                        srcSet={
+                          getOptimizedImageSrcSet(
+                            item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
+                            [480, 768, 1024],
+                            80
+                          ) || undefined
+                        }
+                        sizes="(max-width: 640px) 92vw, 30vw"
+                        alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
+                      />
                     </div>
                     <div className="p-4">
                       <Badge variant="secondary" className="mb-2">{item.category.split("(")[0].trim()}</Badge>
