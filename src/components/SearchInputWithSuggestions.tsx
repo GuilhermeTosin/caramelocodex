@@ -190,6 +190,11 @@ export default function SearchInputWithSuggestions({
   const triggerUseCurrentLocation = () => {
     if (locateActionLockRef.current) return;
     locateActionLockRef.current = true;
+    if (inputRef.current) {
+      inputRef.current.blur();
+    } else if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     // Fecha após o ciclo do click para evitar "click-through" no botão do formulário.
     window.setTimeout(() => setIsOpen(false), 0);
     void Promise.resolve(onUseCurrentLocation?.()).finally(() => {
