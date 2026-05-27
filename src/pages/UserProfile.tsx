@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   PawPrint,
@@ -255,6 +255,9 @@ export default function UserProfile() {
   const [shortSlugMessage, setShortSlugMessage] = useState("");
   const [myReviews, setMyReviews] = useState<(BusinessFrontend["reviews"][0] & { businessName: string; businessSlug: string; businessId: string })[]>([]);
   const [allBusinesses, setAllBusinesses] = useState<BusinessFrontend[]>([]);
+  const [myBusinessesPage, setMyBusinessesPage] = useState(1);
+  const [allBusinessesPage, setAllBusinessesPage] = useState(1);
+  const [allBusinessesSearch, setAllBusinessesSearch] = useState("");
   const [ownershipRequests, setOwnershipRequests] = useState<OwnerClaimRequest[]>([]);
   const [ownershipLoading, setOwnershipLoading] = useState(false);
   const [transferBusinessId, setTransferBusinessId] = useState("");
@@ -646,6 +649,14 @@ export default function UserProfile() {
     if (!isAdmin) return;
     loadReportsAdminData(reportsView);
   }, [isAdmin, reportsView, reportsKind]);
+
+  useEffect(() => {
+    setMyBusinessesPage(1);
+  }, [myBusinesses.length]);
+
+  useEffect(() => {
+    setAllBusinessesPage(1);
+  }, [allBusinessesSearch]);
 
   const handleReportStatus = async (id: string, status: BusinessReport["status"]) => {
     const result = await updateReportStatus(id, status);
@@ -1452,6 +1463,7 @@ export default function UserProfile() {
     const ok = await deleteBusiness(deleteTarget.id);
     if (ok) {
       setMyBusinesses((prev) => prev.filter((b) => b.id !== deleteTarget.id));
+      setAllBusinesses((prev) => prev.filter((b) => b.id !== deleteTarget.id));
       toast.success("negócio removido com sucesso!");
       setDeleteTarget(null);
       return;
@@ -1781,6 +1793,36 @@ export default function UserProfile() {
     }
   };
 
+  const MY_BUSINESSES_PER_PAGE = 5;
+  const ALL_BUSINESSES_PER_PAGE = 5;
+  const myBusinessesTotalPages = Math.max(1, Math.ceil(myBusinesses.length / MY_BUSINESSES_PER_PAGE));
+  const safeMyBusinessesPage = Math.min(myBusinessesPage, myBusinessesTotalPages);
+  const paginatedMyBusinesses = myBusinesses.slice(
+    (safeMyBusinessesPage - 1) * MY_BUSINESSES_PER_PAGE,
+    safeMyBusinessesPage * MY_BUSINESSES_PER_PAGE
+  );
+
+  const allBusinessesQuery = (allBusinessesSearch || "").trim().toLowerCase();
+  const filteredAllBusinesses = allBusinesses.filter((biz) => {
+    if (!allBusinessesQuery) return true;
+    const name = (biz.name || "").toLowerCase();
+    const city = (biz.address.city || "").toLowerCase();
+    const country = (biz.address.country || "").toLowerCase();
+    const countryCode = (biz.address.countryCode || "").toLowerCase();
+    return (
+      name.includes(allBusinessesQuery) ||
+      city.includes(allBusinessesQuery) ||
+      country.includes(allBusinessesQuery) ||
+      countryCode.includes(allBusinessesQuery)
+    );
+  });
+  const allBusinessesTotalPages = Math.max(1, Math.ceil(filteredAllBusinesses.length / ALL_BUSINESSES_PER_PAGE));
+  const safeAllBusinessesPage = Math.min(allBusinessesPage, allBusinessesTotalPages);
+  const paginatedAllBusinesses = filteredAllBusinesses.slice(
+    (safeAllBusinessesPage - 1) * ALL_BUSINESSES_PER_PAGE,
+    safeAllBusinessesPage * ALL_BUSINESSES_PER_PAGE
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1905,6 +1947,12 @@ export default function UserProfile() {
                     <TabsTrigger value="analise-negocios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
                       <ClipboardCheck className="w-4 h-4" />
                       Análise de negócios
+                    </TabsTrigger>
+                  )}
+                  {isAdmin && (
+                    <TabsTrigger value="todos-negocios" className="justify-start gap-3 px-4 py-3 rounded-lg data-[state=active]:bg-secondary data-[state=active]:text-primary transition-all w-full">
+                      <Store className="w-4 h-4" />
+                      Todos os negócios
                     </TabsTrigger>
                   )}
                   {isAdmin && (
@@ -2110,7 +2158,7 @@ export default function UserProfile() {
                 </Card>
               ) : (
                 <div id="meus-negocios-lista" className="space-y-4">
-                  {myBusinesses.map((biz) => (
+                  {paginatedMyBusinesses.map((biz) => (
                     <Card key={biz.id} className="p-4 border-border">
                       <div className="flex items-start gap-4">
                         <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
@@ -2280,9 +2328,134 @@ export default function UserProfile() {
                       </div>
                     </Card>
                   ))}
+                  {myBusinessesTotalPages > 1 ? (
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                      <p className="text-sm text-muted-foreground">
+                        Página {safeMyBusinessesPage} de {myBusinessesTotalPages}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={safeMyBusinessesPage <= 1}
+                          onClick={() => setMyBusinessesPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={safeMyBusinessesPage >= myBusinessesTotalPages}
+                          onClick={() => setMyBusinessesPage((prev) => Math.min(myBusinessesTotalPages, prev + 1))}
+                        >
+                          Próxima
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </TabsContent>
+
+            {isAdmin && (
+              <TabsContent value="todos-negocios" className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <h2 className="text-2xl font-bold text-foreground">Todos os negócios</h2>
+                    <div className="relative w-full sm:w-[340px]">
+                      <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Input
+                        value={allBusinessesSearch}
+                        onChange={(e) => setAllBusinessesSearch(e.target.value)}
+                        placeholder="Buscar por nome, cidade ou país"
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {filteredAllBusinesses.length === 0 ? (
+                    <Card className="p-8 text-center border-border">
+                      <Store className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground">Nenhum negócio encontrado com esse filtro.</p>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {paginatedAllBusinesses.map((biz) => (
+                        <Card key={biz.id} className="p-4 border-border">
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
+                              <img
+                                src={biz.logoUrl || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=60"}
+                                alt={biz.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link to={buildBusinessUrl(biz)} className="font-semibold text-foreground hover:text-primary transition-colors">
+                                  {biz.name}
+                                </Link>
+                                <Badge variant="secondary">{getCategoryLabel(biz.category).split(" (")[0]}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {biz.address.city}, {biz.address.countryCode.toUpperCase()} · {biz.address.country}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
+                                <Button size="sm" variant="outline">
+                                  <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                                  Editar
+                                </Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => handleDeleteMyBusiness(biz)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+
+                      {allBusinessesTotalPages > 1 ? (
+                        <div className="flex items-center justify-between gap-3 pt-2">
+                          <p className="text-sm text-muted-foreground">
+                            Página {safeAllBusinessesPage} de {allBusinessesTotalPages}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={safeAllBusinessesPage <= 1}
+                              onClick={() => setAllBusinessesPage((prev) => Math.max(1, prev - 1))}
+                            >
+                              Anterior
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={safeAllBusinessesPage >= allBusinessesTotalPages}
+                              onClick={() => setAllBusinessesPage((prev) => Math.min(allBusinessesTotalPages, prev + 1))}
+                            >
+                              Próxima
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
 
             <TabsContent value="eventos" className="mt-0">
               <div className="space-y-6">
@@ -3434,7 +3607,7 @@ export default function UserProfile() {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">Configuração de Busca</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Edite sin?nimos por categoria para melhorar a relev?ncia dos resultados.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Edite sinônimos por categoria para melhorar a relevância dos resultados.</p>
                   </div>
                   <Card className="p-6 border-border space-y-4">
                     <div>
