@@ -1032,6 +1032,18 @@ export function getCountryName(code?: string | null): string {
   return COUNTRIES[normalized]?.name || code || "";
 }
 
+function normalizeCityKey(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function hasDiacritics(value: string): boolean {
+  return /[^\u0000-\u007f]/.test(value || "");
+}
+
 export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }[]> {
   const { data } = await supabase
     .from("businesses")
@@ -1063,17 +1075,38 @@ export async function getAvailableLocations(): Promise<{ countryCode: string, co
       state = { 
         code: stateCode, 
         name: getStateName(countryCode, stateCode), 
-        cities: [] 
+        cities: [],
+        cityMap: {} as Record<string, string>,
       };
       country.states.push(state);
     }
 
-    if (!state.cities.includes(city)) {
+    const cityKey = normalizeCityKey(city);
+    if (!cityKey) return;
+
+    const existing = state.cityMap[cityKey];
+    if (!existing) {
+      state.cityMap[cityKey] = city;
       state.cities.push(city);
+      return;
+    }
+
+    // Se houver duplicata sem/ com acento (ex: Montreal/Montréal), prefere a versão com acento.
+    if (!hasDiacritics(existing) && hasDiacritics(city)) {
+      state.cityMap[cityKey] = city;
+      const idx = state.cities.indexOf(existing);
+      if (idx >= 0) state.cities[idx] = city;
     }
   });
 
-  return locations;
+  return locations.map((country) => ({
+    ...country,
+    states: country.states.map((state: any) => ({
+      code: state.code,
+      name: state.name,
+      cities: state.cities,
+    })),
+  }));
 }
 
 export function getStateName(countryCode: string, stateCode: string): string {
