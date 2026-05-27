@@ -1944,6 +1944,15 @@ export default function UserProfile() {
                 <SelectItem value="mensagens">Mensagens</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={logout}
+              className="mt-3 w-full justify-start gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair
+            </Button>
           </Card>
         </div>
 
