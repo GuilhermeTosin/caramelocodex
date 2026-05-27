@@ -34,7 +34,7 @@ import {
 import type { BusinessFrontend } from "@/types/database";
 import MapView from "@/components/MapView";
 import { useAuth } from "@/contexts/AuthContext";
-import { calculateDistance, getApproxGeoByIp, getCurrentPosition } from "@/lib/utils/geo";
+import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import { geocodeAddress } from "@/lib/google-maps";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
@@ -1182,26 +1182,9 @@ export default function SearchResults() {
 
   const handleLocateMe = async (requireExactGps = false) => {
     setLocatingMe(true);
-    let geoError: GeolocationPositionError | null = null;
     try {
-      let coords = await getCurrentPosition();
-
-      if (!coords && navigator.geolocation) {
-        coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (position) =>
-              resolve({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              }),
-            (err) => {
-              geoError = err;
-              resolve(null);
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-          );
-        });
-      }
+      const robust = await getCurrentPositionRobust();
+      const coords = robust.coords;
 
       if (!coords) {
         if (requireExactGps) {
@@ -1237,34 +1220,6 @@ export default function SearchResults() {
           return;
         }
 
-        if (!window.isSecureContext) {
-          showLocationNotice(
-            "Localização indisponível",
-            "Geolocalização bloqueada e a localização aproximada por IP não está disponível agora."
-          );
-          return;
-        }
-        if (geoError?.code === 1) {
-          showLocationNotice(
-            "Permissão negada",
-            "Permissão de localização negada e não foi possível obter localização aproximada por IP."
-          );
-          return;
-        }
-        if (geoError?.code === 2) {
-          showLocationNotice(
-            "Localização indisponível",
-            "Localização indisponível no momento e não foi possível obter localização aproximada por IP."
-          );
-          return;
-        }
-        if (geoError?.code === 3) {
-          showLocationNotice(
-            "Tempo esgotado",
-            "O tempo para obter sua localização se esgotou e não foi possível usar localização aproximada por IP."
-          );
-          return;
-        }
         showLocationNotice(
           "Não foi possível localizar",
           "Não consegui acessar sua localização e o fallback por IP também falhou."

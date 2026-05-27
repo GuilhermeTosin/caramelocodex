@@ -47,6 +47,49 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number } | nul
   });
 }
 
+async function getCurrentPositionWithOptions(
+  options: PositionOptions
+): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => resolve(null),
+      options
+    );
+  });
+}
+
+export async function getCurrentPositionRobust(): Promise<{
+  coords: { lat: number; lng: number } | null;
+  source: "gps_precise" | "gps_fast" | "none";
+}> {
+  const precise = await getCurrentPositionWithOptions({
+    enableHighAccuracy: true,
+    timeout: 20000,
+    maximumAge: 0,
+  });
+  if (precise) return { coords: precise, source: "gps_precise" };
+
+  const fast = await getCurrentPositionWithOptions({
+    enableHighAccuracy: false,
+    timeout: 9000,
+    maximumAge: 120000,
+  });
+  if (fast) return { coords: fast, source: "gps_fast" };
+
+  return { coords: null, source: "none" };
+}
+
 /**
  * Obtém localização aproximada por IP (fallback quando geolocalização do navegador falha).
  */

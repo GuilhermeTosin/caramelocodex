@@ -27,7 +27,6 @@ interface SearchInputWithSuggestionsProps {
   disableLocalSuggestions?: boolean;
   onUseCurrentLocation?: () => void | Promise<void>;
   isLoading?: boolean;
-  loadingText?: string;
 }
 
 function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
@@ -61,24 +60,14 @@ export default function SearchInputWithSuggestions({
   disableLocalSuggestions = false,
   onUseCurrentLocation,
   isLoading = false,
-  loadingText = "Buscando cidade",
 }: SearchInputWithSuggestionsProps) {
   const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
-  const [loadingDots, setLoadingDots] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const locateActionLockRef = useRef(false);
   const canUseGooglePlaces = !suggestionsDisabled && useGooglePlaces && icon === "location" && isMapsApiAvailable();
-
-  useEffect(() => {
-    if (!isLoading) return;
-    const timer = window.setInterval(() => {
-      setLoadingDots((prev) => (prev >= 3 ? 1 : prev + 1));
-    }, 350);
-    return () => window.clearInterval(timer);
-  }, [isLoading]);
 
   const filteredSuggestions = useMemo(() => {
     if (suggestionsDisabled) return [];
@@ -252,9 +241,8 @@ export default function SearchInputWithSuggestions({
       />
 
       {isLoading && icon === "location" ? (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-muted-foreground pointer-events-none">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-xs text-muted-foreground pointer-events-none">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span className="hidden sm:inline whitespace-nowrap">{`${loadingText}${".".repeat(loadingDots)}`}</span>
         </div>
       ) : value ? (
         <button

@@ -16,7 +16,7 @@ import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSug
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
-import { calculateDistance, getApproxPositionByIp, getCurrentPosition } from "@/lib/utils/geo";
+import { calculateDistance, getApproxPositionByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
@@ -172,7 +172,7 @@ export default function Home() {
     setIsResolvingLocationInput(true);
     suppressSubmitUntilRef.current = Date.now() + 700;
     try {
-      const coords = await getCurrentPosition();
+      const { coords } = await getCurrentPositionRobust();
       if (!coords) {
         setLocationNoticeMessage("Para usar esta funcionalidade, habilite a localização no navegador/dispositivo.");
         setLocationNoticeOpen(true);
@@ -211,7 +211,8 @@ export default function Home() {
       params.set("local", locationText);
     }
     if (!hasExplicitCity) {
-      const coords = userCoords || (await getCurrentPosition());
+      const robust = await getCurrentPositionRobust();
+      const coords = userCoords || robust.coords;
       if (coords) {
         setUserCoords(coords);
         params.set("raio", "50");
@@ -244,7 +245,8 @@ export default function Home() {
     const params = new URLSearchParams();
     params.set("q", tag.trim());
 
-    const coords = userCoords || (await getCurrentPosition());
+    const robust = await getCurrentPositionRobust();
+    const coords = userCoords || robust.coords;
     if (coords) {
       setUserCoords(coords);
       params.set("raio", "50");
@@ -272,7 +274,8 @@ export default function Home() {
     const params = new URLSearchParams();
     params.set("categoria", category);
 
-    const coords = userCoords || (await getCurrentPosition());
+    const robust = await getCurrentPositionRobust();
+    const coords = userCoords || robust.coords;
     if (coords) {
       setUserCoords(coords);
       params.set("raio", "50");
