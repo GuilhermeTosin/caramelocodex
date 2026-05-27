@@ -173,6 +173,7 @@ export default function UserProfile() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mobileContentRef = useRef<HTMLDivElement>(null);
   const couponDatePickerRef = useRef<HTMLInputElement>(null);
   const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
 
@@ -364,6 +365,14 @@ export default function UserProfile() {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    requestAnimationFrame(() => {
+      mobileContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (!session || user || isLoading) {
@@ -1910,9 +1919,37 @@ export default function UserProfile() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="md:hidden mb-4">
+          <Card className="p-3 border border-border bg-card">
+            <Label htmlFor="perfil-mobile-nav" className="text-xs text-muted-foreground">
+              Navegação do perfil
+            </Label>
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger id="perfil-mobile-nav" className="mt-2">
+                <SelectValue placeholder="Selecione uma seção" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="perfil">Meu Perfil</SelectItem>
+                <SelectItem value="negocios">Meus negócios</SelectItem>
+                <SelectItem value="eventos">Meus Eventos</SelectItem>
+                <SelectItem value="achadinhos">Achadinhos</SelectItem>
+                {isAdmin && <SelectItem value="verificacoes">Verificações</SelectItem>}
+                {isAdmin && <SelectItem value="analise-negocios">Análise de negócios</SelectItem>}
+                {isAdmin && <SelectItem value="todos-negocios">Todos os negócios</SelectItem>}
+                {isAdmin && <SelectItem value="ownership">Ownership</SelectItem>}
+                {isAdmin && <SelectItem value="denuncias">Denúncias</SelectItem>}
+                {isAdmin && <SelectItem value="destaques">Destaques</SelectItem>}
+                {isAdmin && <SelectItem value="busca">Busca</SelectItem>}
+                <SelectItem value="avaliacoes">Avaliações</SelectItem>
+                <SelectItem value="mensagens">Mensagens</SelectItem>
+              </SelectContent>
+            </Select>
+          </Card>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-8 lg:gap-12">
           {/* Sidebar Navigation */}
-          <aside className="w-full md:w-64 lg:w-72 shrink-0">
+          <aside className="hidden md:block w-full md:w-64 lg:w-72 shrink-0">
             <div className="sticky top-24">
               <Card className="p-2 border border-border bg-card">
                 <TabsList className="flex flex-col h-auto bg-transparent gap-1">
@@ -2006,7 +2043,7 @@ export default function UserProfile() {
           </aside>
 
           {/* Content Area */}
-          <div className="flex-1 min-w-0">
+          <div ref={mobileContentRef} className="flex-1 min-w-0">
             {/* Tab: Profile */}
             <TabsContent value="perfil" className="mt-0">
               <Card className="p-6 border-border max-w-2xl">
