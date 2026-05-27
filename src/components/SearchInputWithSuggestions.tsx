@@ -297,7 +297,7 @@ export default function SearchInputWithSuggestions({
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors border-b border-border/60"
+                  className="w-full min-h-12 text-left px-5 py-3 hover:bg-secondary flex items-center gap-3 transition-colors"
                 >
                   <MapPin className="w-4 h-4 text-primary" />
                   <span className="text-foreground font-semibold text-xs lg:text-[11px] whitespace-nowrap">
