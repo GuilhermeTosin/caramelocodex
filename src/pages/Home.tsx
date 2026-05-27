@@ -236,6 +236,19 @@ export default function Home() {
 
     // Se o usuário selecionou uma cidade que sabemos o país/estado, podemos ser mais específicos
     // Mas por simplicidade no momento, passamos apenas como query de cidade
+    const hasQuery = !!searchQuery.trim();
+    const hasLocationContext = !!(
+      params.get("cidade") ||
+      params.get("local") ||
+      (params.get("origem_lat") && params.get("origem_lng"))
+    );
+    if (!hasQuery && !hasLocationContext) {
+      setLocationNoticeMessage("Digite o que você procura ou informe sua cidade para iniciar a busca.");
+      setLocationNoticeOpen(true);
+      setIsSubmittingSearch(false);
+      return;
+    }
+
     navigate(`/buscar?${params.toString()}`);
     setIsSubmittingSearch(false);
   };
