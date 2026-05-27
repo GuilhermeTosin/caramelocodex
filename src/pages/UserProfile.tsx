@@ -1924,7 +1924,16 @@ export default function UserProfile() {
             <Label htmlFor="perfil-mobile-nav" className="text-xs text-muted-foreground">
               Navegação do perfil
             </Label>
-            <Select value={activeTab} onValueChange={setActiveTab}>
+            <Select
+              value={activeTab}
+              onValueChange={(value) => {
+                if (value === "__logout__") {
+                  void logout();
+                  return;
+                }
+                setActiveTab(value);
+              }}
+            >
               <SelectTrigger id="perfil-mobile-nav" className="mt-2">
                 <SelectValue placeholder="Selecione uma seção" />
               </SelectTrigger>
@@ -1942,17 +1951,9 @@ export default function UserProfile() {
                 {isAdmin && <SelectItem value="busca">Busca</SelectItem>}
                 <SelectItem value="avaliacoes">Avaliações</SelectItem>
                 <SelectItem value="mensagens">Mensagens</SelectItem>
+                <SelectItem value="__logout__">Sair</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={logout}
-              className="mt-3 w-full justify-start gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sair
-            </Button>
           </Card>
         </div>
 
