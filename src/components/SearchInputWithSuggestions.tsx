@@ -142,6 +142,11 @@ export default function SearchInputWithSuggestions({
           const lat = place.geometry?.location?.lat?.();
           const lng = place.geometry?.location?.lng?.();
           onChange(selected);
+          if (inputRef.current) {
+            inputRef.current.blur();
+          } else if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
           setIsOpen(false);
           if (onSubmit) {
             onSubmit(selected, {
@@ -183,6 +188,11 @@ export default function SearchInputWithSuggestions({
 
   const handleSelect = (suggestion: string) => {
     onChange(suggestion);
+    if (inputRef.current) {
+      inputRef.current.blur();
+    } else if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setIsOpen(false);
     if (onSubmit) onSubmit(suggestion);
   };
