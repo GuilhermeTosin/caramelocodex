@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useRef } from "react";
-import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, Wifi, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
+import { MapPin, Star, SlidersHorizontal, PawPrint, Map as MapIcon, List, MessageCircle, X, Navigation, User, Lock, CalendarDays, Ticket, PartyPopper, Leaf, WheatOff, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Reply, Pencil, Trash2, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -358,6 +358,12 @@ const CITY_ALIAS_GROUPS: string[][] = [
 
 const CITY_ALIASES: Record<string, string[]> = buildCityAliases(CITY_ALIAS_GROUPS);
 const CURRENT_LOCATION_LABEL = "Minha localização";
+const parseCoordParam = (raw: string): number | null => {
+  const text = (raw || "").trim();
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+};
 
 export default function SearchResults() {
   const navigate = useNavigate();
@@ -374,12 +380,10 @@ export default function SearchResults() {
   const eventsFilter = searchParams.get("eventos") || "";
   const communityFindsFilter = searchParams.get("achadinhos") || "";
   const communityFindIdParam = searchParams.get("achadinho") || "";
-  const onlineFilter = searchParams.get("online") || "";
   const pageParam = Number(searchParams.get("pagina") || "1");
   const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
   const isEventMode = eventsFilter === "1";
   const isCommunityFindsMode = communityFindsFilter === "1";
-  const isOnlineOnlyMode = onlineFilter === "1";
   const originLatParam = searchParams.get("origem_lat") || "";
   const originLngParam = searchParams.get("origem_lng") || "";
   const originLocalParam = searchParams.get("origem_local") || "";
@@ -443,6 +447,13 @@ export default function SearchResults() {
     setLocationNoticeMessage(message);
     setLocationNoticeOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!searchParams.get("online")) return;
+    const params = new URLSearchParams(searchParams);
+    params.delete("online");
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const openCommunityFindDialog = useCallback(async (find: CommunityFindWithVote) => {
     setSelectedCommunityFind(find);
@@ -588,8 +599,8 @@ export default function SearchResults() {
 
   const canUseRpcRadiusMode = useMemo(() => {
     const initialRadius = radiusFilter ? Number(radiusFilter) : null;
-    const initialLat = Number(originLatParam);
-    const initialLng = Number(originLngParam);
+    const initialLat = parseCoordParam(originLatParam);
+    const initialLng = parseCoordParam(originLngParam);
     const cityContext = (cityFilter || locationFilter || "").trim();
     const normalizedCityContext = normalizeText(cityContext);
     const normalizedOriginLocal = normalizeText(originLocalParam || "");
@@ -601,9 +612,8 @@ export default function SearchResults() {
     return (
       SEARCH_BACKEND === "rpc" &&
       !isEventMode &&
-      !isOnlineOnlyMode &&
-      Number.isFinite(initialLat) &&
-      Number.isFinite(initialLng) &&
+      initialLat !== null &&
+      initialLng !== null &&
       !!initialRadius &&
       initialRadius > 0 &&
       (!hasCityContext || hasCityAlignedOrigin)
@@ -617,15 +627,14 @@ export default function SearchResults() {
     originLocalParam,
     originSourceParam,
     isEventMode,
-    isOnlineOnlyMode,
   ]);
 
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         const initialRadius = radiusFilter ? Number(radiusFilter) : null;
-        const initialLat = Number(originLatParam);
-        const initialLng = Number(originLngParam);
+        const initialLat = parseCoordParam(originLatParam);
+        const initialLng = parseCoordParam(originLngParam);
         const canUseRpcRadius = canUseRpcRadiusMode;
         const rpcCityFilter =
           canUseRpcRadius
@@ -637,8 +646,8 @@ export default function SearchResults() {
 
         const businessesPromise = canUseRpcRadius
           ? getBusinessesByRadiusRpc({
-              originLat: initialLat,
-              originLng: initialLng,
+              originLat: initialLat as number,
+              originLng: initialLng as number,
               radiusKm: initialRadius as number,
               limit: RESULTS_PER_PAGE,
               offset,
@@ -810,7 +819,12 @@ export default function SearchResults() {
   const matchedLocationCoords = useMemo(() => {
     if (!cityFilter) return null;
     const matching = allBusinesses.filter(
-      (biz) => cityMatches(biz.address.city, cityFilter, CITY_ALIASES)
+      (biz) =>
+        biz.attendanceType !== "online" &&
+        cityMatches(biz.address.city, cityFilter, CITY_ALIASES) &&
+        Number.isFinite(biz.address.lat) &&
+        Number.isFinite(biz.address.lng) &&
+        !(biz.address.lat === 0 && biz.address.lng === 0)
     );
     if (matching.length === 0) return null;
 
@@ -823,7 +837,14 @@ export default function SearchResults() {
   const resolveCoordsFromBusinesses = useCallback((cityText: string) => {
     const term = cityText.trim();
     if (!term) return null;
-    const matching = allBusinesses.filter((biz) => cityMatches(biz.address.city, term, CITY_ALIASES));
+    const matching = allBusinesses.filter(
+      (biz) =>
+        biz.attendanceType !== "online" &&
+        cityMatches(biz.address.city, term, CITY_ALIASES) &&
+        Number.isFinite(biz.address.lat) &&
+        Number.isFinite(biz.address.lng) &&
+        !(biz.address.lat === 0 && biz.address.lng === 0)
+    );
     if (matching.length === 0) return null;
     return {
       lat: matching.reduce((sum, biz) => sum + biz.address.lat, 0) / matching.length,
@@ -834,7 +855,12 @@ export default function SearchResults() {
   const resolveCountryCodeFromBusinesses = useCallback((cityText: string): string | null => {
     const term = cityText.trim();
     if (!term) return null;
-    const matching = allBusinesses.filter((biz) => cityMatches(biz.address.city, term, CITY_ALIASES));
+    const matching = allBusinesses.filter((biz) => {
+      if (biz.attendanceType === "online") return false;
+      if (!cityMatches(biz.address.city, term, CITY_ALIASES)) return false;
+      const cc = (biz.address.countryCode || "").toLowerCase();
+      return !!cc;
+    });
     if (matching.length === 0) return null;
     const counts = matching.reduce((acc, biz) => {
       const cc = (biz.address.countryCode || "").toLowerCase();
@@ -858,9 +884,9 @@ export default function SearchResults() {
   }, [allBusinesses]);
 
   const selectedOriginCoords = useMemo(() => {
-    const lat = Number(originLatParam);
-    const lng = Number(originLngParam);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const lat = parseCoordParam(originLatParam);
+    const lng = parseCoordParam(originLngParam);
+    if (lat === null || lng === null) return null;
 
     const normalizedLocation = normalizeText(locationFilter || cityFilter);
     const normalizedOriginLocal = normalizeText(originLocalParam);
@@ -874,10 +900,10 @@ export default function SearchResults() {
   }, [originLatParam, originLngParam, originLocalParam, locationFilter, cityFilter]);
 
   const approximateMapCoords = useMemo(() => {
-    const lat = Number(originLatParam);
-    const lng = Number(originLngParam);
+    const lat = parseCoordParam(originLatParam);
+    const lng = parseCoordParam(originLngParam);
     if (originSourceParam !== "ip") return approxCoords;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return approxCoords;
+    if (lat === null || lng === null) return approxCoords;
     return { lat, lng };
   }, [originLatParam, originLngParam, originSourceParam, approxCoords]);
 
@@ -902,8 +928,7 @@ export default function SearchResults() {
     stateFilter ||
     radiusFilter ||
     communityFindsFilter ||
-    eventsFilter ||
-    onlineFilter
+    eventsFilter
   );
   const emptyStateMessage = useMemo(() => {
     const parts: string[] = [];
@@ -940,7 +965,7 @@ export default function SearchResults() {
       allBusinesses,
       query,
       categoryFilter,
-      onlineFilter,
+      onlineFilter: "",
       onlineCountryCode: countryFilter || originCountryParam,
       cityFilter,
       locationFilter,
@@ -964,7 +989,6 @@ export default function SearchResults() {
   }, [
     query,
     categoryFilter,
-    onlineFilter,
     cityFilter,
     locationFilter,
     countryFilter,
@@ -1253,7 +1277,7 @@ export default function SearchResults() {
     }
   };
   const getDistanceLabel = (biz: BusinessFrontend): string | null => {
-    if (biz.attendanceType === "online") return "Online";
+    if (biz.attendanceType === "online") return null;
     if (!distanceOrigin) return null;
     const distance = calculateDistance(distanceOrigin.lat, distanceOrigin.lng, biz.address.lat, biz.address.lng);
     return `${distance.toFixed(distance < 10 ? 1 : 0)} km`;
@@ -1306,14 +1330,6 @@ export default function SearchResults() {
     } else {
       params.delete("achadinhos");
     }
-    setSearchParams(params);
-  };
-
-  const handleToggleOnlineOnlyMode = (enabled: boolean) => {
-    const params = getParamsWithCurrentLocation();
-    params.delete("pagina");
-    if (enabled) params.set("online", "1");
-    else params.delete("online");
     setSearchParams(params);
   };
 
@@ -1522,32 +1538,6 @@ export default function SearchResults() {
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
               isEventMode ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
-      <div
-        className={`h-9 rounded-md px-3 flex items-center justify-between border transition-colors ${
-          isOnlineOnlyMode ? "bg-emerald-100 border-emerald-500" : "bg-emerald-50 border-emerald-300"
-        }`}
-      >
-        <div className="inline-flex items-center gap-2 text-sm">
-          <Wifi className={`w-3.5 h-3.5 ${isOnlineOnlyMode ? "text-emerald-700" : "text-emerald-600"}`} />
-          <span>Apenas negócios online</span>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isOnlineOnlyMode}
-          onClick={() => handleToggleOnlineOnlyMode(!isOnlineOnlyMode)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isOnlineOnlyMode ? "bg-emerald-500" : "bg-muted"
-          }`}
-          title={isOnlineOnlyMode ? "Filtro online ativo" : "Filtro online desativado"}
-        >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-              isOnlineOnlyMode ? "translate-x-5" : "translate-x-1"
             }`}
           />
         </button>
@@ -2087,12 +2077,16 @@ export default function SearchResults() {
                           {biz.averageRating.toFixed(1)}
                         </Badge>
                       )}
-                      {distanceOrigin && (
-                        <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
-                          <MapPin className="w-2.5 h-2.5" />
-                          {getDistanceLabel(biz)}
-                        </div>
-                      )}
+                      {distanceOrigin && (() => {
+                        const distanceLabel = getDistanceLabel(biz);
+                        if (!distanceLabel) return null;
+                        return (
+                          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {distanceLabel}
+                          </div>
+                        );
+                      })()}
                       {biz.ownerVerified ? (
                         <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
@@ -2110,9 +2104,7 @@ export default function SearchResults() {
                             <span className="truncate">{biz.name}</span>
                           </h3>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">
-                            {biz.attendanceType === "online"
-                              ? "Atendimento online"
-                              : `${biz.address.city}, ${biz.address.country}`}
+                            {`${biz.address.city}, ${biz.address.country}`}
                           </p>
                         </div>
                       </div>

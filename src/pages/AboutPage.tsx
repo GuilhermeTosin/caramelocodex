@@ -123,7 +123,7 @@ export default function AboutPage() {
               width={280}
               height={280}
               decoding="async"
-              fetchPriority="high"
+              fetchpriority="high"
               loading="eager"
               className="w-full max-w-[220px] sm:max-w-[280px] h-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.12)]"
             />

@@ -15,6 +15,7 @@ import {
   BUSINESS_CATEGORY_OPTIONS,
   COUNTRIES,
   createBusiness,
+  getAvailableLocations,
   getCountryName,
   getCategoryId,
   getBusinessesByOwner,
@@ -30,7 +31,7 @@ type BusinessHour = { day: string; enabled: boolean; open: string; close: string
 
 const TOTAL_STEPS = 6;
 
-const normalizeShortSlug = (value: string) =>
+const normalizeShortSlugTyping = (value: string) =>
   (value || "")
     .toLowerCase()
     .normalize("NFD")
@@ -38,8 +39,10 @@ const normalizeShortSlug = (value: string) =>
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9-]/g, "")
     .replace(/-+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "");
+    .replace(/^-+/, "");
+
+const normalizeShortSlugFinal = (value: string) =>
+  normalizeShortSlugTyping(value).replace(/-+$/, "");
 
 const sanitizePhoneLike = (value: string) =>
   (value || "").replace(/[^\d+\-()\s]/g, "").slice(0, 25);
@@ -124,6 +127,10 @@ export default function BusinessWizardPage() {
   const [loadingEditBusiness, setLoadingEditBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
+  const [onlineCityResolved, setOnlineCityResolved] = useState(false);
+  const [locationCatalog, setLocationCatalog] = useState<
+    { countryCode: string; states: { code: string; cities: string[] }[] }[]
+  >([]);
   const [slugMessage, setSlugMessage] = useState("Escolha um link curto para compartilhar seu negócio.");
   const [slugStatus, setSlugStatus] = useState<"idle" | "ok" | "error">("idle");
   const [nameError, setNameError] = useState("");
@@ -156,6 +163,7 @@ export default function BusinessWizardPage() {
     country: "",
     countryCode: "",
     attendanceType: "presencial" as "presencial" | "online" | "hibrido",
+    hasPhysicalAddress: true,
     postalCode: "",
     lat: 0,
     lng: 0,
@@ -174,6 +182,52 @@ export default function BusinessWizardPage() {
   const [galleryTouched, setGalleryTouched] = useState(false);
 
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
+  const onlineCityLookup = useMemo(() => {
+    const map = new Map<string, { city: string; stateCode: string; countryCode: string }>();
+    const byCity = new Map<string, { city: string; stateCode: string; countryCode: string }[]>();
+
+    for (const country of locationCatalog) {
+      const cc = (country.countryCode || "").toLowerCase();
+      for (const state of country.states || []) {
+        const sc = (state.code || "").toLowerCase();
+        for (const cityRaw of state.cities || []) {
+          const city = (cityRaw || "").trim();
+          if (!city) continue;
+          const item = { city, stateCode: sc, countryCode: cc };
+          const fullLabel = `${city}, ${sc.toUpperCase()} - ${cc.toUpperCase()}`;
+          map.set(fullLabel.toLowerCase(), item);
+          const cityKey = city.toLowerCase();
+          byCity.set(cityKey, [...(byCity.get(cityKey) || []), item]);
+        }
+      }
+    }
+
+    // Quando a cidade for única na base, aceita também apenas o nome da cidade.
+    for (const [cityKey, items] of byCity.entries()) {
+      if (items.length === 1) {
+        map.set(cityKey, items[0]);
+      }
+    }
+
+    return map;
+  }, [locationCatalog]);
+
+  const onlineCitySuggestions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const country of locationCatalog) {
+      const cc = (country.countryCode || "").toLowerCase();
+      for (const state of country.states || []) {
+        const sc = (state.code || "").toLowerCase();
+        for (const cityRaw of state.cities || []) {
+          const city = (cityRaw || "").trim();
+          if (!city) continue;
+          labels.add(`${city}, ${sc.toUpperCase()} - ${cc.toUpperCase()}`);
+        }
+      }
+    }
+    return Array.from(labels).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [locationCatalog]);
+
   const StepIcon =
     step === 1
       ? Sparkles
@@ -218,7 +272,7 @@ export default function BusinessWizardPage() {
   };
 
   const runSlugCheck = async () => {
-    const slug = normalizeShortSlug(form.shortSlug);
+    const slug = normalizeShortSlugFinal(form.shortSlug);
     if (!slug) {
       setSlugStatus("error");
       setSlugMessage("Link curto é obrigatório.");
@@ -249,8 +303,22 @@ export default function BusinessWizardPage() {
   };
 
   useEffect(() => {
+    let active = true;
+    getAvailableLocations()
+      .then((locations) => {
+        if (active) setLocationCatalog(locations || []);
+      })
+      .catch(() => {
+        if (active) setLocationCatalog([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (step !== 1) return;
-    const slug = normalizeShortSlug(form.shortSlug);
+    const slug = normalizeShortSlugFinal(form.shortSlug);
     if (!slug) {
       setSlugStatus("idle");
       setSlugMessage("Digite um link curto único para seu negócio.");
@@ -323,6 +391,7 @@ export default function BusinessWizardPage() {
           country: biz.address.country || "",
           countryCode: biz.address.countryCode || "",
           attendanceType: biz.attendanceType || "presencial",
+          hasPhysicalAddress: biz.attendanceType !== "online",
           postalCode: biz.address.postalCode || "",
           lat: biz.address.lat || 0,
           lng: biz.address.lng || 0,
@@ -330,6 +399,11 @@ export default function BusinessWizardPage() {
           isVegetarianFriendly: !!biz.isVegetarianFriendly,
           isGlutenFreeFriendly: !!biz.isGlutenFreeFriendly,
         });
+        setOnlineCityResolved(
+          biz.attendanceType === "online"
+            ? !!(biz.address.city && biz.address.stateCode && biz.address.countryCode)
+            : false
+        );
         setBusinessHours(parseBusinessHours(biz.openingHours || []));
         setExistingLogoUrl(biz.logoUrl || "");
         setExistingHeroUrl(biz.heroImage || "");
@@ -385,12 +459,40 @@ export default function BusinessWizardPage() {
         facebook: "",
         whatsapp: "",
       });
-      if (form.attendanceType === "online" && !form.countryCode.trim()) {
-        toast.error("Selecione o país do negócio online.");
+      if (form.hasPhysicalAddress && (!form.street.trim() || !form.city.trim() || !form.stateCode.trim())) {
+        toast.error("Complete o endereço do negócio.");
         return false;
       }
-      if (form.attendanceType !== "online" && (!form.street.trim() || !form.city.trim() || !form.stateCode.trim())) {
-        toast.error("Complete o endereço.");
+      if (!form.hasPhysicalAddress && !form.city.trim()) {
+        toast.error("Selecione ao menos a cidade do seu negócio para localização nas buscas.");
+        return false;
+      }
+      if (!form.hasPhysicalAddress && (!form.stateCode.trim() || !form.countryCode.trim() || !onlineCityResolved)) {
+        const normalizedCity = form.city.trim().toLowerCase();
+        const matches: Array<{ countryCode: string; stateCode: string }> = [];
+
+        for (const country of locationCatalog) {
+          for (const state of country.states || []) {
+            const hasCity = (state.cities || []).some((c) => (c || "").trim().toLowerCase() === normalizedCity);
+            if (hasCity) {
+              matches.push({
+                countryCode: (country.countryCode || "").toLowerCase(),
+                stateCode: (state.code || "").toLowerCase(),
+              });
+            }
+          }
+        }
+
+        if (matches.length === 1) {
+          const only = matches[0];
+          updateField("countryCode", only.countryCode);
+          updateField("country", getCountryName(only.countryCode));
+          updateField("stateCode", only.stateCode);
+          setOnlineCityResolved(true);
+          return true;
+        }
+
+        toast.error("Selecione a cidade na lista de sugestões para confirmar país e província/estado.");
         return false;
       }
       return true;
@@ -473,19 +575,19 @@ export default function BusinessWizardPage() {
 
     const payload = {
       name: form.name.trim(),
-      slug: normalizeShortSlug(form.shortSlug || form.name),
+      slug: normalizeShortSlugFinal(form.shortSlug || form.name),
       categoryId: form.category,
       description: form.description.trim(),
-      street: form.attendanceType === "online" ? "" : form.street.trim(),
-      city: form.attendanceType === "online" ? "" : form.city.trim(),
-      state: form.attendanceType === "online" ? "" : form.state.trim(),
-      stateCode: form.attendanceType === "online" ? "" : form.stateCode.trim().toLowerCase(),
-      country: form.attendanceType === "online" ? getCountryName(form.countryCode.trim().toLowerCase()) : form.country.trim(),
-      countryCode: form.attendanceType === "online" ? form.countryCode.trim().toLowerCase() : form.countryCode.trim().toLowerCase(),
-      attendanceType: form.attendanceType,
-      postalCode: form.attendanceType === "online" ? "" : form.postalCode.trim(),
-      lat: form.attendanceType === "online" ? 0 : (form.lat || 0),
-      lng: form.attendanceType === "online" ? 0 : (form.lng || 0),
+      street: form.hasPhysicalAddress ? form.street.trim() : "",
+      city: form.city.trim(),
+      state: form.state.trim(),
+      stateCode: form.stateCode.trim().toLowerCase(),
+      country: form.country.trim() || getCountryName(form.countryCode.trim().toLowerCase()),
+      countryCode: form.countryCode.trim().toLowerCase(),
+      attendanceType: form.hasPhysicalAddress ? "presencial" : "online",
+      postalCode: form.hasPhysicalAddress ? form.postalCode.trim() : "",
+      lat: form.lat || 0,
+      lng: form.lng || 0,
       services: [],
       keywords,
       phone: form.phone.trim(),
@@ -666,7 +768,7 @@ export default function BusinessWizardPage() {
               <h1 className="text-2xl font-bold">
                 {step === 1 && "Dados principais"}
                 {step === 2 && "Descrição e busca"}
-                {step === 3 && "Contato e Endereço"}
+                {step === 3 && "Contato e localização"}
                 {step === 4 && "Horários"}
                 {step === 5 && "Mídia"}
                 {step === 6 && "Revisão e confirmação"}
@@ -698,7 +800,8 @@ export default function BusinessWizardPage() {
                   </span>
                   <input
                     value={form.shortSlug}
-                    onChange={(e) => updateField("shortSlug", normalizeShortSlug(e.target.value))}
+                    onChange={(e) => updateField("shortSlug", normalizeShortSlugTyping(e.target.value))}
+                    onBlur={(e) => updateField("shortSlug", normalizeShortSlugFinal(e.target.value))}
                     placeholder="pizzaria-do-ze"
                     className="w-full h-10 px-3 bg-transparent text-sm outline-none"
                   />
@@ -717,19 +820,6 @@ export default function BusinessWizardPage() {
                     {BUSINESS_CATEGORY_OPTIONS.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2">
-                <Label>Tipo de atendimento *</Label>
-                <Select value={form.attendanceType} onValueChange={(v) => updateField("attendanceType", v)}>
-                  <SelectTrigger className="mt-1.5 w-full">
-                    <SelectValue placeholder="Selecione o tipo de atendimento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="presencial">Presencial</SelectItem>
-                    <SelectItem value="online">Somente online</SelectItem>
-                    <SelectItem value="hibrido">Híbrido (presencial e online)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -852,41 +942,75 @@ export default function BusinessWizardPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label>Endereço {form.attendanceType === "online" ? "(opcional)" : "*"}</Label>
+                <Label>Seu negócio possui endereço físico? *</Label>
+                <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateField("hasPhysicalAddress", true)}
+                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                      form.hasPhysicalAddress
+                        ? "bg-emerald-50 border-emerald-400 text-emerald-800"
+                        : "bg-background border-input text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    Sim, possui endereço físico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateField("hasPhysicalAddress", false);
+                      updateField("street", "");
+                      updateField("postalCode", "");
+                      setOnlineCityResolved(!!(form.city && form.stateCode && form.countryCode));
+                    }}
+                    className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                      !form.hasPhysicalAddress
+                        ? "bg-amber-50 border-amber-400 text-amber-800"
+                        : "bg-background border-input text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    Não, atende sem endereço físico
+                  </button>
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <Label>{form.hasPhysicalAddress ? "Endereço *" : "Cidade base para busca *"}</Label>
                 <div className="mt-1.5">
-                  {form.attendanceType === "online" ? (
+                  {!form.hasPhysicalAddress ? (
                     <div className="space-y-2">
-                      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-                        Negócio 100% online: endereço físico não é obrigatório.
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        Sem endereço físico: selecione a cidade principal de atendimento para aparecer nas buscas locais.
                       </div>
-                      <div>
-                        <Label>País do negócio online *</Label>
-                        <Select
-                          value={form.countryCode || ""}
-                          onValueChange={(v) => {
-                            updateField("countryCode", v.toLowerCase());
-                            updateField("country", getCountryName(v.toLowerCase()));
-                            updateField("state", "");
-                            updateField("stateCode", "");
-                            updateField("city", "");
-                            updateField("street", "");
-                            updateField("postalCode", "");
-                            updateField("lat", 0);
-                            updateField("lng", 0);
-                          }}
-                        >
-                          <SelectTrigger className="mt-1.5 w-full">
-                            <SelectValue placeholder="Selecione o país" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(COUNTRIES).map(([code, info]) => (
-                              <SelectItem key={code} value={code}>
-                                {info.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <AddressAutocomplete
+                        mode="city"
+                        value={form.city}
+                        onChange={(v) => {
+                          updateField("city", v);
+                          updateField("state", "");
+                          updateField("stateCode", "");
+                          updateField("countryCode", "");
+                          updateField("country", "");
+                          updateField("lat", 0);
+                          updateField("lng", 0);
+                          setOnlineCityResolved(false);
+                        }}
+                        onPlaceSelected={(place) => {
+                          const city = (place.city || place.formattedAddress || "").trim();
+                          const resolvedStateCode = (place.stateCode || "").toLowerCase();
+                          const resolvedCountryCode = (place.countryCode || "").toLowerCase();
+                          updateField("city", city);
+                          updateField("state", place.state || "");
+                          updateField("stateCode", resolvedStateCode);
+                          updateField("countryCode", resolvedCountryCode);
+                          updateField("country", place.country || getCountryName(resolvedCountryCode));
+                          updateField("lat", place.lat || 0);
+                          updateField("lng", place.lng || 0);
+                          updateField("street", "");
+                          updateField("postalCode", "");
+                          setOnlineCityResolved(!!(city && resolvedStateCode && resolvedCountryCode));
+                        }}
+                        placeholder="Digite e selecione sua cidade (ex: Montreal)"
+                      />
                     </div>
                   ) : (
                     <AddressAutocomplete
@@ -903,8 +1027,8 @@ export default function BusinessWizardPage() {
                   Resumo do endereço
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  {form.attendanceType === "online"
-                    ? "Atendimento 100% online"
+                  {!form.hasPhysicalAddress
+                    ? `${form.city?.trim() || "Cidade não preenchida"}${form.countryCode ? `, ${form.countryCode.toUpperCase()}` : ""}`
                     : (
                       <>
                         {form.street?.trim() || "Endereço não preenchido"}<br />
@@ -1096,12 +1220,11 @@ export default function BusinessWizardPage() {
                   <p><strong>Negócio:</strong> {form.name || "-"}</p>
                   <p><strong>Link curto:</strong> caramelinho.com/go/{form.shortSlug || slugify(form.name) || "-"}</p>
                   <p><strong>Categoria:</strong> {BUSINESS_CATEGORY_OPTIONS.find((c) => c.id === form.category)?.label || "-"}</p>
-                  <p><strong>Atendimento:</strong> {form.attendanceType === "online" ? "Online" : form.attendanceType === "hibrido" ? "Híbrido" : "Presencial"}</p>
+                  <p><strong>Atendimento:</strong> {form.hasPhysicalAddress ? "Com endereço físico" : "Sem endereço físico"}</p>
                   <p>
-                    <strong>{form.attendanceType === "online" ? "País:" : "Cidade:"}</strong>{" "}
-                    {form.attendanceType === "online"
-                      ? (form.country || getCountryName(form.countryCode || "") || "-")
-                      : `${form.city || "-"} (${form.stateCode?.toUpperCase() || "-"})`}
+                    <strong>Local base:</strong>{" "}
+                    {form.city ? `${form.city}${form.stateCode ? ` (${form.stateCode.toUpperCase()})` : ""}` : "-"}
+                    {form.countryCode ? `, ${form.countryCode.toUpperCase()}` : ""}
                   </p>
                   <p><strong>Contato:</strong> {form.phone || "-"} / {form.email || "-"}</p>
                   <p><strong>Mídia:</strong> {logoFile ? "logo" : "sem logo"}, {heroFile ? "capa" : "sem capa"}, {photoFiles.length} foto(s)</p>

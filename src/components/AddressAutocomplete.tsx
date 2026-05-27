@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { isMapsApiAvailable, loadGoogleMapsApi } from "@/lib/google-maps";
 import { COUNTRIES } from "@/services/businesses";
+import { getMapsApiKey, isMapsApiAvailable } from "@/lib/google-maps";
 
 export interface AddressResult {
   formattedAddress: string;
@@ -23,210 +23,165 @@ interface AddressAutocompleteProps {
   onPlaceSelected: (place: AddressResult) => void;
   placeholder?: string;
   disabled?: boolean;
+  mode?: "address" | "city";
 }
 
-/** Mapa de nomes de estados brasileiros (longos) para siglas */
+interface PlacesPrediction {
+  place: string;
+  text: string;
+  secondaryText?: string;
+}
+
+type AddressComponentLike = {
+  long_name?: string;
+  short_name?: string;
+  longText?: string;
+  shortText?: string;
+  types?: string[];
+};
+
 const BR_STATE_NAMES: Record<string, string> = {
-  "acre": "ac",
-  "alagoas": "al",
-  "amapá": "ap",
-  "amazonas": "am",
-  "bahia": "ba",
-  "ceará": "ce",
+  acre: "ac",
+  alagoas: "al",
+  amapa: "ap",
+  amazonas: "am",
+  bahia: "ba",
+  ceara: "ce",
   "distrito federal": "df",
-  "espírito santo": "es",
-  "goiás": "go",
-  "maranhão": "ma",
+  "espirito santo": "es",
+  goias: "go",
+  maranhao: "ma",
   "mato grosso": "mt",
   "mato grosso do sul": "ms",
   "minas gerais": "mg",
-  "pará": "pa",
-  "paraíba": "pb",
-  "paraná": "pr",
-  "pernambuco": "pe",
-  "piauí": "pi",
+  para: "pa",
+  paraiba: "pb",
+  parana: "pr",
+  pernambuco: "pe",
+  piaui: "pi",
   "rio de janeiro": "rj",
   "rio grande do norte": "rn",
   "rio grande do sul": "rs",
-  "rondônia": "ro",
-  "roraima": "rr",
+  rondonia: "ro",
+  roraima: "rr",
   "santa catarina": "sc",
-  "são paulo": "sp",
-  "sergipe": "se",
-  "tocantins": "to",
+  "sao paulo": "sp",
+  sergipe: "se",
+  tocantins: "to",
 };
 
-/** Tenta extrair sigla de estado (província) de um componente do Google Places.
- * Recebe um array de address_components e retorna { stateCode, state }
- */
-function extractState(
-  components: google.maps.GeocoderAddressComponent[],
-  countryCode: string,
-): { stateCode: string; state: string } {
-  const knownState = findKnownState(components, countryCode);
-  if (knownState) return knownState;
-  const hasKnownStateList = !!COUNTRIES[countryCode.toLowerCase()]?.states;
-
-  // Prioridade 1: administrative_area_level_1 (Província/Estado)
-  const level1 = components.find(c => c.types.includes("administrative_area_level_1"));
-  if (level1) {
-    const name = level1.short_name || level1.long_name;
-    const long = level1.long_name?.toLowerCase() || "";
-    
-    if (name?.length === 2) {
-      return { stateCode: name.toLowerCase(), state: level1.long_name || name };
-    }
-    if (BR_STATE_NAMES[long]) {
-      return { stateCode: BR_STATE_NAMES[long], state: level1.long_name || name! };
-    }
-    return {
-      stateCode: (name || long).slice(0, 3).toLowerCase(),
-      state: level1.long_name || name || "",
-    };
-  }
-
-  if (hasKnownStateList) {
-    return { stateCode: "", state: "" };
-  }
-
-  // Fallback para level 2 se não encontrar level 1
-  const level2 = components.find(c => c.types.includes("administrative_area_level_2"));
-  if (level2) {
-    const name = level2.short_name || level2.long_name;
-    return {
-      stateCode: (name || "").slice(0, 3).toLowerCase(),
-      state: level2.long_name || name || "",
-    };
-  }
-
-  return { stateCode: "", state: "" };
+function normalizeAddressPart(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, "")
+    .trim();
 }
 
-/** Extrai país do address_components */
-function extractCountry(
-  components: google.maps.GeocoderAddressComponent[],
-): { countryCode: string; country: string } {
-  for (const comp of components) {
-    if (comp.types.includes("country")) {
-      return {
-        countryCode: (comp.short_name || "").toLowerCase(),
-        country: comp.long_name || "",
-      };
-    }
-  }
-  return { countryCode: "", country: "" };
+function compLong(component: AddressComponentLike): string {
+  return component.long_name || component.longText || "";
+}
+
+function compShort(component: AddressComponentLike): string {
+  return component.short_name || component.shortText || "";
 }
 
 function findKnownState(
-  components: google.maps.GeocoderAddressComponent[],
-  countryCode: string,
+  components: AddressComponentLike[],
+  countryCode: string
 ): { stateCode: string; state: string } | null {
-  const states = COUNTRIES[countryCode.toLowerCase()]?.states;
+  const states = COUNTRIES[(countryCode || "").toLowerCase()]?.states;
   if (!states) return null;
 
-  const stateEntries = Object.entries(states).map(([code, name]) => ({
+  const entries = Object.entries(states).map(([code, name]) => ({
     code,
     name,
     normalizedCode: normalizeAddressPart(code),
     normalizedName: normalizeAddressPart(name),
   }));
 
-  const level1 = components.find((component) => component.types.includes("administrative_area_level_1"));
-  const candidates = level1 ? [level1, ...components.filter((component) => component !== level1)] : components;
-
-  for (const component of candidates) {
-    const normalizedLong = normalizeAddressPart(component.long_name || "");
-    const normalizedShort = normalizeAddressPart(component.short_name || "");
-    const match = stateEntries.find((entry) =>
-      entry.normalizedCode === normalizedShort ||
-      entry.normalizedCode === normalizedLong ||
-      entry.normalizedName === normalizedLong ||
-      entry.normalizedName === normalizedShort
+  for (const component of components) {
+    const normalizedLong = normalizeAddressPart(compLong(component));
+    const normalizedShort = normalizeAddressPart(compShort(component));
+    const match = entries.find(
+      (entry) =>
+        entry.normalizedCode === normalizedLong ||
+        entry.normalizedCode === normalizedShort ||
+        entry.normalizedName === normalizedLong ||
+        entry.normalizedName === normalizedShort
     );
-
-    if (match) {
-      return { stateCode: match.code, state: match.name };
-    }
+    if (match) return { stateCode: match.code, state: match.name };
   }
-
   return null;
 }
 
-function normalizeAddressPart(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
+function extractCountry(components: AddressComponentLike[]): { countryCode: string; country: string } {
+  const country = components.find((comp) => (comp.types || []).includes("country"));
+  if (!country) return { countryCode: "", country: "" };
+  return {
+    countryCode: compShort(country).toLowerCase(),
+    country: compLong(country),
+  };
 }
 
-/** Extrai cidade */
-function extractCity(
-  components: google.maps.GeocoderAddressComponent[],
-): string {
-  // Prioridade 1: locality (Geralmente a cidade real)
-  const locality = components.find(c => c.types.includes("locality"));
-  if (locality) return locality.long_name || "";
+function extractState(
+  components: AddressComponentLike[],
+  countryCode: string
+): { stateCode: string; state: string } {
+  const known = findKnownState(components, countryCode);
+  if (known) return known;
 
-  // Prioridade 2: administrative_area_level_2 (Muitas vezes a cidade em certos países)
-  const admin2 = components.find(c => c.types.includes("administrative_area_level_2"));
-  if (admin2) return admin2.long_name || "";
+  const level1 = components.find((comp) => (comp.types || []).includes("administrative_area_level_1"));
+  if (!level1) return { stateCode: "", state: "" };
 
-  // Prioridade 3: sublocality / neighborhood (Bairro)
-  const sublocality = components.find(c => 
-    c.types.includes("sublocality") || 
-    c.types.includes("sublocality_level_1") || 
-    c.types.includes("neighborhood")
-  );
-  if (sublocality) return sublocality.long_name || "";
-
-  // Prioridade 4: administrative_area_level_1 (Caso seja uma cidade-estado como Tokyo ou Singapore)
-  const admin1 = components.find(c => c.types.includes("administrative_area_level_1"));
-  if (admin1) return admin1.long_name || "";
-
-  // Prioridade 5: postal_town
-  const postalTown = components.find(c => c.types.includes("postal_town"));
-  if (postalTown) return postalTown.long_name || "";
-
-  return "";
-}
-
-/** Extrai CEP / postal code */
-function extractPostalCode(
-  components: google.maps.GeocoderAddressComponent[],
-): string {
-  for (const comp of components) {
-    if (comp.types.includes("postal_code")) {
-      return comp.long_name || "";
-    }
+  const long = normalizeAddressPart(compLong(level1));
+  const short = compShort(level1);
+  if (short && short.length <= 3) {
+    return { stateCode: short.toLowerCase(), state: compLong(level1) || short };
   }
-  return "";
+  if (BR_STATE_NAMES[long]) {
+    return { stateCode: BR_STATE_NAMES[long], state: compLong(level1) };
+  }
+  return {
+    stateCode: (short || long).slice(0, 3).toLowerCase(),
+    state: compLong(level1) || short || "",
+  };
 }
 
-/** Extrai nome da rua + número */
-function extractStreet(
-  components: google.maps.GeocoderAddressComponent[],
-): string {
-  const route = components.find((c) => c.types.includes("route"));
-  const streetNumber = components.find((c) => c.types.includes("street_number"));
-  const parts: string[] = [];
-  if (route) parts.push(route.long_name || "");
-  if (streetNumber) parts.push(streetNumber.long_name || "");
-  return parts.join(", ") || "";
+function extractCity(components: AddressComponentLike[]): string {
+  const byType = (type: string) => components.find((comp) => (comp.types || []).includes(type));
+  return (
+    compLong(byType("locality") || {}) ||
+    compLong(byType("postal_town") || {}) ||
+    compLong(byType("administrative_area_level_2") || {}) ||
+    compLong(byType("sublocality") || {}) ||
+    compLong(byType("sublocality_level_1") || {}) ||
+    ""
+  );
 }
 
-/** Converte resultado do Google Place em AddressResult */
-function placeToAddressResult(
-  place: google.maps.places.PlaceResult,
-): AddressResult {
-  const components = place.address_components || [];
+function extractPostalCode(components: AddressComponentLike[]): string {
+  const postal = components.find((comp) => (comp.types || []).includes("postal_code"));
+  return postal ? compLong(postal) : "";
+}
+
+function extractStreet(components: AddressComponentLike[]): string {
+  const route = components.find((comp) => (comp.types || []).includes("route"));
+  const number = components.find((comp) => (comp.types || []).includes("street_number"));
+  const parts = [route ? compLong(route) : "", number ? compLong(number) : ""].filter(Boolean);
+  return parts.join(", ");
+}
+
+function mapPlaceDetailsToAddress(details: any): AddressResult {
+  const components = (details?.addressComponents || []) as AddressComponentLike[];
   const { countryCode, country } = extractCountry(components);
   const { stateCode, state } = extractState(components, countryCode);
 
   return {
-    formattedAddress: place.formatted_address || "",
-    lat: place.geometry?.location?.lat() || 0,
-    lng: place.geometry?.location?.lng() || 0,
+    formattedAddress: String(details?.formattedAddress || ""),
+    lat: Number(details?.location?.latitude || 0),
+    lng: Number(details?.location?.longitude || 0),
     street: extractStreet(components),
     city: extractCity(components),
     state,
@@ -243,176 +198,196 @@ export default function AddressAutocomplete({
   onPlaceSelected,
   placeholder = "Digite o endereço...",
   disabled = false,
+  mode = "address",
 }: AddressAutocompleteProps) {
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlacesPrediction[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const key = getMapsApiKey();
   const apiAvailable = isMapsApiAvailable();
-  const [ready, setReady] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const hidePacContainers = () => {
-    const pacContainers = document.querySelectorAll(".pac-container");
-    pacContainers.forEach((container) => {
-      const el = container as HTMLElement;
-      el.style.display = "none";
-      el.style.visibility = "hidden";
-      el.style.pointerEvents = "none";
-    });
-  };
-
-  const showPacContainers = () => {
-    const pacContainers = document.querySelectorAll(".pac-container");
-    pacContainers.forEach((container) => {
-      const el = container as HTMLElement;
-      el.style.display = "";
-      el.style.visibility = "";
-      el.style.pointerEvents = "";
-    });
-  };
+  const canAutocomplete = useMemo(() => apiAvailable && !!key && !disabled, [apiAvailable, key, disabled]);
 
   useEffect(() => {
-    if (!apiAvailable) return;
-
-    loadGoogleMapsApi()
-      .then(() => setReady(true))
-      .catch(() => setReady(false));
-  }, [apiAvailable]);
-
-  useEffect(() => {
-    if (!ready || !inputRef.current) return;
-    
-    // Limpar se já existir (para evitar duplicidade em re-renders ou trocas de modal)
-    if (autocompleteRef.current) {
-      google.maps.event.clearInstanceListeners(autocompleteRef.current);
-    }
-
-    autocompleteRef.current =
-      new google.maps.places.Autocomplete(inputRef.current, {
-        types: ["address"],
-        componentRestrictions: undefined,
-        fields: [
-          "address_components",
-          "formatted_address",
-          "geometry",
-          "name",
-        ],
-      });
-
-    autocompleteRef.current.addListener("place_changed", () => {
-      const place = autocompleteRef.current?.getPlace();
-      if (!place || !place.geometry) return;
-
-      const result = placeToAddressResult(place);
-      
-      // Atualizar o valor do input fisicamente e disparar evento para o React
-      if (inputRef.current) {
-        inputRef.current.value = result.formattedAddress;
-        inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      
-      onChange(result.formattedAddress);
-      onPlaceSelected(result);
-
-      // Esconder dropdown do Google imediatamente após seleção
-      window.requestAnimationFrame(() => {
-        inputRef.current?.blur();
-        hidePacContainers();
-      });
-    });
-
-    return () => {
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
-      // Limpeza agressiva ao desmontar (mudar de página)
-      const pacContainers = document.querySelectorAll(".pac-container");
-      pacContainers.forEach((container) => {
-        container.remove();
-      });
-    };
-  }, [ready]);
-
-  useEffect(() => {
-    const handleOutsidePointer = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      const inputEl = inputRef.current;
-      if (!inputEl) return;
-
-      const clickedInput = inputEl.contains(target);
-      const clickedPac = (target as HTMLElement).closest?.(".pac-container");
-      if (!clickedInput && !clickedPac) {
-        hidePacContainers();
+    const onClickOutside = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
       }
     };
-
-    document.addEventListener("mousedown", handleOutsidePointer);
-    document.addEventListener("touchstart", handleOutsidePointer, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", handleOutsidePointer);
-      document.removeEventListener("touchstart", handleOutsidePointer);
-    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // Sincronizar valor externo com o input interno (importante para modais)
   useEffect(() => {
-    if (inputRef.current && value !== undefined && inputRef.current.value !== value) {
-      inputRef.current.value = value;
+    if (!canAutocomplete) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
     }
-  }, [value]);
 
-  if (!apiAvailable) {
-    return (
-      <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-            onFocus={showPacContainers}
-            placeholder={placeholder}
-          disabled
-          className="pl-10"
-        />
+    const query = (value || "").trim();
+    if (query.length < 3) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setLoading(true);
+      try {
+        const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "X-Goog-Api-Key": key,
+            "X-Goog-FieldMask":
+              "suggestions.placePrediction.place,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text",
+          },
+          body: JSON.stringify({
+            input: query,
+            languageCode: "pt-BR",
+            includeQueryPredictions: false,
+            ...(mode === "city" ? { includedPrimaryTypes: ["(cities)"] } : {}),
+          }),
+        });
+
+        if (!response.ok) throw new Error("autocomplete_failed");
+        const data = await response.json();
+        const list: PlacesPrediction[] = (data?.suggestions || [])
+          .map((item: any) => item?.placePrediction)
+          .filter(Boolean)
+          .map((prediction: any) => ({
+            place: String(prediction?.place || ""),
+            text:
+              String(prediction?.text?.text || "").trim() ||
+              String(prediction?.structuredFormat?.mainText?.text || "").trim(),
+            secondaryText: String(prediction?.structuredFormat?.secondaryText?.text || "").trim(),
+          }))
+          .filter((item: PlacesPrediction) => !!item.place && !!item.text)
+          .slice(0, 6);
+
+        setSuggestions(list);
+        setOpen(hasInteracted && list.length > 0);
+      } catch {
+        setSuggestions([]);
+        setOpen(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [value, canAutocomplete, key, mode, hasInteracted]);
+
+  const handleSelectPrediction = async (prediction: PlacesPrediction) => {
+    const label = [prediction.text, prediction.secondaryText].filter(Boolean).join(", ");
+    setHasInteracted(false);
+    setSuggestions([]);
+    onChange(label);
+    setOpen(false);
+    setLoading(true);
+
+    try {
+      const placePath = prediction.place;
+      const response = await fetch(`https://places.googleapis.com/v1/${placePath}`, {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "X-Goog-Api-Key": key,
+          "X-Goog-FieldMask": "formattedAddress,location,addressComponents",
+        },
+      });
+
+      if (!response.ok) throw new Error("place_details_failed");
+      const details = await response.json();
+      const parsed = mapPlaceDetailsToAddress(details);
+      const cityLabel = [parsed.city, parsed.stateCode?.toUpperCase(), parsed.countryCode?.toUpperCase()]
+        .filter(Boolean)
+        .join(", ");
+      const withFallbackAddress: AddressResult = {
+        ...parsed,
+        formattedAddress:
+          mode === "city"
+            ? cityLabel || parsed.city || parsed.formattedAddress || label
+            : parsed.formattedAddress || label,
+      };
+      onChange(withFallbackAddress.formattedAddress);
+      onPlaceSelected(withFallbackAddress);
+      inputRef.current?.blur();
+    } catch {
+      // mantém ao menos o texto selecionado, sem quebrar o formulário.
+      onChange(label);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => {
+          setHasInteracted(true);
+          onChange(e.target.value);
+          if (!open && (e.target.value || "").trim().length >= 3) setOpen(true);
+        }}
+        onFocus={() => {
+          setHasInteracted(true);
+          if (suggestions.length > 0) setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && suggestions.length > 0) {
+            e.preventDefault();
+            void handleSelectPrediction(suggestions[0]);
+          }
+        }}
+        placeholder={placeholder}
+        disabled={disabled || !apiAvailable}
+        className="pl-10"
+      />
+      {loading ? (
+        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+      ) : null}
+
+      {open && suggestions.length > 0 ? (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border shadow-xl rounded-xl overflow-hidden z-[10000]">
+          <ul className="py-1">
+            {suggestions.map((item) => (
+              <li key={item.place}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => void handleSelectPrediction(item)}
+                  className="w-full text-left px-3 py-2 hover:bg-secondary transition-colors"
+                >
+                  <p className="text-sm text-foreground">{item.text}</p>
+                  {item.secondaryText ? (
+                    <p className="text-xs text-muted-foreground truncate">{item.secondaryText}</p>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!apiAvailable ? (
         <p className="text-xs text-muted-foreground mt-1">
           Configure a chave Google Maps para ativar o autocomplete de endereço.
         </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      {!ready ? (
-        <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={showPacContainers}
-            placeholder={placeholder}
-            disabled
-            className="pl-10"
-          />
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
-          <Input
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={showPacContainers}
-            placeholder={placeholder}
-            disabled={disabled}
-            className="pl-10 google-places-input"
-          />
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
-
-
-

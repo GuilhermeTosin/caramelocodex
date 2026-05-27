@@ -46,6 +46,13 @@ function extractCityFromPlace(place: google.maps.places.PlaceResult): string {
   ).trim();
 }
 
+function normalizeForMatch(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function SearchInputWithSuggestions({
   value,
   onChange,
@@ -61,22 +68,28 @@ export default function SearchInputWithSuggestions({
   onUseCurrentLocation,
   isLoading = false,
 }: SearchInputWithSuggestionsProps) {
+  const legacyPlacesAutocompleteEnabled = false;
   const suggestionsDisabled = disableLocalSuggestions;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const locateActionLockRef = useRef(false);
-  const canUseGooglePlaces = !suggestionsDisabled && useGooglePlaces && icon === "location" && isMapsApiAvailable();
+  const canUseGooglePlaces =
+    legacyPlacesAutocompleteEnabled &&
+    !suggestionsDisabled &&
+    useGooglePlaces &&
+    icon === "location" &&
+    isMapsApiAvailable();
 
   const filteredSuggestions = useMemo(() => {
     if (suggestionsDisabled) return [];
     if (canUseGooglePlaces) return [];
     if (value.length < 2) return [];
-    const query = value.toLowerCase();
+    const query = normalizeForMatch(value);
     return suggestions
       .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-      .filter((s) => s.toLowerCase().includes(query))
+      .filter((s) => normalizeForMatch(s).includes(query))
       .slice(0, 6);
   }, [suggestions, value, canUseGooglePlaces, suggestionsDisabled]);
 
@@ -216,6 +229,12 @@ export default function SearchInputWithSuggestions({
         value={value}
         autoComplete="off"
         spellCheck={false}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !canUseGooglePlaces && filteredSuggestions.length > 0) {
+            e.preventDefault();
+            handleSelect(filteredSuggestions[0]);
+          }
+        }}
         onChange={(e) => {
           onChange(e.target.value);
           if (!canUseGooglePlaces) {

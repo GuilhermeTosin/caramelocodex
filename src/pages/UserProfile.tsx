@@ -1147,7 +1147,7 @@ export default function UserProfile() {
     setExistingPhotos(biz.photos || []);
   };
 
-  const normalizeShortSlug = (value: string) =>
+  const normalizeShortSlugTyping = (value: string) =>
     (value || "")
       .toLowerCase()
       .normalize("NFD")
@@ -1155,12 +1155,14 @@ export default function UserProfile() {
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "")
       .replace(/-+/g, "-")
-      .replace(/^-+/, "")
-      .replace(/-+$/, "");
+      .replace(/^-+/, "");
+
+  const normalizeShortSlugFinal = (value: string) =>
+    normalizeShortSlugTyping(value).replace(/-+$/, "");
 
   const handleEditInputChange = (field: string, value: string) => {
     if (field === "shortSlug") {
-      const normalized = normalizeShortSlug(value);
+      const normalized = normalizeShortSlugTyping(value);
       setEditFormData((prev) => ({ ...prev, shortSlug: normalized }));
       return;
     }
@@ -1170,7 +1172,7 @@ export default function UserProfile() {
   useEffect(() => {
     if (!creatingBusiness && !editingBusiness) return;
     const raw = (editFormData.shortSlug || "").trim();
-    const normalized = normalizeShortSlug(raw);
+    const normalized = normalizeShortSlugFinal(raw);
 
     if (!normalized) {
       setShortSlugStatus("idle");
@@ -3984,6 +3986,7 @@ export default function UserProfile() {
                     id="edit-short-slug"
                     value={editFormData.shortSlug}
                     onChange={(e) => handleEditInputChange("shortSlug", e.target.value)}
+                    onBlur={(e) => handleEditInputChange("shortSlug", normalizeShortSlugFinal(e.target.value))}
                     placeholder="pizzaria-do-ze"
                     className="w-full h-10 px-3 bg-transparent text-sm outline-none"
                   />
@@ -5215,5 +5218,3 @@ function formatIsoToBr(value: string): string {
   if (!m) return v;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
-
-

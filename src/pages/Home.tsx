@@ -350,7 +350,7 @@ export default function Home() {
                   width={112}
                   height={112}
                   decoding="async"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-110"
                 />
               </div>
@@ -571,7 +571,7 @@ export default function Home() {
                         {biz.averageRating.toFixed(1)}
                       </Badge>
                     )}
-                    {userCoords && (
+                    {userCoords && biz.attendanceType !== "online" && (
                       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
                         <MapPin className="w-2.5 h-2.5" />
                         {calculateDistance(userCoords.lat, userCoords.lng, biz.address.lat, biz.address.lng).toFixed(1)} km
@@ -594,9 +594,7 @@ export default function Home() {
                           <span className="truncate">{biz.name}</span>
                         </h3>
                         <p className="text-sm text-muted-foreground truncate">
-                          {biz.attendanceType === "online"
-                            ? "Atendimento online"
-                            : `${biz.address.city}, ${biz.address.country}`}
+                          {`${biz.address.city}, ${biz.address.country}`}
                         </p>
                       </div>
                     </div>

@@ -1011,17 +1011,25 @@ export function slugify(text: string): string {
 }
 
 export function buildBusinessUrl(biz: BusinessFrontend): string {
-  const isOnlineOnly = biz.attendanceType === "online";
-  if (isOnlineOnly) {
-    return biz.address.countryCode ? `/${biz.address.countryCode}/${biz.slug}` : `/go/${biz.slug}`;
+  const countryCode = (biz.address.countryCode || "").toLowerCase();
+  const stateSlug = (biz.address.stateCode || "").toLowerCase();
+  const citySlug = slugify(biz.address.city || "");
+
+  // Regra única para todos os negócios:
+  // prioriza URL completa /pais/estado/cidade/slug, com fallback para dados legados incompletos.
+  if (countryCode && stateSlug && citySlug) {
+    return `/${countryCode}/${stateSlug}/${citySlug}/${biz.slug}`;
   }
-  const citySlug = slugify(biz.address.city);
-  const stateSlug = biz.address.stateCode.toLowerCase();
-  return `/${biz.address.countryCode}/${stateSlug}/${citySlug}/${biz.slug}`;
+  if (countryCode) {
+    return `/${countryCode}/${biz.slug}`;
+  }
+  return `/go/${biz.slug}`;
 }
 
-export function getCountryName(code: string): string {
-  return COUNTRIES[code.toLowerCase()]?.name || code;
+export function getCountryName(code?: string | null): string {
+  const normalized = (code || "").toLowerCase();
+  if (!normalized) return "";
+  return COUNTRIES[normalized]?.name || code || "";
 }
 
 export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }[]> {
@@ -1034,29 +1042,34 @@ export async function getAvailableLocations(): Promise<{ countryCode: string, co
 
   const locations: any[] = [];
 
-  data.forEach(item => {
-    let country = locations.find(l => l.countryCode === item.country_code);
+  data.forEach((item) => {
+    const countryCode = String(item.country_code || "").toLowerCase().trim();
+    const stateCode = String(item.state_code || "").toLowerCase().trim();
+    const city = String(item.city || "").trim();
+    if (!countryCode || !stateCode || !city) return;
+
+    let country = locations.find((l) => l.countryCode === countryCode);
     if (!country) {
       country = { 
-        countryCode: item.country_code, 
-        countryName: getCountryName(item.country_code), 
+        countryCode, 
+        countryName: getCountryName(countryCode), 
         states: [] 
       };
       locations.push(country);
     }
 
-    let state = country.states.find((s: any) => s.code === item.state_code);
+    let state = country.states.find((s: any) => s.code === stateCode);
     if (!state) {
       state = { 
-        code: item.state_code, 
-        name: getStateName(item.country_code, item.state_code), 
+        code: stateCode, 
+        name: getStateName(countryCode, stateCode), 
         cities: [] 
       };
       country.states.push(state);
     }
 
-    if (!state.cities.includes(item.city)) {
-      state.cities.push(item.city);
+    if (!state.cities.includes(city)) {
+      state.cities.push(city);
     }
   });
 

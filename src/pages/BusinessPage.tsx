@@ -585,7 +585,7 @@ export default function BusinessPage() {
               <div className="flex flex-wrap items-center gap-4 text-sm sm:text-base text-white/90">
                 <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full border border-white/10">
                   <MapPin className="w-4 h-4 text-primary" />
-                  {isOnlineOnly ? "Atendimento online" : business.address.city}
+                  {`${business.address.city}${business.address.country ? `, ${business.address.country}` : ""}`}
                 </div>
                 {business.averageRating > 0 && (
                   <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1 rounded-full">
@@ -1100,17 +1100,17 @@ export default function BusinessPage() {
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <div className="text-sm">
-                      {isOnlineOnly ? (
-                        <p className="text-muted-foreground">Atendimento 100% online</p>
-                      ) : (
-                        <>
-                          <p>{business.address.street}</p>
-                          <p className="text-muted-foreground">
-                            {business.address.city}, {getStateName(business.address.countryCode, business.address.stateCode)}
-                          </p>
-                          <p className="text-muted-foreground">{getCountryName(business.address.countryCode)} &mdash; {business.address.postalCode}</p>
-                        </>
-                      )}
+                      <>
+                        {business.address.street ? <p>{business.address.street}</p> : null}
+                        <p className="text-muted-foreground">
+                          {business.address.city}
+                          {business.address.stateCode ? `, ${getStateName(business.address.countryCode, business.address.stateCode)}` : ""}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {getCountryName(business.address.countryCode)}
+                          {business.address.postalCode ? ` — ${business.address.postalCode}` : ""}
+                        </p>
+                      </>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
