@@ -799,7 +799,14 @@ export default function UserProfile() {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      const payload = await response.json().catch(() => ({}));
+      const rawText = await response.text();
+      const payload = (() => {
+        try {
+          return JSON.parse(rawText);
+        } catch {
+          return { error: rawText };
+        }
+      })();
       if (!response.ok) {
         toast.error(payload?.error || "Não foi possível atualizar o sitemap.");
         return;

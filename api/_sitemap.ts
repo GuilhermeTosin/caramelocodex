@@ -49,10 +49,10 @@ function buildBusinessUrl(baseUrl: string, row: SitemapBusinessRow): string | nu
 }
 
 async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
   if (!url || !serviceRoleKey) {
-    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios.");
+    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) são obrigatórios.");
   }
 
   const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&not.slug=is.null`;
@@ -139,30 +139,34 @@ export function buildBusinessSitemapXml(baseUrl: string, rows: SitemapBusinessRo
 }
 
 export async function assertIsAdmin(accessToken: string): Promise<boolean> {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   if (!url || !serviceRoleKey || !accessToken) return false;
 
-  const userResponse = await fetch(`${url}/auth/v1/user`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (!userResponse.ok) return false;
-  const userData = (await userResponse.json()) as { id?: string };
-  const userId = userData?.id;
-  if (!userId) return false;
+  try {
+    const userResponse = await fetch(`${url}/auth/v1/user`, {
+      headers: {
+        apikey: anonKey || serviceRoleKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!userResponse.ok) return false;
+    const userData = (await userResponse.json()) as { id?: string };
+    const userId = userData?.id;
+    if (!userId) return false;
 
-  const roleResponse = await fetch(`${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      Accept: "application/json; charset=utf-8",
-    },
-  });
-  if (!roleResponse.ok) return false;
-  const rows = (await roleResponse.json()) as Array<{ role?: string }>;
-  return (rows[0]?.role || "").toLowerCase() === "admin";
+    const roleResponse = await fetch(`${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: "application/json; charset=utf-8",
+      },
+    });
+    if (!roleResponse.ok) return false;
+    const rows = (await roleResponse.json()) as Array<{ role?: string }>;
+    return (rows[0]?.role || "").toLowerCase() === "admin";
+  } catch {
+    return false;
+  }
 }
-
