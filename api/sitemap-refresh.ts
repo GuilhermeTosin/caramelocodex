@@ -34,15 +34,16 @@ function decodeJwtPayload(token: string): JwtPayload | null {
   }
 }
 
-async function isAdmin(accessToken: string): Promise<boolean> {
+async function isAdmin(accessToken: string): Promise<{ ok: boolean; reason?: string; role?: string }> {
   const url = getSupabaseUrl();
   const serviceRoleKey = getServiceRoleKey();
-  if (!url || !serviceRoleKey || !accessToken) return false;
+  if (!url || !serviceRoleKey) return { ok: false, reason: "missing_env" };
+  if (!accessToken) return { ok: false, reason: "missing_token" };
   const jwtPayload = decodeJwtPayload(accessToken);
   const userId = jwtPayload?.sub || "";
   const now = Math.floor(Date.now() / 1000);
-  if (!userId) return false;
-  if (jwtPayload?.exp && jwtPayload.exp < now) return false;
+  if (!userId) return { ok: false, reason: "invalid_token_sub" };
+  if (jwtPayload?.exp && jwtPayload.exp < now) return { ok: false, reason: "expired_token" };
 
   const roleResp = await fetch(
     `${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`,
@@ -54,9 +55,11 @@ async function isAdmin(accessToken: string): Promise<boolean> {
       },
     }
   );
-  if (!roleResp.ok) return false;
+  if (!roleResp.ok) return { ok: false, reason: `profiles_query_failed_${roleResp.status}` };
   const rows = (await roleResp.json()) as Array<{ role?: string }>;
-  return (rows[0]?.role || "").toLowerCase() === "admin";
+  const role = (rows[0]?.role || "").toLowerCase();
+  if (role !== "admin") return { ok: false, reason: "role_not_admin", role };
+  return { ok: true, role };
 }
 
 async function countBusinessesForSitemap(): Promise<number> {
@@ -91,8 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authHeader = String(req.headers.authorization || "");
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     const admin = await isAdmin(token);
-    if (!admin) {
-      return res.status(403).json({ error: "Acesso negado." });
+    if (!admin.ok) {
+      return res.status(403).json({ error: "Acesso negado.", reason: admin.reason, role: admin.role || null });
     }
 
     const businessCount = await countBusinessesForSitemap();
