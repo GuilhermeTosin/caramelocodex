@@ -2206,7 +2206,7 @@ export default function UserProfile() {
               ) : (
                 <div id="meus-negocios-lista" className="space-y-4">
                   {paginatedMyBusinesses.map((biz) => (
-                    <Card key={biz.id} className="p-4 border-border">
+                    <Card key={biz.id} className="p-4 border-border min-h-[160px]">
                       <div className="flex items-start gap-4">
                         <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
                           <img
@@ -2248,50 +2248,32 @@ export default function UserProfile() {
                               return <Badge variant="outline" className="text-destructive border-destructive/30">Verificação rejeitada</Badge>;
                             })()}
                           </div>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {biz.address.city}, {biz.address.countryCode.toUpperCase()}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Star className="w-3 h-3 text-amber-500" />
-                              {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
-                            </span>
-                          </div>
                         </div>
                         <Badge variant="secondary" className="flex-shrink-0">
                           {getCategoryLabel(biz.category).split(" (")[0]}
                         </Badge>
                       </div>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1 leading-tight min-w-0">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="truncate">
+                            {biz.address.city}, {biz.address.countryCode.toUpperCase()}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1 leading-tight whitespace-nowrap shrink-0">
+                          <Star className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>
+                            {biz.averageRating.toFixed(1)} ({biz.reviews.length} {biz.reviews.length === 1 ? "avaliação" : "avaliações"})
+                          </span>
+                        </span>
+                      </div>
                       <div className="mt-3 pt-3 border-t border-border/60">
-                        {getCategoryId(biz.category) === "food" &&
-                          (biz.isVeganFriendly || biz.isVegetarianFriendly || biz.isGlutenFreeFriendly) ? (
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {biz.isVeganFriendly ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                                <Leaf className="w-3 h-3" />
-                                Vegano
-                              </span>
-                            ) : null}
-                            {biz.isVegetarianFriendly ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-lime-100 text-lime-800">
-                                <Leaf className="w-3 h-3" />
-                                Vegetariano
-                              </span>
-                            ) : null}
-                            {biz.isGlutenFreeFriendly ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800">
-                                <WheatOff className="w-3 h-3" />
-                                Sem Glúten
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2">
                           <Link to={`/negocio/wizard?editBusinessId=${biz.id}`}>
                             <Button
                               size="sm"
                               variant="outline"
+                              className="w-full sm:w-auto"
                             >
                               <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                               Editar
@@ -2302,6 +2284,7 @@ export default function UserProfile() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleOpenMenuModal(biz)}
+                              className="w-full sm:w-auto"
                             >
                               <BookOpen className="w-3.5 h-3.5 mr-1.5" />
                               Cardápio
@@ -2311,6 +2294,7 @@ export default function UserProfile() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleOpenServicesModal(biz)}
+                              className="w-full sm:w-auto"
                             >
                               <BookOpen className="w-3.5 h-3.5 mr-1.5" />
                               Serviços
@@ -2320,6 +2304,7 @@ export default function UserProfile() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenEventsModal(biz)}
+                            className="w-full sm:w-auto"
                           >
                             <Calendar className="w-3.5 h-3.5 mr-1.5" />
                             Eventos
@@ -2328,6 +2313,7 @@ export default function UserProfile() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenCouponModal(biz)}
+                            className="w-full sm:w-auto"
                           >
                             <TicketPercent className="w-3.5 h-3.5 mr-1.5" />
                             Promoções
@@ -2338,6 +2324,7 @@ export default function UserProfile() {
                               variant="outline"
                               onClick={() => handleOpenVerificationModal(biz)}
                               disabled={getMyVerificationStatusByBusiness(biz.id) === "pending"}
+                              className="w-full sm:w-auto"
                               title={
                                 getMyVerificationStatusByBusiness(biz.id) === "pending"
                                   ? "Já existe uma solicitação pendente"
@@ -2348,7 +2335,7 @@ export default function UserProfile() {
                               Solicitar verificação
                             </Button>
                           )}
-                          <div className="ml-auto flex items-center gap-2">
+                          <div className="col-span-2 sm:col-auto sm:ml-auto flex items-center justify-end gap-2 pt-1 sm:pt-0">
                             <Button
                               size="sm"
                               variant="outline"
