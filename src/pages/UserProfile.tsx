@@ -60,7 +60,7 @@ import {
 import SiteFooter from "@/components/SiteFooter";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateProfile } from "@/services/profiles";
+import { getProfileById, updateProfile } from "@/services/profiles";
 import { uploadImage, generateImagePath } from "@/services/storage";
 import {
   getConversationsForUser,
@@ -69,6 +69,7 @@ import {
   markConversationAsRead,
   subscribeToMessages,
   deleteConversation,
+  getConversationPartner,
 } from "@/services/messages";
 import {
   createBusiness,
@@ -167,6 +168,7 @@ export default function UserProfile() {
 
   // Messages
   const [conversations, setConversations] = useState<ConversationFrontend[]>([]);
+  const [conversationPartners, setConversationPartners] = useState<Record<string, { name: string; avatar: string }>>({});
   const [selectedConv, setSelectedConv] = useState<ConversationFrontend | null>(null);
   const [messages, setMessages] = useState<MessageFrontend[]>([]);
   const [messageText, setMessageText] = useState("");
@@ -186,6 +188,35 @@ export default function UserProfile() {
       scrollToBottom();
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!session?.userId || conversations.length === 0) return;
+    let cancelled = false;
+
+    const loadPartners = async () => {
+      const entries = await Promise.all(
+        conversations.map(async (conv) => {
+          const partnerId = getConversationPartner(conv, session.userId);
+          if (!partnerId) return [conv.id, { name: conv.businessName || "Contato", avatar: "" }] as const;
+          const profile = await getProfileById(partnerId);
+          return [
+            conv.id,
+            {
+              name: profile?.name || conv.businessName || "Contato",
+              avatar: profile?.avatar || "",
+            },
+          ] as const;
+        })
+      );
+      if (cancelled) return;
+      setConversationPartners(Object.fromEntries(entries));
+    };
+
+    void loadPartners();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversations, session?.userId]);
 
   // Businesses
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
@@ -3816,17 +3847,51 @@ export default function UserProfile() {
                         <button
                           key={conv.id}
                           onClick={() => handleSelectConversation(conv)}
-                          className={`w-full text-left p-3 rounded-lg transition-colors ${selectedConv?.id === conv.id
-                            ? "bg-amber-100"
-                            : "hover:bg-secondary"
-                            }`}
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${
+                            selectedConv?.id === conv.id
+                              ? "bg-amber-100/80 border-amber-300 shadow-sm"
+                              : "bg-card border-border hover:bg-secondary/60"
+                          }`}
                         >
-                          <p className="font-medium text-sm truncate">
-                            {conv.businessName || "Conversa"}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {conv.lastMessage || "Clique para ver mensagens"}
-                          </p>
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary flex-shrink-0 border border-border">
+                              {conversationPartners[conv.id]?.avatar ? (
+                                <img
+                                  src={conversationPartners[conv.id].avatar}
+                                  alt={conversationPartners[conv.id]?.name || "Contato"}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                                  {(conversationPartners[conv.id]?.name || conv.businessName || "C").charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-semibold text-sm truncate">
+                                  {conversationPartners[conv.id]?.name || conv.businessName || "Conversa"}
+                                </p>
+                                {conv.lastMessageAt ? (
+                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                    {new Date(conv.lastMessageAt).toLocaleDateString("pt-BR", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                    })}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {conv.businessName ? (
+                                <p className="text-[11px] text-primary/80 truncate mt-0.5">
+                                  Em: {conv.businessName}
+                                </p>
+                              ) : null}
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {conv.lastMessage || "Clique para ver mensagens"}
+                              </p>
+                            </div>
+                          </div>
                         </button>
                       ))}
                     </div>
