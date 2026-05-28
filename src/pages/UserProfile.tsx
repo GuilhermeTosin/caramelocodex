@@ -808,7 +808,8 @@ export default function UserProfile() {
         }
       })();
       if (!response.ok) {
-        toast.error(payload?.error || "Não foi possível atualizar o sitemap.");
+        const reason = payload?.reason ? ` (${payload.reason})` : "";
+        toast.error((payload?.error || "Não foi possível atualizar o sitemap.") + reason);
         return;
       }
       toast.success(`Sitemap atualizado: ${payload.businessUrls || 0} negócios em ${payload.sitemapChunks || 0} arquivo(s).`);
