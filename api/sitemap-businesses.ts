@@ -3,9 +3,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 type Row = {
   slug: string | null;
   country_code: string | null;
-  state_code: string | null;
+  state_code?: string | null;
+  state?: string | null;
   city: string | null;
-  updated_at: string | null;
 };
 
 const CHUNK_SIZE = 1000;
@@ -45,7 +45,7 @@ function normalizePart(value: string): string {
 function buildBusinessUrl(base: string, row: Row): string | null {
   const slug = normalizePart(String(row.slug || ""));
   const country = normalizePart(String(row.country_code || ""));
-  const state = normalizePart(String(row.state_code || ""));
+  const state = normalizePart(String(row.state_code || row.state || ""));
   const city = normalizePart(String(row.city || ""));
   if (!slug || !country) return null;
   if (state && city) return `${base}/${country}/${state}/${city}/${slug}`;
@@ -56,7 +56,8 @@ async function fetchRows(): Promise<Row[]> {
   const url = getSupabaseUrl();
   const key = getServiceRoleKey();
   if (!url || !key) throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados.");
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
+
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,state,city&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
   const response = await fetch(endpoint, {
     headers: {
       apikey: key,
@@ -64,7 +65,10 @@ async function fetchRows(): Promise<Row[]> {
       Accept: "application/json; charset=utf-8",
     },
   });
-  if (!response.ok) throw new Error(`Falha ao consultar negócios (${response.status}).`);
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Falha ao consultar negócios (${response.status}) ${text}`.trim());
+  }
   const rows = (await response.json()) as Row[];
   return rows.filter((r) => !!r.slug && !!r.country_code);
 }
@@ -75,18 +79,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const page = Math.max(1, Number(req.query.page || "1"));
     const rows = await fetchRows();
     const chunks = Math.max(1, Math.ceil(rows.length / CHUNK_SIZE));
-    if (page > chunks) {
-      return res.status(404).send("Sitemap chunk não encontrado.");
-    }
+    if (page > chunks) return res.status(404).send("Sitemap chunk não encontrado.");
 
     const start = (page - 1) * CHUNK_SIZE;
     const pageRows = rows.slice(start, start + CHUNK_SIZE);
+    const now = new Date().toISOString();
     const body = pageRows
       .map((r) => {
         const loc = buildBusinessUrl(base, r);
         if (!loc) return "";
-        const lastmod = r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString();
-        return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`;
+        return `<url><loc>${loc}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`;
       })
       .filter(Boolean)
       .join("");
