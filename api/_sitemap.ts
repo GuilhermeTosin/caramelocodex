@@ -55,7 +55,7 @@ async function fetchBusinessesForSitemap(): Promise<SitemapBusinessRow[]> {
     throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SECRET_KEY) são obrigatórios.");
   }
 
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&not.slug=is.null`;
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,city,updated_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
   const response = await fetch(endpoint, {
     headers: {
       apikey: serviceRoleKey,

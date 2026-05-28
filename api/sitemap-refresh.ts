@@ -74,7 +74,7 @@ async function countBusinessesForSitemap(): Promise<number> {
     throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados.");
   }
 
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code&or=(moderation_status.eq.approved,moderation_status.is.null)&not.slug=is.null`;
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
   const response = await fetch(endpoint, {
     headers: {
       apikey: serviceRoleKey,
