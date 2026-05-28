@@ -60,6 +60,7 @@ import {
 import SiteFooter from "@/components/SiteFooter";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { getProfileById, updateProfile } from "@/services/profiles";
 import { uploadImage, generateImagePath } from "@/services/storage";
 import {
@@ -781,6 +782,32 @@ export default function UserProfile() {
     }
     setGoogleAnalyticsId(normalized);
     toast.success("Código do Google Analytics salvo.");
+  };
+
+  const handleRefreshSitemap = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token || "";
+      if (!accessToken) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+      const response = await fetch("/api/sitemap-refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(payload?.error || "Não foi possível atualizar o sitemap.");
+        return;
+      }
+      toast.success(`Sitemap atualizado: ${payload.businessUrls || 0} negócios em ${payload.sitemapChunks || 0} arquivo(s).`);
+    } catch {
+      toast.error("Erro ao atualizar sitemap.");
+    }
   };
 
   const handleUnarchiveReport = async (report: BusinessReport) => {
@@ -3722,7 +3749,13 @@ export default function UserProfile() {
                         <Button type="button" onClick={handleSaveGoogleAnalyticsId}>
                           Salvar Analytics
                         </Button>
+                        <Button type="button" variant="outline" onClick={handleRefreshSitemap}>
+                          Atualizar sitemap
+                        </Button>
                       </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        O sitemap público é servido em <code>/sitemap.xml</code> e segmentado automaticamente em arquivos menores de negócios.
+                      </p>
                     </div>
                     <div>
                       <Label>Categoria</Label>
