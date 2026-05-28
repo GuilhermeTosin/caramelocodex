@@ -1,5 +1,79 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { assertIsAdmin, getBusinessSitemapChunksCount, getSitemapRows } from "./_sitemap";
+
+type SitemapBusinessRow = {
+  slug: string | null;
+  country_code: string | null;
+};
+
+function getEnv(name: string): string {
+  return (process.env[name] || "").trim();
+}
+
+function getSupabaseUrl(): string {
+  return getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL");
+}
+
+function getServiceRoleKey(): string {
+  return getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SUPABASE_SECRET_KEY");
+}
+
+function getAnonKey(): string {
+  return getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
+}
+
+async function isAdmin(accessToken: string): Promise<boolean> {
+  const url = getSupabaseUrl();
+  const serviceRoleKey = getServiceRoleKey();
+  const anonKey = getAnonKey();
+  if (!url || !serviceRoleKey || !accessToken) return false;
+
+  const userResp = await fetch(`${url}/auth/v1/user`, {
+    headers: {
+      apikey: anonKey || serviceRoleKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!userResp.ok) return false;
+  const userData = (await userResp.json()) as { id?: string };
+  if (!userData?.id) return false;
+
+  const roleResp = await fetch(
+    `${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userData.id)}&limit=1`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: "application/json; charset=utf-8",
+      },
+    }
+  );
+  if (!roleResp.ok) return false;
+  const rows = (await roleResp.json()) as Array<{ role?: string }>;
+  return (rows[0]?.role || "").toLowerCase() === "admin";
+}
+
+async function countBusinessesForSitemap(): Promise<number> {
+  const url = getSupabaseUrl();
+  const serviceRoleKey = getServiceRoleKey();
+  if (!url || !serviceRoleKey) {
+    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados.");
+  }
+
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code&or=(moderation_status.eq.approved,moderation_status.is.null)&not.slug=is.null`;
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Accept: "application/json; charset=utf-8",
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Falha ao consultar negócios (${response.status}) ${text}`.trim());
+  }
+  const rows = (await response.json()) as SitemapBusinessRow[];
+  return rows.filter((r) => !!r.slug && !!r.country_code).length;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -9,24 +83,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const authHeader = String(req.headers.authorization || "");
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-    const isAdmin = await assertIsAdmin(token);
-    if (!isAdmin) {
+    const admin = await isAdmin(token);
+    if (!admin) {
       return res.status(403).json({ error: "Acesso negado." });
     }
 
-    const rows = await getSitemapRows(true);
-    const chunks = getBusinessSitemapChunksCount(rows);
+    const businessCount = await countBusinessesForSitemap();
+    const chunkSize = 1000;
+    const sitemapChunks = Math.max(1, Math.ceil(businessCount / chunkSize));
+
     return res.status(200).json({
       ok: true,
-      businessUrls: rows.length,
-      sitemapChunks: chunks,
+      businessUrls: businessCount,
+      sitemapChunks,
       refreshedAt: new Date().toISOString(),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro ao atualizar sitemap.";
     return res.status(500).json({
-      error: message,
+      error: error instanceof Error ? error.message : "Erro ao atualizar sitemap.",
       code: "SITEMAP_REFRESH_FAILED",
     });
   }
 }
+
