@@ -3,7 +3,6 @@
     { "source": "/sitemap.xml", "destination": "/api/sitemap-index" },
     { "source": "/sitemaps/static.xml", "destination": "/api/sitemap-static" },
     { "source": "/sitemaps/businesses-:page.xml", "destination": "/api/sitemap-businesses?page=:page" },
-    { "source": "/api/sitemap-refresh", "destination": "/api/sitemap-refresh" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
