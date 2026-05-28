@@ -17,6 +17,7 @@ import ContactPage from "@/pages/ContactPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
+import { getGoogleAnalyticsMeasurementId } from "@/services/siteSettings";
 
 function ScrollToTop() {
   const { pathname, search } = useLocation();
@@ -28,11 +29,49 @@ function ScrollToTop() {
   return null;
 }
 
+function AnalyticsBridge() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    let mounted = true;
+
+    const ensureGa = async () => {
+      const measurementId = await getGoogleAnalyticsMeasurementId();
+      if (!mounted || !measurementId) return;
+
+      const scriptId = "ga4-script";
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement("script");
+        script.id = scriptId;
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+        document.head.appendChild(script);
+      }
+
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      const gtag = (...args: any[]) => (window as any).dataLayer.push(args);
+      (window as any).gtag = (window as any).gtag || gtag;
+      (window as any).gtag("js", new Date());
+      (window as any).gtag("config", measurementId, {
+        page_path: `${pathname}${search}`,
+      });
+    };
+
+    void ensureGa();
+    return () => {
+      mounted = false;
+    };
+  }, [pathname, search]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
+        <AnalyticsBridge />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/buscar" element={<SearchResults />} />
