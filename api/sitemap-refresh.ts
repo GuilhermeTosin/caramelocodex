@@ -5,6 +5,11 @@ type SitemapBusinessRow = {
   country_code: string | null;
 };
 
+type JwtPayload = {
+  sub?: string;
+  exp?: number;
+};
+
 function getEnv(name: string): string {
   return (process.env[name] || "").trim();
 }
@@ -17,28 +22,30 @@ function getServiceRoleKey(): string {
   return getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SUPABASE_SECRET_KEY");
 }
 
-function getAnonKey(): string {
-  return getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
+function decodeJwtPayload(token: string): JwtPayload | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payloadRaw = parts[1];
+    const payloadJson = Buffer.from(payloadRaw, "base64url").toString("utf-8");
+    return JSON.parse(payloadJson) as JwtPayload;
+  } catch {
+    return null;
+  }
 }
 
 async function isAdmin(accessToken: string): Promise<boolean> {
   const url = getSupabaseUrl();
   const serviceRoleKey = getServiceRoleKey();
-  const anonKey = getAnonKey();
   if (!url || !serviceRoleKey || !accessToken) return false;
-
-  const userResp = await fetch(`${url}/auth/v1/user`, {
-    headers: {
-      apikey: anonKey || serviceRoleKey,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (!userResp.ok) return false;
-  const userData = (await userResp.json()) as { id?: string };
-  if (!userData?.id) return false;
+  const jwtPayload = decodeJwtPayload(accessToken);
+  const userId = jwtPayload?.sub || "";
+  const now = Math.floor(Date.now() / 1000);
+  if (!userId) return false;
+  if (jwtPayload?.exp && jwtPayload.exp < now) return false;
 
   const roleResp = await fetch(
-    `${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userData.id)}&limit=1`,
+    `${url}/rest/v1/profiles?select=role&id=eq.${encodeURIComponent(userId)}&limit=1`,
     {
       headers: {
         apikey: serviceRoleKey,
@@ -105,4 +112,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-
