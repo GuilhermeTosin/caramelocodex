@@ -124,10 +124,7 @@
       ],
       "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
     }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
 
