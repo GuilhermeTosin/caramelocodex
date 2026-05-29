@@ -378,6 +378,7 @@ function getBusinessMatchScore(
   let score = 0;
   if (directTextMatch) score += 5;
   if (categoryKeywordMatch) score += 3;
-  if (synonymCategoryMatch) score += 2;
+  // Match por sinônimo de categoria precisa sobreviver ao modo estrito.
+  if (synonymCategoryMatch) score += 4;
   return score;
 }
