@@ -1,10 +1,11 @@
-﻿{
-  "rewrites": [
-    { "source": "/sitemap.xml", "destination": "/api/sitemap-index" },
-    { "source": "/sitemaps/static.xml", "destination": "/api/sitemap-static" },
-    { "source": "/sitemaps/businesses-:page.xml", "destination": "/api/sitemap-businesses?page=:page" },
+{
+  "routes": [
+    { "src": "/sitemap.xml", "dest": "/api/sitemap-index" },
+    { "src": "/sitemaps/static.xml", "dest": "/api/sitemap-static" },
+    { "src": "/sitemaps/businesses-([^/]+)\\.xml", "dest": "/api/sitemap-businesses?page=$1" },
+
     {
-      "source": "/",
+      "src": "/$",
       "has": [
         {
           "type": "header",
@@ -12,10 +13,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=home"
+      "dest": "/api/ssr-static?page=home"
     },
     {
-      "source": "/buscar",
+      "src": "/buscar$",
       "has": [
         {
           "type": "header",
@@ -23,10 +24,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=buscar"
+      "dest": "/api/ssr-static?page=buscar"
     },
     {
-      "source": "/sobre",
+      "src": "/sobre$",
       "has": [
         {
           "type": "header",
@@ -34,10 +35,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=sobre"
+      "dest": "/api/ssr-static?page=sobre"
     },
     {
-      "source": "/contato",
+      "src": "/contato$",
       "has": [
         {
           "type": "header",
@@ -45,10 +46,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=contato"
+      "dest": "/api/ssr-static?page=contato"
     },
     {
-      "source": "/privacidade",
+      "src": "/privacidade$",
       "has": [
         {
           "type": "header",
@@ -56,10 +57,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=privacidade"
+      "dest": "/api/ssr-static?page=privacidade"
     },
     {
-      "source": "/termos",
+      "src": "/termos$",
       "has": [
         {
           "type": "header",
@@ -67,10 +68,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=termos"
+      "dest": "/api/ssr-static?page=termos"
     },
     {
-      "source": "/negocio-verificado",
+      "src": "/negocio-verificado$",
       "has": [
         {
           "type": "header",
@@ -78,10 +79,11 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-static?page=negocio-verificado"
+      "dest": "/api/ssr-static?page=negocio-verificado"
     },
+
     {
-      "source": "/eventos/:eventId",
+      "src": "/eventos/([^/]+)$",
       "has": [
         {
           "type": "header",
@@ -89,10 +91,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-dynamic?kind=event&eventId=:eventId"
+      "dest": "/api/ssr-dynamic?kind=event&eventId=$1"
     },
     {
-      "source": "/go/:businessSlug",
+      "src": "/go/([^/]+)$",
       "has": [
         {
           "type": "header",
@@ -100,10 +102,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-dynamic?kind=go&businessSlug=:businessSlug"
+      "dest": "/api/ssr-dynamic?kind=go&businessSlug=$1"
     },
     {
-      "source": "/:countryCode/:stateCode/:city/:businessName",
+      "src": "/([^/]+)/([^/]+)/([^/]+)/([^/]+)$",
       "has": [
         {
           "type": "header",
@@ -111,10 +113,10 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
+      "dest": "/api/ssr-dynamic?kind=business&countryCode=$1&businessName=$4"
     },
     {
-      "source": "/:countryCode/:businessName",
+      "src": "/([^/]+)/([^/]+)$",
       "has": [
         {
           "type": "header",
@@ -122,9 +124,11 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
+      "dest": "/api/ssr-dynamic?kind=business&countryCode=$1&businessName=$2"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
 
