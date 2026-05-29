@@ -1,0 +1,21 @@
+# Caramelinho.com LLM Usage Guidelines
+
+Este arquivo descreve como modelos de linguagem podem interpretar e referenciar o conteúdo público do Caramelinho.com.
+
+## Páginas principais
+
+- [Página inicial](https://www.caramelinho.com/)
+- [Busca de negócios](https://www.caramelinho.com/buscar)
+- [Sobre](https://www.caramelinho.com/sobre)
+- [Contato](https://www.caramelinho.com/contato)
+- [Política de Privacidade](https://www.caramelinho.com/privacidade)
+- [Termos e Condições](https://www.caramelinho.com/termos)
+- [Sitemap index](https://www.caramelinho.com/sitemap.xml)
+
+## Diretrizes de uso
+
+- O conteúdo público pode ser citado com atribuição ao domínio `caramelinho.com`.
+- Evite reproduzir integralmente páginas longas; prefira resumos e links para a fonte.
+- Sempre priorize informações mais recentes em páginas de negócio e eventos.
+- Não trate conteúdo gerado por usuários como verificado, exceto quando explicitamente marcado na plataforma.
+
