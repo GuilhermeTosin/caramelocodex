@@ -2,6 +2,17 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 type StaticPageKey = "home" | "buscar" | "sobre" | "contato" | "privacidade" | "termos" | "negocio-verificado";
 
+const PRIVATE_OR_UTILITY_SLUGS = new Set([
+  "cadastro",
+  "entrar",
+  "perfil",
+  "negocio",
+  "api",
+  "sitemap.xml",
+  "robots.txt",
+  "llms.txt",
+]);
+
 function htmlEscape(input: string) {
   return input
     .replace(/&/g, "&amp;")
@@ -37,7 +48,7 @@ function getPageData(page: StaticPageKey, base: string) {
       description:
         "Encontre negócios, serviços e produtos brasileiros perto de você com busca por localização, categorias e avaliações da comunidade.",
       canonical: `${base}/`,
-      h1: "Caramelinho.com",
+      h1: "Encontre negócios brasileiros no mundo todo",
     },
     buscar: {
       title: "Buscar negócios brasileiros | Caramelinho.com",
@@ -93,12 +104,14 @@ function renderHtml(input: {
   imageUrl: string;
   type: "website" | "article";
   h1: string;
+  robots?: string;
 }) {
   const title = htmlEscape(input.title);
   const description = htmlEscape(input.description);
   const canonical = htmlEscape(input.canonicalUrl);
   const image = htmlEscape(input.imageUrl);
   const h1 = htmlEscape(input.h1);
+  const robots = htmlEscape(input.robots || "index,follow,max-image-preview:large");
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -107,7 +120,7 @@ function renderHtml(input: {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${title}</title>
     <meta name="description" content="${description}" />
-    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="robots" content="${robots}" />
     <link rel="canonical" href="${canonical}" />
     <meta property="og:type" content="${input.type}" />
     <meta property="og:title" content="${title}" />
@@ -138,7 +151,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const allowed: StaticPageKey[] = ["home", "buscar", "sobre", "contato", "privacidade", "termos", "negocio-verificado"];
 
   const base = baseUrl(req);
-  const data = allowed.includes(page)
+  const isPrivateOrUtility = rawSlug ? PRIVATE_OR_UTILITY_SLUGS.has(rawSlug) : false;
+  const data = isPrivateOrUtility
+    ? {
+        title: "Página não indexável | Caramelinho.com",
+        description: "Esta página da Caramelinho não deve ser exibida nos resultados de busca.",
+        canonical: `${base}/${encodeURIComponent(rawSlug)}`,
+        h1: "Página não indexável",
+        image: `${base}/og-image.jpg`,
+        type: "website" as const,
+        robots: "noindex,nofollow,noarchive",
+      }
+    : allowed.includes(page)
     ? getPageData(page, base)
     : rawSlug
       ? {
@@ -149,6 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           h1: slugToLabel(rawSlug),
           image: `${base}/og-image.jpg`,
           type: "website" as const,
+          robots: "index,follow,max-image-preview:large",
         }
       : getPageData("home", base);
   const html = renderHtml({
@@ -158,6 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     imageUrl: data.image,
     type: data.type,
     h1: data.h1,
+    robots: "robots" in data ? data.robots : undefined,
   });
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");

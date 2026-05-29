@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { setCanonical, upsertMetaTag } from "@/lib/seo";
+import { setCanonical, setRobots, upsertMetaTag } from "@/lib/seo";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessPage from "@/pages/BusinessPage";
@@ -35,9 +35,25 @@ function CanonicalManager() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const canonicalUrl = `${window.location.origin}${pathname}${search}`;
+    const privatePaths = new Set(["/cadastro", "/entrar", "/perfil", "/negocio/wizard"]);
+    const isSearchPage = pathname === "/buscar";
+    const canonicalPath = isSearchPage ? pathname : `${pathname}${search}`;
+    const canonicalUrl = `${window.location.origin}${canonicalPath}`;
+
     setCanonical(canonicalUrl);
     upsertMetaTag("property", "og:url", canonicalUrl);
+
+    if (privatePaths.has(pathname)) {
+      setRobots("noindex,nofollow,noarchive");
+      return;
+    }
+
+    if (isSearchPage && search) {
+      setRobots("noindex,follow,max-image-preview:large");
+      return;
+    }
+
+    setRobots("index,follow,max-image-preview:large");
   }, [pathname, search]);
 
   return null;
