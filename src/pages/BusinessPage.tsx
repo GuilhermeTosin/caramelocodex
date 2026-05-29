@@ -50,6 +50,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 import { calculateDistance } from "@/lib/utils/geo";
+import NotFound from "@/pages/NotFound";
 
 const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
   domingo: "Sunday",
@@ -652,6 +653,10 @@ export default function BusinessPage() {
   }
 
   if (!business) {
+    return <NotFound />;
+  }
+
+  if (false && !business) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
