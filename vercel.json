@@ -19,7 +19,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-static?page=home"
@@ -30,7 +30,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-static?slug=$1"
@@ -42,7 +42,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-dynamic?kind=event&eventId=$1"
@@ -53,7 +53,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-dynamic?kind=go&businessSlug=$1"
@@ -64,7 +64,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-dynamic?kind=business&countryCode=$1&businessName=$4"
@@ -75,7 +75,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
+          "value": ".*([Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
       "dest": "/api/ssr-dynamic?kind=business&countryCode=$1&businessName=$2"
