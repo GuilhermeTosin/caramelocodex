@@ -204,6 +204,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const base = baseUrl(req);
     const kind = String(req.query.kind || "");
 
+    const cdnCacheHeaderByKind =
+      kind === "event"
+        ? "s-maxage=300, stale-while-revalidate=3600"
+        : "s-maxage=3600, stale-while-revalidate=86400";
+    const browserCacheHeader = "public, max-age=0, must-revalidate";
+
     if (kind === "go") {
       const businessSlug = String(req.query.businessSlug || "");
       const business = await getBusinessByShortSlug(businessSlug);
@@ -230,6 +236,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         jsonLd,
       });
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", browserCacheHeader);
+      res.setHeader("CDN-Cache-Control", cdnCacheHeaderByKind);
+      res.setHeader("Vercel-CDN-Cache-Control", cdnCacheHeaderByKind);
       return res.status(200).send(html);
     }
 
@@ -270,6 +279,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", browserCacheHeader);
+      res.setHeader("CDN-Cache-Control", cdnCacheHeaderByKind);
+      res.setHeader("Vercel-CDN-Cache-Control", cdnCacheHeaderByKind);
       return res.status(200).send(html);
     }
 
@@ -302,6 +314,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         jsonLd,
       });
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", browserCacheHeader);
+      res.setHeader("CDN-Cache-Control", cdnCacheHeaderByKind);
+      res.setHeader("Vercel-CDN-Cache-Control", cdnCacheHeaderByKind);
       return res.status(200).send(html);
     }
 
@@ -310,4 +325,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Erro SSR dinâmico." });
   }
 }
-
