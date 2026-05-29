@@ -8,17 +8,33 @@ type BusinessRow = {
   category_id: string | null;
   hero_image: string | null;
   logo_url: string | null;
+  street: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
   country_code: string | null;
   state_code: string | null;
+  postal_code: string | null;
+  lat: number | null;
+  lng: number | null;
   phone: string | null;
   email: string | null;
   website: string | null;
   instagram: string | null;
   facebook: string | null;
+  average_rating: number | null;
+  opening_hours: string[] | null;
 };
+
+type ReviewRow = {
+  user_name: string | null;
+  rating: number | null;
+  comment: string | null;
+  created_at: string | null;
+};
+
+const BUSINESS_SELECT =
+  "id,name,slug,description,category_id,hero_image,logo_url,street,city,state,country,country_code,state_code,postal_code,lat,lng,phone,email,website,instagram,facebook,average_rating,opening_hours";
 
 type EventRow = {
   id: string;
@@ -86,6 +102,59 @@ function defaultOgImage(base: string) {
   return `${base}/og-image.jpg`;
 }
 
+function buildMetaDescription(value: string | null | undefined, fallback: string, maxLength = 158) {
+  const normalized = String(value || fallback)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized.length <= maxLength) return normalized;
+  const shortened = normalized.slice(0, maxLength + 1);
+  const lastSpace = shortened.lastIndexOf(" ");
+  return `${shortened.slice(0, lastSpace > 90 ? lastSpace : maxLength).trim()}...`;
+}
+
+const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
+  domingo: "Sunday",
+  segunda: "Monday",
+  "segunda-feira": "Monday",
+  terca: "Tuesday",
+  "terca-feira": "Tuesday",
+  quarta: "Wednesday",
+  "quarta-feira": "Wednesday",
+  quinta: "Thursday",
+  "quinta-feira": "Thursday",
+  sexta: "Friday",
+  sabado: "Saturday",
+  "sabado-feira": "Saturday",
+};
+
+function normalizeWeekday(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function parseOpeningHoursToSchema(hours: string[] | null | undefined) {
+  return (hours || [])
+    .map((line) => {
+      const text = String(line || "").trim();
+      if (!text || /fechado/i.test(text)) return null;
+      const [dayRaw, timeRaw] = text.split(":");
+      if (!dayRaw || !timeRaw) return null;
+      const day = WEEKDAY_SCHEMA_MAP[normalizeWeekday(dayRaw)];
+      const rangeMatch = timeRaw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (!day || !rangeMatch) return null;
+      return {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: `https://schema.org/${day}`,
+        opens: rangeMatch[1].padStart(5, "0"),
+        closes: rangeMatch[2].padStart(5, "0"),
+      };
+    })
+    .filter(Boolean);
+}
+
 async function fetchJson<T>(url: string, key: string): Promise<T> {
   const response = await fetch(url, {
     headers: {
@@ -109,7 +178,7 @@ async function getBusinessBySlugCountry(slug: string, countryCode: string): Prom
   if (!url || !key) throw new Error("missing_env");
   const endpoint =
     `${url}/rest/v1/businesses?` +
-    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `select=${BUSINESS_SELECT}` +
     `&slug=eq.${encodeURIComponent(slug)}` +
     `&country_code=eq.${encodeURIComponent(countryCode.toLowerCase())}` +
     `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
@@ -124,12 +193,25 @@ async function getBusinessByShortSlug(slug: string): Promise<BusinessRow | null>
   if (!url || !key) throw new Error("missing_env");
   const endpoint =
     `${url}/rest/v1/businesses?` +
-    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `select=${BUSINESS_SELECT}` +
     `&slug=eq.${encodeURIComponent(slug)}` +
     `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
     `&limit=1`;
   const rows = await fetchJson<BusinessRow[]>(endpoint, key);
   return rows[0] || null;
+}
+
+async function getBusinessReviews(businessId: string): Promise<ReviewRow[]> {
+  const url = getSupabaseUrl();
+  const key = getServiceRoleKey();
+  if (!url || !key) throw new Error("missing_env");
+  const endpoint =
+    `${url}/rest/v1/reviews?` +
+    `select=user_name,rating,comment,created_at` +
+    `&business_id=eq.${encodeURIComponent(businessId)}` +
+    `&order=created_at.desc` +
+    `&limit=10`;
+  return fetchJson<ReviewRow[]>(endpoint, key);
 }
 
 async function getEventById(eventId: string): Promise<{ event: EventRow | null; business: BusinessRow | null }> {
@@ -147,7 +229,7 @@ async function getEventById(eventId: string): Promise<{ event: EventRow | null; 
 
   const bizEndpoint =
     `${url}/rest/v1/businesses?` +
-    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `select=${BUSINESS_SELECT}` +
     `&id=eq.${encodeURIComponent(event.business_id)}` +
     `&limit=1`;
   const businesses = await fetchJson<BusinessRow[]>(bizEndpoint, key);
@@ -199,6 +281,119 @@ function renderHtml(input: {
 </html>`;
 }
 
+async function renderBusinessResponse(base: string, business: BusinessRow, title: string, res: VercelResponse, cacheHeader: string) {
+  const canonicalUrl = businessCanonical(base, business);
+  const reviews = await getBusinessReviews(business.id).catch(() => []);
+  const description = buildMetaDescription(
+    business.description,
+    `Conheça ${business.name || "este negócio brasileiro"} em ${business.city || "sua região"} no Caramelinho.`,
+  );
+  const openingHoursSpecification = parseOpeningHoursToSchema(business.opening_hours);
+  const ratingValues = reviews.map((review) => Number(review.rating || 0)).filter((rating) => rating > 0);
+  const averageRating =
+    Number(business.average_rating || 0) ||
+    (ratingValues.length > 0 ? ratingValues.reduce((sum, rating) => sum + rating, 0) / ratingValues.length : 0);
+  const reviewJsonLd = reviews
+    .filter((review) => review.rating)
+    .map((review) => ({
+      "@type": "Review",
+      author: {
+        "@type": "Person",
+        name: review.user_name || "Usuário",
+      },
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: review.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+      reviewBody: review.comment || undefined,
+      datePublished: review.created_at || undefined,
+    }));
+
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      name: business.name || undefined,
+      description,
+      url: canonicalUrl,
+      image: [business.hero_image, business.logo_url].filter(Boolean),
+      telephone: business.phone || undefined,
+      email: business.email || undefined,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: business.street || undefined,
+        addressLocality: business.city || undefined,
+        addressRegion: business.state_code || business.state || undefined,
+        postalCode: business.postal_code || undefined,
+        addressCountry: business.country_code?.toUpperCase() || business.country || undefined,
+      },
+      geo:
+        typeof business.lat === "number" &&
+        typeof business.lng === "number" &&
+        Number.isFinite(business.lat) &&
+        Number.isFinite(business.lng)
+          ? {
+              "@type": "GeoCoordinates",
+              latitude: business.lat,
+              longitude: business.lng,
+            }
+          : undefined,
+      sameAs: [business.instagram, business.facebook, business.website].filter(Boolean),
+      aggregateRating:
+        reviews.length > 0
+          ? {
+              "@type": "AggregateRating",
+              ratingValue: Number(averageRating.toFixed(1)),
+              reviewCount: reviews.length,
+            }
+          : undefined,
+      review: reviewJsonLd.length > 0 ? reviewJsonLd : undefined,
+      openingHoursSpecification: openingHoursSpecification.length > 0 ? openingHoursSpecification : undefined,
+      priceRange: "$$",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Início",
+          item: `${base}/`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "Buscar",
+          item: `${base}/buscar`,
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: business.name || "Negócio",
+          item: canonicalUrl,
+        },
+      ],
+    },
+  ];
+
+  const html = renderHtml({
+    title,
+    description,
+    canonicalUrl,
+    imageUrl: business.hero_image || business.logo_url || defaultOgImage(base),
+    type: "website",
+    jsonLd,
+  });
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+  res.setHeader("CDN-Cache-Control", cacheHeader);
+  res.setHeader("Vercel-CDN-Cache-Control", cacheHeader);
+  return res.status(200).send(html);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const base = baseUrl(req);
@@ -214,32 +409,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const businessSlug = String(req.query.businessSlug || "");
       const business = await getBusinessByShortSlug(businessSlug);
       if (!business) return res.status(404).send("Not found");
-      const canonicalUrl = businessCanonical(base, business);
       const title = `${business.name || "Negócio"} | Caramelinho.com`;
-      const description =
-        business.description?.slice(0, 160) ||
-        `Encontre ${business.name || "negócio brasileiro"} na comunidade Caramelinho.`;
-      const jsonLd = {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        name: business.name || undefined,
-        description: business.description || undefined,
-        url: canonicalUrl,
-        image: [business.hero_image, business.logo_url].filter(Boolean),
-      };
-      const html = renderHtml({
-        title,
-        description,
-        canonicalUrl,
-        imageUrl: business.hero_image || business.logo_url || defaultOgImage(base),
-        type: "website",
-        jsonLd,
-      });
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", browserCacheHeader);
-      res.setHeader("CDN-Cache-Control", cdnCacheHeaderByKind);
-      res.setHeader("Vercel-CDN-Cache-Control", cdnCacheHeaderByKind);
-      return res.status(200).send(html);
+      return renderBusinessResponse(base, business, title, res, cdnCacheHeaderByKind);
     }
 
     if (kind === "event") {
@@ -248,9 +419,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!event) return res.status(404).send("Not found");
       const canonicalUrl = `${base}/eventos/${encodeURIComponent(event.id)}`;
       const title = `${event.title || "Evento"} | Caramelinho.com`;
-      const description = (
-        event.description || `Evento da comunidade brasileira em ${event.location || "sua região"}.`
-      ).slice(0, 160);
+      const description = buildMetaDescription(
+        event.description,
+        `Evento da comunidade brasileira em ${event.location || "sua região"}.`,
+      );
       const html = renderHtml({
         title,
         description,
@@ -290,34 +462,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const businessName = String(req.query.businessName || "");
       const business = await getBusinessBySlugCountry(businessName, countryCode);
       if (!business) return res.status(404).send("Not found");
-      const canonicalUrl = businessCanonical(base, business);
       const title = `${business.name || "Negócio"} | Negócio brasileiro | Caramelinho.com`;
-      const description = (
-        business.description || `Conheça ${business.name || "este negócio brasileiro"} em ${business.city || "sua região"}.`
-      ).slice(0, 160);
-      const jsonLd = {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        name: business.name || undefined,
-        description: business.description || undefined,
-        url: canonicalUrl,
-        image: [business.hero_image, business.logo_url].filter(Boolean),
-        telephone: business.phone || undefined,
-        email: business.email || undefined,
-      };
-      const html = renderHtml({
-        title,
-        description,
-        canonicalUrl,
-        imageUrl: business.hero_image || business.logo_url || defaultOgImage(base),
-        type: "website",
-        jsonLd,
-      });
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", browserCacheHeader);
-      res.setHeader("CDN-Cache-Control", cdnCacheHeaderByKind);
-      res.setHeader("Vercel-CDN-Cache-Control", cdnCacheHeaderByKind);
-      return res.status(200).send(html);
+      return renderBusinessResponse(base, business, title, res, cdnCacheHeaderByKind);
     }
 
     return res.status(400).json({ error: "kind inválido" });

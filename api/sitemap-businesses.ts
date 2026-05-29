@@ -6,6 +6,8 @@ type Row = {
   state_code?: string | null;
   state?: string | null;
   city: string | null;
+  updated_at: string | null;
+  created_at: string | null;
 };
 
 const CHUNK_SIZE = 1000;
@@ -57,7 +59,7 @@ async function fetchRows(): Promise<Row[]> {
   const key = getServiceRoleKey();
   if (!url || !key) throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados.");
 
-  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,state,city&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
+  const endpoint = `${url}/rest/v1/businesses?select=slug,country_code,state_code,state,city,updated_at,created_at&or=(moderation_status.eq.approved,moderation_status.is.null)&slug=not.is.null`;
   const response = await fetch(endpoint, {
     headers: {
       apikey: key,
@@ -88,7 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map((r) => {
         const loc = buildBusinessUrl(base, r);
         if (!loc) return "";
-        return `<url><loc>${loc}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`;
+        const lastmodSource = r.updated_at || r.created_at || now;
+        const lastmod = new Date(lastmodSource).toISOString();
+        return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq></url>`;
       })
       .filter(Boolean)
       .join("");
@@ -104,4 +108,3 @@ ${body}
     return res.status(500).json({ error: error instanceof Error ? error.message : "Erro ao gerar sitemap de negócios." });
   }
 }
-
