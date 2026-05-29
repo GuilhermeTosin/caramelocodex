@@ -123,7 +123,7 @@
         }
       ],
       "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
-    }
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
