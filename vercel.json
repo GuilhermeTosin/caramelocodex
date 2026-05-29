@@ -16,7 +16,7 @@
       "dest": "/api/ssr-static?page=home"
     },
     {
-      "src": "/buscar$",
+      "src": "/([^/]+)$",
       "has": [
         {
           "type": "header",
@@ -24,62 +24,7 @@
           "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
         }
       ],
-      "dest": "/api/ssr-static?page=buscar"
-    },
-    {
-      "src": "/sobre$",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
-        }
-      ],
-      "dest": "/api/ssr-static?page=sobre"
-    },
-    {
-      "src": "/contato$",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
-        }
-      ],
-      "dest": "/api/ssr-static?page=contato"
-    },
-    {
-      "src": "/privacidade$",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
-        }
-      ],
-      "dest": "/api/ssr-static?page=privacidade"
-    },
-    {
-      "src": "/termos$",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
-        }
-      ],
-      "dest": "/api/ssr-static?page=termos"
-    },
-    {
-      "src": "/negocio-verificado$",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([Bb]ot|facebookexternalhit|[Ss]lack|[Ww]hats[Aa]pp|[Tt]elegram|ia_archiver).*"
-        }
-      ],
-      "dest": "/api/ssr-static?page=negocio-verificado"
+      "dest": "/api/ssr-static?slug=$1"
     },
 
     {
@@ -131,4 +76,3 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
-

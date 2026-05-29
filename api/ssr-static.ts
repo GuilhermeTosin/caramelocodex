@@ -17,6 +17,14 @@ function baseUrl(req: VercelRequest) {
   return `${proto}://${host}`;
 }
 
+function slugToLabel(slug: string) {
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function getPageData(page: StaticPageKey, base: string) {
   const common = {
     image: `${base}/og-image.jpg`,
@@ -125,14 +133,24 @@ function renderHtml(input: {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const rawPage = String(req.query.page || "").trim();
+  const rawSlug = String(req.query.slug || "").trim().toLowerCase();
   const page = (rawPage || "home") as StaticPageKey;
   const allowed: StaticPageKey[] = ["home", "buscar", "sobre", "contato", "privacidade", "termos", "negocio-verificado"];
-  if (!allowed.includes(page)) {
-    return res.status(400).json({ error: "page inválida" });
-  }
 
   const base = baseUrl(req);
-  const data = getPageData(page, base);
+  const data = allowed.includes(page)
+    ? getPageData(page, base)
+    : rawSlug
+      ? {
+          title: `${slugToLabel(rawSlug)} | Caramelinho.com`,
+          description:
+            "Conheça esta página institucional da Caramelinho e encontre informações sobre a plataforma, recursos e políticas.",
+          canonical: `${base}/${encodeURIComponent(rawSlug)}`,
+          h1: slugToLabel(rawSlug),
+          image: `${base}/og-image.jpg`,
+          type: "website" as const,
+        }
+      : getPageData("home", base);
   const html = renderHtml({
     title: data.title,
     description: data.description,
@@ -148,4 +166,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Vercel-CDN-Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
   return res.status(200).send(html);
 }
-
