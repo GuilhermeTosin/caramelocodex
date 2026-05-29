@@ -302,8 +302,18 @@ function matchesCategoryFilter(
   getCategoryLabel: (category: string) => string
 ): boolean {
   const normalizedCategory = normalizeText(getCategoryLabel(category));
-  const terms = categoryFilterAliases[normalizeText(filter)] || [filter];
-  return terms.some((term) => normalizedCategory.includes(normalizeText(term)));
+  const normalizedFilter = normalizeText(filter);
+  const aliases = categoryFilterAliases[normalizedFilter] || [];
+  const terms = Array.from(new Set([filter, ...aliases]));
+  return terms.some((term) => {
+    const normalizedTerm = normalizeText(term);
+    if (!normalizedTerm) return false;
+    return (
+      normalizedCategory === normalizedTerm ||
+      normalizedCategory.includes(normalizedTerm) ||
+      normalizedTerm.includes(normalizedCategory)
+    );
+  });
 }
 
 function getBusinessSearchBlob(b: BusinessFrontend): string {
@@ -341,6 +351,18 @@ function getEffectiveCategoryKeywords(
   if (!businessCategoryLabel) return [];
   const direct = categorySynonymsMap[businessCategoryLabel];
   if (direct && direct.length > 0) return direct;
+
+  const normalizedBusinessCategory = normalizeText(getCategoryLabel(businessCategoryLabel));
+  const normalizedKeyMatch = Object.entries(categorySynonymsMap).find(([configuredCategory]) => {
+    const normalizedConfigured = normalizeText(configuredCategory);
+    if (!normalizedConfigured) return false;
+    return (
+      normalizedConfigured === normalizedBusinessCategory ||
+      normalizedBusinessCategory.includes(normalizedConfigured) ||
+      normalizedConfigured.includes(normalizedBusinessCategory)
+    );
+  });
+  if (normalizedKeyMatch && normalizedKeyMatch[1].length > 0) return normalizedKeyMatch[1];
 
   const matchedEntry = Object.entries(categorySynonymsMap).find(([configuredCategory]) =>
     matchesCategoryFilter(businessCategoryLabel, configuredCategory, categoryFilterAliases, getCategoryLabel)
