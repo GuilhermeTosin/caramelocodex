@@ -9,6 +9,12 @@ export default defineConfig({
     // "Unexpected token '?'" durante o prerender.
     target: "es2019",
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Reduz o tamanho do .map e evita respostas truncadas em alguns proxies/CDNs.
+        sourcemapExcludeSources: true,
+      },
+    },
   },
   resolve: {
     alias: {
