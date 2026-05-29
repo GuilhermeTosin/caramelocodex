@@ -4,6 +4,83 @@
     { "source": "/sitemaps/static.xml", "destination": "/api/sitemap-static" },
     { "source": "/sitemaps/businesses-:page.xml", "destination": "/api/sitemap-businesses?page=:page" },
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=home"
+    },
+    {
+      "source": "/buscar",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=buscar"
+    },
+    {
+      "source": "/sobre",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=sobre"
+    },
+    {
+      "source": "/contato",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=contato"
+    },
+    {
+      "source": "/privacidade",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=privacidade"
+    },
+    {
+      "source": "/termos",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=termos"
+    },
+    {
+      "source": "/negocio-verificado",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-static?page=negocio-verificado"
+    },
+    {
       "source": "/eventos/:eventId",
       "has": [
         {
