@@ -180,12 +180,15 @@ export default function UserProfile() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [activeSubscription, setActiveSubscription] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mobileContentRef = useRef<HTMLDivElement>(null);
   const couponDatePickerRef = useRef<HTMLInputElement>(null);
   const communityEventDatePickerRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -3935,6 +3938,7 @@ export default function UserProfile() {
                     <div className="space-y-2">
                       {conversations.map((conv) => (
                         <button
+                          type="button"
                           key={conv.id}
                           onClick={() => handleSelectConversation(conv)}
                           className={`w-full text-left p-3 rounded-xl border transition-all ${
@@ -4005,7 +4009,7 @@ export default function UserProfile() {
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
                         {messages.map((msg) => (
                           <div
                             key={msg.id}
