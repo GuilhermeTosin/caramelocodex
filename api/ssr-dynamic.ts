@@ -5,7 +5,7 @@ type BusinessRow = {
   name: string | null;
   slug: string | null;
   description: string | null;
-  category: string | null;
+  category_id: string | null;
   hero_image: string | null;
   logo_url: string | null;
   city: string | null;
@@ -62,7 +62,7 @@ function normalizePart(value: string): string {
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
+      .replace(/^-|-$/g, ""),
   );
 }
 
@@ -94,7 +94,12 @@ async function fetchJson<T>(url: string, key: string): Promise<T> {
       Accept: "application/json; charset=utf-8",
     },
   });
-  if (!response.ok) throw new Error(`Supabase ${response.status}`);
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Supabase ${response.status}${body ? `: ${body}` : ""}`);
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -102,7 +107,13 @@ async function getBusinessBySlugCountry(slug: string, countryCode: string): Prom
   const url = getSupabaseUrl();
   const key = getServiceRoleKey();
   if (!url || !key) throw new Error("missing_env");
-  const endpoint = `${url}/rest/v1/businesses?select=id,name,slug,description,category,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook&slug=eq.${encodeURIComponent(slug)}&country_code=eq.${encodeURIComponent(countryCode.toLowerCase())}&or=(moderation_status.eq.approved,moderation_status.is.null)&limit=1`;
+  const endpoint =
+    `${url}/rest/v1/businesses?` +
+    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `&slug=eq.${encodeURIComponent(slug)}` +
+    `&country_code=eq.${encodeURIComponent(countryCode.toLowerCase())}` +
+    `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
+    `&limit=1`;
   const rows = await fetchJson<BusinessRow[]>(endpoint, key);
   return rows[0] || null;
 }
@@ -111,7 +122,12 @@ async function getBusinessByShortSlug(slug: string): Promise<BusinessRow | null>
   const url = getSupabaseUrl();
   const key = getServiceRoleKey();
   if (!url || !key) throw new Error("missing_env");
-  const endpoint = `${url}/rest/v1/businesses?select=id,name,slug,description,category,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook&slug=eq.${encodeURIComponent(slug)}&or=(moderation_status.eq.approved,moderation_status.is.null)&limit=1`;
+  const endpoint =
+    `${url}/rest/v1/businesses?` +
+    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `&slug=eq.${encodeURIComponent(slug)}` +
+    `&or=(moderation_status.eq.approved,moderation_status.is.null)` +
+    `&limit=1`;
   const rows = await fetchJson<BusinessRow[]>(endpoint, key);
   return rows[0] || null;
 }
@@ -120,11 +136,20 @@ async function getEventById(eventId: string): Promise<{ event: EventRow | null; 
   const url = getSupabaseUrl();
   const key = getServiceRoleKey();
   if (!url || !key) throw new Error("missing_env");
-  const eventEndpoint = `${url}/rest/v1/events?select=id,title,description,date,location,price,flyer_url,business_id&id=eq.${encodeURIComponent(eventId)}&limit=1`;
+  const eventEndpoint =
+    `${url}/rest/v1/events?` +
+    `select=id,title,description,date,location,price,flyer_url,business_id` +
+    `&id=eq.${encodeURIComponent(eventId)}` +
+    `&limit=1`;
   const events = await fetchJson<EventRow[]>(eventEndpoint, key);
   const event = events[0] || null;
   if (!event?.business_id) return { event, business: null };
-  const bizEndpoint = `${url}/rest/v1/businesses?select=id,name,slug,description,category,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook&id=eq.${encodeURIComponent(event.business_id)}&limit=1`;
+
+  const bizEndpoint =
+    `${url}/rest/v1/businesses?` +
+    `select=id,name,slug,description,category_id,hero_image,logo_url,city,state,country,country_code,state_code,phone,email,website,instagram,facebook` +
+    `&id=eq.${encodeURIComponent(event.business_id)}` +
+    `&limit=1`;
   const businesses = await fetchJson<BusinessRow[]>(bizEndpoint, key);
   return { event, business: businesses[0] || null };
 }
@@ -214,7 +239,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!event) return res.status(404).send("Not found");
       const canonicalUrl = `${base}/eventos/${encodeURIComponent(event.id)}`;
       const title = `${event.title || "Evento"} | Caramelinho.com`;
-      const description = (event.description || `Evento da comunidade brasileira em ${event.location || "sua região"}.`).slice(0, 160);
+      const description = (
+        event.description || `Evento da comunidade brasileira em ${event.location || "sua região"}.`
+      ).slice(0, 160);
       const html = renderHtml({
         title,
         description,
@@ -252,9 +279,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const business = await getBusinessBySlugCountry(businessName, countryCode);
       if (!business) return res.status(404).send("Not found");
       const canonicalUrl = businessCanonical(base, business);
-      const title = `${business.name || "Negócio"} | ${business.category || "Negócio brasileiro"} | Caramelinho.com`;
-      const description =
-        (business.description || `Conheça ${business.name || "este negócio brasileiro"} em ${business.city || "sua região"}.`).slice(0, 160);
+      const title = `${business.name || "Negócio"} | Negócio brasileiro | Caramelinho.com`;
+      const description = (
+        business.description || `Conheça ${business.name || "este negócio brasileiro"} em ${business.city || "sua região"}.`
+      ).slice(0, 160);
       const jsonLd = {
         "@context": "https://schema.org",
         "@type": "LocalBusiness",
