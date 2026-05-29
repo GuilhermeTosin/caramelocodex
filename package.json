@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite --host 0.0.0.0",
         "build": "vite build",
-        "build:prerender": "vite build && node scripts/prepare-react-snap.mjs && react-snap && node scripts/finalize-react-snap.mjs",
+        "build:prerender": "node scripts/build-prerender-safe.mjs",
         "prepreview": "npm run check:encoding",
         "lint": "eslint .",
         "preview": "vite preview --host 0.0.0.0",
