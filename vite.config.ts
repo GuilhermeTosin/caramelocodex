@@ -8,6 +8,7 @@ export default defineConfig({
     // react-snap usa Chromium antigo; manter target mais compatível evita
     // "Unexpected token '?'" durante o prerender.
     target: "es2019",
+    sourcemap: true,
   },
   resolve: {
     alias: {
