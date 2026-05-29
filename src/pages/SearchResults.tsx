@@ -1116,23 +1116,14 @@ export default function SearchResults() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [safeCurrentPage]);
 
-  const goToPage = useCallback((page: number) => {
+  const getPageHref = useCallback((page: number) => {
     const nextPage = Math.max(1, page);
     const params = new URLSearchParams(searchParams);
     if (nextPage <= 1) params.delete("pagina");
     else params.set("pagina", String(nextPage));
-    setSearchParams(params, { replace: true });
-
-    const scrollToResultsTop = () => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    requestAnimationFrame(() => {
-      scrollToResultsTop();
-      setTimeout(scrollToResultsTop, 80);
-      setTimeout(scrollToResultsTop, 180);
-    });
-  }, [searchParams, setSearchParams]);
+    const query = params.toString();
+    return query ? `/buscar?${query}` : "/buscar";
+  }, [searchParams]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2190,38 +2181,46 @@ export default function SearchResults() {
             ))}
             {totalResults > RESULTS_PER_PAGE && (
               <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(safeCurrentPage - 1)}
-                  disabled={safeCurrentPage <= 1}
-                >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Anterior
-                </Button>
+                {safeCurrentPage <= 1 ? (
+                  <Button type="button" variant="outline" size="sm" disabled>
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button asChild type="button" variant="outline" size="sm">
+                    <Link to={getPageHref(safeCurrentPage - 1)}>
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Anterior
+                    </Link>
+                  </Button>
+                )}
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Button
+                    asChild
                     key={page}
                     type="button"
                     variant={page === safeCurrentPage ? "default" : "outline"}
                     size="sm"
-                    onClick={() => goToPage(page)}
                     className="min-w-9"
                   >
-                    {page}
+                    <Link to={getPageHref(page)} aria-current={page === safeCurrentPage ? "page" : undefined}>
+                      {page}
+                    </Link>
                   </Button>
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(safeCurrentPage + 1)}
-                  disabled={safeCurrentPage >= totalPages}
-                >
-                  Próxima
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
+                {safeCurrentPage >= totalPages ? (
+                  <Button type="button" variant="outline" size="sm" disabled>
+                    Próxima
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button asChild type="button" variant="outline" size="sm">
+                    <Link to={getPageHref(safeCurrentPage + 1)}>
+                      Próxima
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </Button>
+                )}
               </div>
             )}
             </>
