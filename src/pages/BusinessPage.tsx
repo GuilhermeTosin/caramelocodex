@@ -26,6 +26,7 @@ import {
   WheatOff,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ import { Store } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
+import { calculateDistance } from "@/lib/utils/geo";
 
 const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
   domingo: "Sunday",
@@ -100,6 +102,14 @@ function parseOpeningHoursToSchema(hours: string[]) {
     .filter(Boolean);
 }
 
+function normalizeLocationPart(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
   const [searchParams] = useSearchParams();
@@ -144,6 +154,13 @@ export default function BusinessPage() {
     })
     .sort((a, b) => a.date.localeCompare(b.date));
   const requestedTab = searchParams.get("tab");
+  const hasSearchLocationContext =
+    !!searchParams.get("origem_lat") ||
+    !!searchParams.get("origem_lng") ||
+    !!searchParams.get("lat") ||
+    !!searchParams.get("lng") ||
+    !!searchParams.get("cidade") ||
+    !!searchParams.get("local");
   const galleryPhotos = (business?.photos || []).slice(0, 8);
   const initialTab =
     requestedTab === "about" ||
@@ -167,15 +184,67 @@ export default function BusinessPage() {
     setLoading(false);
     if (biz) {
       const businesses = await getAllBusinesses();
-      setSimilarBusinesses(
-        businesses
-          .filter((item) => item.id !== biz!.id)
-          .filter((item) =>
-            item.address.countryCode === biz!.address.countryCode &&
-            (item.address.city === biz!.address.city || item.category === biz!.category)
-          )
-          .slice(0, 3)
-      );
+      const sourceCategoryId = biz.categoryId || getCategoryId(biz.category);
+      const sourceCountryCode = normalizeLocationPart(biz.address.countryCode);
+      const sourceStateCode = normalizeLocationPart(biz.address.stateCode || biz.address.state);
+      const sourceCity = normalizeLocationPart(biz.address.city);
+      const hasSourceCoords =
+        typeof biz.address.lat === "number" &&
+        typeof biz.address.lng === "number" &&
+        Number.isFinite(biz.address.lat) &&
+        Number.isFinite(biz.address.lng);
+
+      const basePool = businesses
+        .filter((item) => item.id !== biz.id)
+        .filter((item) => (item.categoryId || getCategoryId(item.category)) === sourceCategoryId)
+        .filter((item) => normalizeLocationPart(item.address.countryCode) === sourceCountryCode);
+
+      const sameCityMatches = basePool.filter((item) => {
+        const itemCity = normalizeLocationPart(item.address.city);
+        return !!sourceCity && !!itemCity && itemCity === sourceCity;
+      });
+
+      const fallbackRadiusMatches =
+        sameCityMatches.length > 0 || !hasSourceCoords
+          ? []
+          : basePool
+              .filter((item) => {
+                const hasItemCoords =
+                  typeof item.address.lat === "number" &&
+                  typeof item.address.lng === "number" &&
+                  Number.isFinite(item.address.lat) &&
+                  Number.isFinite(item.address.lng);
+                if (!hasItemCoords) return false;
+                const distanceKm = calculateDistance(
+                  biz.address.lat,
+                  biz.address.lng,
+                  item.address.lat,
+                  item.address.lng,
+                );
+                return distanceKm <= 50;
+              })
+              .sort((a, b) => {
+                const da = calculateDistance(biz.address.lat, biz.address.lng, a.address.lat, a.address.lng);
+                const db = calculateDistance(biz.address.lat, biz.address.lng, b.address.lat, b.address.lng);
+                return da - db;
+              });
+
+      const sameRegionMatches =
+        sameCityMatches.length > 0 || fallbackRadiusMatches.length > 0
+          ? []
+          : basePool.filter((item) => {
+              const itemStateCode = normalizeLocationPart(item.address.stateCode || item.address.state);
+              return !!sourceStateCode && !!itemStateCode && itemStateCode === sourceStateCode;
+            });
+
+      const prioritized =
+        sameCityMatches.length > 0
+          ? sameCityMatches
+          : fallbackRadiusMatches.length > 0
+            ? fallbackRadiusMatches
+            : sameRegionMatches;
+
+      setSimilarBusinesses(prioritized.slice(0, 3));
     }
   };
 
@@ -1367,8 +1436,8 @@ export default function BusinessPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {similarBusinesses.map((item) => (
                 <Link key={item.id} to={buildBusinessUrl(item)} className="group">
-                  <Card className="overflow-hidden border-border card-hover h-full">
-                    <div className="aspect-[16/10] bg-muted overflow-hidden">
+                  <Card className="overflow-hidden border-border h-full">
+                    <div className="aspect-[16/10] bg-muted relative overflow-hidden">
                       <img
                         src={getOptimizedImageUrl(
                           item.heroImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
@@ -1387,11 +1456,95 @@ export default function BusinessPage() {
                         decoding="async"
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 ease-out"
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+                      <Badge className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm text-foreground border-0">
+                        {item.category.split("(")[0].trim()}
+                      </Badge>
+                      {item.averageRating > 0 && (
+                        <Badge className="absolute top-3 right-3 bg-amber-500 text-white border-0 gap-1">
+                          <Star className="w-3 h-3 fill-current" />
+                          {item.averageRating.toFixed(1)}
+                        </Badge>
+                      )}
+                      {hasSearchLocationContext &&
+                        business &&
+                        typeof business.address.lat === "number" &&
+                        typeof business.address.lng === "number" &&
+                        Number.isFinite(business.address.lat) &&
+                        Number.isFinite(business.address.lng) &&
+                        typeof item.address.lat === "number" &&
+                        typeof item.address.lng === "number" &&
+                        Number.isFinite(item.address.lat) &&
+                        Number.isFinite(item.address.lng) && (
+                          <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {(() => {
+                              const distance = calculateDistance(
+                                business.address.lat,
+                                business.address.lng,
+                                item.address.lat,
+                                item.address.lng,
+                              );
+                              return `${distance.toFixed(distance < 10 ? 1 : 0)} km`;
+                            })()}
+                          </div>
+                        )}
+                      {item.ownerVerified ? (
+                        <div className="absolute bottom-3 right-3 bg-emerald-600/95 text-white text-[10px] px-2 py-1 rounded-md flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          Verificado
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="p-4">
-                      <Badge variant="secondary" className="mb-2">{item.category.split("(")[0].trim()}</Badge>
-                      <h3 className="font-semibold group-hover:text-primary transition-colors">{item.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{item.address.city}, {item.address.country}</p>
+                    <div className="p-5">
+                      <div className="flex items-center gap-3 mb-4">
+                        {item.logoUrl ? (
+                          <img src={item.logoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-full object-cover ring-2 ring-border" />
+                        ) : null}
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-foreground text-lg truncate group-hover:text-primary transition-colors leading-tight">
+                            <span className="truncate">{item.name}</span>
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate mt-0.5">
+                            {`${item.address.city}, ${item.address.country}`}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">{item.description}</p>
+                      {item.categoryId === "food" && (item.isVeganFriendly || item.isVegetarianFriendly || item.isGlutenFreeFriendly) ? (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {item.isVeganFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegano
+                            </span>
+                          ) : null}
+                          {item.isVegetarianFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-lime-100 text-lime-800">
+                              <Leaf className="w-3 h-3" />
+                              Vegetariano
+                            </span>
+                          ) : null}
+                          {item.isGlutenFreeFriendly ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              <WheatOff className="w-3 h-3" />
+                              Sem Glúten
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {item.services.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {item.services.slice(0, 3).map((svc) => (
+                            <span key={svc} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                              {svc}
+                            </span>
+                          ))}
+                          {item.services.length > 3 && (
+                            <span className="text-[11px] text-muted-foreground font-medium flex items-center">+ {item.services.length - 3}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Card>
                 </Link>
