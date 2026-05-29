@@ -1,5 +1,13 @@
 {
   "routes": [
+    {
+      "src": "/ads.txt",
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=3600"
+      },
+      "dest": "/ads.txt"
+    },
     { "src": "/sitemap.xml", "dest": "/api/sitemap-index" },
     { "src": "/sitemaps/static.xml", "dest": "/api/sitemap-static" },
     { "src": "/sitemaps/businesses-([^/]+)\\.xml", "dest": "/api/sitemap-businesses?page=$1" },

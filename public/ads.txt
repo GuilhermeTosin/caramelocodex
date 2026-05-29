@@ -1,0 +1,4 @@
+# ads.txt - Caramelinho.com
+# Substitua a linha abaixo pelos dados reais da sua conta de anúncios.
+# Formato: ad-system-domain, publisher-id, relationship, certification-authority-id
+
