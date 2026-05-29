@@ -4398,7 +4398,7 @@ export default function UserProfile() {
                 <Label htmlFor="edit-description">Descrição *</Label>
                 <div className="mt-1 rounded-md border border-amber-300/70 bg-amber-50/70 px-3 py-2">
                   <p className="text-sm text-amber-900/90 leading-relaxed">
-                    Esta é a informação mais importante da página do seu negócio. ï¿½0 ela que ajuda o cliente a entender
+                    Esta é a informação mais importante da página do seu negócio. É ela que ajuda o cliente a entender
                     rapidamente o que você oferece, seus diferenciais e por que deve escolher você. Escreva de forma clara,
                     objetiva e humana: diga os principais serviços/produtos, o público atendido, região de atuação e pontos
                     fortes (ex.: rapidez, qualidade, atendimento em português, experiência, especialidades).
@@ -5467,7 +5467,7 @@ export default function UserProfile() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
-              ATENï¿½ï¿½O
+              ATENÇÃO
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">

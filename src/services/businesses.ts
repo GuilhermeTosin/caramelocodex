@@ -712,6 +712,23 @@ async function isOfficialBusinessSlugAvailable(slug: string, excludeBusinessId?:
   return !data || data.length === 0;
 }
 
+async function generateUniqueOfficialBusinessSlug(
+  baseText: string,
+  excludeBusinessId?: string
+): Promise<string> {
+  const base = slugify(baseText || "");
+  if (!base) return "";
+
+  let candidate = base;
+  let counter = 2;
+  while (!(await isOfficialBusinessSlugAvailable(candidate, excludeBusinessId))) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+    if (counter > 5000) break;
+  }
+  return candidate;
+}
+
 export async function getBusinessShortSlug(businessId: string): Promise<string> {
   if (!businessId) return "";
 
@@ -855,9 +872,8 @@ export async function createBusiness(
   if (!data.phone?.trim() || !data.email?.trim()) {
     return null;
   }
-  const officialSlug = slugify(data.name);
-  const officialSlugAvailable = await isOfficialBusinessSlugAvailable(officialSlug);
-  if (!officialSlugAvailable) return null;
+  const officialSlug = await generateUniqueOfficialBusinessSlug(data.name);
+  if (!officialSlug) return null;
 
   const safeShortSlug = slugify(data.slug?.trim() || data.name);
   const shortSlugAvailable = await isBusinessSlugAvailable(safeShortSlug);
@@ -907,10 +923,16 @@ export async function createBusiness(
     .select()
     .maybeSingle();
 
-  if (error || !newBiz) return null;
+  if (error || !newBiz) {
+    console.error("[createBusiness] Supabase error:", error);
+    return null;
+  }
 
   const linkedShort = await setBusinessShortSlug((newBiz as Business).id, safeShortSlug);
-  if (!linkedShort) return null;
+  if (!linkedShort) {
+    console.error("[createBusiness] Failed to bind short slug for business", (newBiz as Business).id);
+    return null;
+  }
 
   return toFrontend(newBiz as Business);
 }
@@ -926,9 +948,8 @@ export async function updateBusiness(
   delete normalizedUpdates.slug;
 
   if (nameValue.trim()) {
-    const officialSlug = slugify(nameValue);
-    const officialSlugAvailable = await isOfficialBusinessSlugAvailable(officialSlug, id);
-    if (!officialSlugAvailable) return false;
+    const officialSlug = await generateUniqueOfficialBusinessSlug(nameValue, id);
+    if (!officialSlug) return false;
     normalizedUpdates.slug = officialSlug;
   }
 
