@@ -3,6 +3,50 @@
     { "source": "/sitemap.xml", "destination": "/api/sitemap-index" },
     { "source": "/sitemaps/static.xml", "destination": "/api/sitemap-static" },
     { "source": "/sitemaps/businesses-:page.xml", "destination": "/api/sitemap-businesses?page=:page" },
+    {
+      "source": "/eventos/:eventId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-dynamic?kind=event&eventId=:eventId"
+    },
+    {
+      "source": "/go/:businessSlug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-dynamic?kind=go&businessSlug=:businessSlug"
+    },
+    {
+      "source": "/:countryCode/:stateCode/:city/:businessName",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
+    },
+    {
+      "source": "/:countryCode/:businessName",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(googlebot|bingbot|yandex|duckduckbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|discordbot|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/ssr-dynamic?kind=business&countryCode=:countryCode&businessName=:businessName"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

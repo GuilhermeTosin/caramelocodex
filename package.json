@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "vite --host 0.0.0.0",
         "build": "vite build",
+        "build:prerender": "vite build && node scripts/prepare-react-snap.mjs && react-snap && node scripts/finalize-react-snap.mjs",
         "prepreview": "npm run check:encoding",
         "lint": "eslint .",
         "preview": "vite preview --host 0.0.0.0",
@@ -15,6 +16,23 @@
         "fix:encoding": "node scripts/fix-encoding.mjs",
         "migrate:webp": "node scripts/migrate-images-to-webp.mjs",
         "migrate:webp:db": "node scripts/migrate-db-image-urls-to-webp.mjs"
+    },
+    "reactSnap": {
+        "source": "dist",
+        "include": [
+            "/",
+            "/buscar",
+            "/sobre",
+            "/contato",
+            "/privacidade",
+            "/termos",
+            "/negocio-verificado"
+        ],
+        "skipThirdPartyRequests": true,
+        "puppeteerArgs": [
+            "--no-sandbox",
+            "--disable-setuid-sandbox"
+        ]
     },
     "dependencies": {
         "@fontsource/inter": "^5.2.8",
@@ -49,6 +67,7 @@
         "eslint-plugin-react-refresh": "^0.5.2",
         "globals": "^17.5.0",
         "postcss": "^8.4.47",
+        "react-snap": "^1.23.0",
         "sharp": "^0.34.5",
         "supabase": "^2.98.2",
         "tailwindcss": "^3.4.14",

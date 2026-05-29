@@ -4,6 +4,11 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // react-snap usa Chromium antigo; manter target mais compatível evita
+    // "Unexpected token '?'" durante o prerender.
+    target: "es2019",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
