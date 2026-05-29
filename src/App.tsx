@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { setCanonical, upsertMetaTag } from "@/lib/seo";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import BusinessPage from "@/pages/BusinessPage";
@@ -24,6 +25,19 @@ function ScrollToTop() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname, search]);
+
+  return null;
+}
+
+function CanonicalManager() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const canonicalUrl = `${window.location.origin}${pathname}${search}`;
+    setCanonical(canonicalUrl);
+    upsertMetaTag("property", "og:url", canonicalUrl);
   }, [pathname, search]);
 
   return null;
@@ -71,6 +85,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
+        <CanonicalManager />
         <AnalyticsBridge />
         <Routes>
           <Route path="/" element={<Home />} />

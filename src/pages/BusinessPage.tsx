@@ -49,6 +49,57 @@ import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta, setCanonical, setHreflang, setJsonLd, setRobots } from "@/lib/seo";
 import { getOptimizedImageSrcSet, getOptimizedImageUrl } from "@/lib/images";
 
+const WEEKDAY_SCHEMA_MAP: Record<string, string> = {
+  domingo: "Sunday",
+  segunda: "Monday",
+  "segunda-feira": "Monday",
+  terca: "Tuesday",
+  "terça": "Tuesday",
+  "terca-feira": "Tuesday",
+  "terça-feira": "Tuesday",
+  quarta: "Wednesday",
+  "quarta-feira": "Wednesday",
+  quinta: "Thursday",
+  "quinta-feira": "Thursday",
+  sexta: "Friday",
+  "sexta-feira": "Friday",
+  sabado: "Saturday",
+  "sábado": "Saturday",
+};
+
+function normalizeWeekday(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function parseOpeningHoursToSchema(hours: string[]) {
+  return (hours || [])
+    .map((line) => {
+      const text = String(line || "").trim();
+      if (!text) return null;
+      if (/fechado/i.test(text)) return null;
+      const [dayRaw, timeRaw] = text.split(":");
+      if (!dayRaw || !timeRaw) return null;
+      const dayKey = normalizeWeekday(dayRaw);
+      const day = WEEKDAY_SCHEMA_MAP[dayKey];
+      if (!day) return null;
+      const rangeMatch = timeRaw.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (!rangeMatch) return null;
+      const opens = rangeMatch[1].padStart(5, "0");
+      const closes = rangeMatch[2].padStart(5, "0");
+      return {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: `https://schema.org/${day}`,
+        opens,
+        closes,
+      };
+    })
+    .filter(Boolean);
+}
+
 export default function BusinessPage() {
   const { countryCode, stateCode, city, businessName } = useParams();
   const [searchParams] = useSearchParams();
@@ -187,6 +238,25 @@ export default function BusinessPage() {
     setHreflang("x-default", canonicalUrl);
     setRobots("index,follow,max-image-preview:large");
 
+    const openingHoursSpecification = parseOpeningHoursToSchema(business.openingHours || []);
+    const reviewJsonLd = (business.reviews || [])
+      .slice(0, 10)
+      .map((review) => ({
+        "@type": "Review",
+        author: {
+          "@type": "Person",
+          name: review.user_name || "Usuário",
+        },
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: review.rating,
+          bestRating: 5,
+          worstRating: 1,
+        },
+        reviewBody: review.comment || undefined,
+        datePublished: review.created_at || undefined,
+      }));
+
     const localBusinessJsonLd = {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
@@ -221,6 +291,15 @@ export default function BusinessPage() {
               reviewCount: business.reviews.length,
             }
           : undefined,
+      review: reviewJsonLd.length > 0 ? reviewJsonLd : undefined,
+      openingHoursSpecification: openingHoursSpecification.length > 0 ? openingHoursSpecification : undefined,
+      priceRange: "$$",
+      areaServed: business.address.countryCode
+        ? {
+            "@type": "Country",
+            name: getCountryName(business.address.countryCode),
+          }
+        : undefined,
     };
 
     const breadcrumbJsonLd = {
