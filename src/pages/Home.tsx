@@ -521,15 +521,19 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {categories.map((cat) => (
-            <button
+            <Link
               key={cat.name}
-              onClick={() => void handleCategorySearch(cat.name)}
+              to={`/buscar?categoria=${encodeURIComponent(cat.name)}`}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleCategorySearch(cat.name);
+              }}
               className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card border border-border card-hover"
             >
               <cat.icon className="w-7 h-7 text-primary" />
               <span className="font-medium text-sm">{cat.name}</span>
               <span className="text-xs text-muted-foreground">{formatBusinessCount(cat.count)}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
@@ -543,8 +547,10 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-foreground">Negócios em Destaque</h2>
               <p className="mt-2 text-muted-foreground">Recomendados pelo Caramelinho</p>
             </div>
-            <Button variant="outline" onClick={() => navigate("/buscar")}>
-              Ver Todos <ChevronRight className="w-4 h-4 ml-1" />
+            <Button asChild variant="outline">
+              <Link to="/buscar">
+                Ver Todos <ChevronRight className="w-4 h-4 ml-1" />
+              </Link>
             </Button>
           </div>
 
@@ -673,9 +679,9 @@ export default function Home() {
         </div>
         <div className="w-full flex flex-wrap justify-center gap-4">
           {popularCities.map((city) => (
-            <button
+            <Link
               key={`${city.countryCode}-${city.name}`}
-              onClick={() => navigate(`/buscar?cidade=${encodeURIComponent(city.name)}`)}
+              to={`/buscar?cidade=${encodeURIComponent(city.name)}`}
               className="w-[160px] sm:w-[170px] lg:w-[180px] min-h-[128px] flex flex-col items-center justify-center gap-2 p-5 rounded-xl bg-card border border-border card-hover"
             >
               <img
@@ -692,7 +698,7 @@ export default function Home() {
               <span className="text-2xl hidden">{city.flag}</span>
               <span className="font-medium text-sm">{city.name}</span>
               <span className="text-xs text-muted-foreground">{formatBusinessCount(city.count)}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
@@ -725,8 +731,8 @@ export default function Home() {
             Cadastre seu negócio no Caramelinho e seja encontrado por milhares de brasileiros espalhados pelo mundo!
           </p>
           <div className="flex justify-center">
-            <Button size="lg" className="caramelo-gradient text-white border-0 font-bold" onClick={() => navigate("/cadastro")}>
-              Criar Conta Gratuita
+            <Button asChild size="lg" className="caramelo-gradient text-white border-0 font-bold">
+              <Link to="/cadastro">Criar Conta Gratuita</Link>
             </Button>
           </div>
         </div>

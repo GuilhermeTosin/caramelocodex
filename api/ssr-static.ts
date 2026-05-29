@@ -106,6 +106,7 @@ function renderHtml(input: {
   type: "website" | "article";
   h1: string;
   robots?: string;
+  links?: Array<{ href: string; label: string }>;
 }) {
   const title = htmlEscape(input.title);
   const description = htmlEscape(input.description);
@@ -113,6 +114,13 @@ function renderHtml(input: {
   const image = htmlEscape(input.imageUrl);
   const h1 = htmlEscape(input.h1);
   const robots = htmlEscape(input.robots || "index,follow,max-image-preview:large");
+  const links = input.links || [];
+  const linksHtml =
+    links.length > 0
+      ? `<ul>${links
+          .map((link) => `<li><a href="${htmlEscape(link.href)}">${htmlEscape(link.label)}</a></li>`)
+          .join("")}</ul>`
+      : "";
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -140,6 +148,7 @@ function renderHtml(input: {
       <h1>${h1}</h1>
       <p>${description}</p>
       <p><a href="${canonical}">Abrir página completa</a></p>
+      ${linksHtml}
     </main>
   </body>
 </html>`;
@@ -185,6 +194,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     type: data.type,
     h1: data.h1,
     robots: "robots" in data ? data.robots : undefined,
+    links:
+      page === "home"
+        ? [
+            { href: `${base}/buscar`, label: "Buscar negócios" },
+            { href: `${base}/sobre`, label: "Sobre" },
+            { href: `${base}/contato`, label: "Contato" },
+            { href: `${base}/sitemap.xml`, label: "Sitemap XML" },
+          ]
+        : undefined,
   });
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
