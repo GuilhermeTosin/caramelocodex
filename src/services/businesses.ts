@@ -626,14 +626,35 @@ export async function getBusinessByShortSlug(slug: string): Promise<BusinessFron
   const normalizedSlug = (slug || "").trim().toLowerCase();
   if (!normalizedSlug) return null;
 
-  const { data } = await supabase
-    .from("businesses")
-    .select("*")
-    .or("moderation_status.eq.approved,moderation_status.is.null")
-    .eq("slug", normalizedSlug)
-    .order("created_at", { ascending: false })
-    .limit(1)
+  const { data: shortLink } = await supabase
+    .from("business_short_links")
+    .select("business_id")
+    .eq("short_slug", normalizedSlug)
     .maybeSingle();
+
+  let data: Business | null = null;
+  if (shortLink?.business_id) {
+    const { data: linkedBusiness } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .eq("id", shortLink.business_id)
+      .maybeSingle();
+    data = (linkedBusiness as Business | null) ?? null;
+  }
+
+  // Fallback para links legados (/go usando businesses.slug antigo)
+  if (!data) {
+    const { data: legacy } = await supabase
+      .from("businesses")
+      .select("*")
+      .or("moderation_status.eq.approved,moderation_status.is.null")
+      .eq("slug", normalizedSlug)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    data = (legacy as Business | null) ?? null;
+  }
 
   if (!data) return null;
 
@@ -654,6 +675,33 @@ export async function isBusinessSlugAvailable(
   const normalizedSlug = slugify((slug || "").trim());
   if (!normalizedSlug) return false;
 
+  // Novo comportamento: verifica disponibilidade do SHORT link (/go/{slug})
+  let shortQuery = supabase
+    .from("business_short_links")
+    .select("business_id")
+    .eq("short_slug", normalizedSlug)
+    .limit(1);
+  if (excludeBusinessId) {
+    shortQuery = shortQuery.neq("business_id", excludeBusinessId);
+  }
+  const { data: shortData, error: shortError } = await shortQuery;
+  if (shortError) return false;
+  if (shortData && shortData.length > 0) return false;
+
+  // Compatibilidade com legado: evita conflito com slugs antigos na tabela businesses
+  let legacyQuery = supabase.from("businesses").select("id").eq("slug", normalizedSlug).limit(1);
+  if (excludeBusinessId) {
+    legacyQuery = legacyQuery.neq("id", excludeBusinessId);
+  }
+  const { data: legacyData, error: legacyError } = await legacyQuery;
+  if (legacyError) return false;
+  return !legacyData || legacyData.length === 0;
+}
+
+async function isOfficialBusinessSlugAvailable(slug: string, excludeBusinessId?: string): Promise<boolean> {
+  const normalizedSlug = slugify((slug || "").trim());
+  if (!normalizedSlug) return false;
+
   let query = supabase.from("businesses").select("id").eq("slug", normalizedSlug).limit(1);
   if (excludeBusinessId) {
     query = query.neq("id", excludeBusinessId);
@@ -662,6 +710,39 @@ export async function isBusinessSlugAvailable(
   const { data, error } = await query;
   if (error) return false;
   return !data || data.length === 0;
+}
+
+export async function getBusinessShortSlug(businessId: string): Promise<string> {
+  if (!businessId) return "";
+
+  const { data } = await supabase
+    .from("business_short_links")
+    .select("short_slug")
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  return (data?.short_slug || "").trim();
+}
+
+export async function setBusinessShortSlug(
+  businessId: string,
+  shortSlug: string | null | undefined
+): Promise<boolean> {
+  if (!businessId) return false;
+  const normalized = slugify((shortSlug || "").trim());
+  if (!normalized) return false;
+
+  const { error } = await supabase
+    .from("business_short_links")
+    .upsert(
+      {
+        business_id: businessId,
+        short_slug: normalized,
+      },
+      { onConflict: "business_id" }
+    );
+
+  return !error;
 }
 
 export async function getBusinessesByOwner(ownerId: string): Promise<BusinessFrontend[]> {
@@ -774,16 +855,20 @@ export async function createBusiness(
   if (!data.phone?.trim() || !data.email?.trim()) {
     return null;
   }
-  const safeSlug = slugify(data.slug?.trim() || data.name);
-  const slugAvailable = await isBusinessSlugAvailable(safeSlug);
-  if (!slugAvailable) return null;
+  const officialSlug = slugify(data.name);
+  const officialSlugAvailable = await isOfficialBusinessSlugAvailable(officialSlug);
+  if (!officialSlugAvailable) return null;
+
+  const safeShortSlug = slugify(data.slug?.trim() || data.name);
+  const shortSlugAvailable = await isBusinessSlugAvailable(safeShortSlug);
+  if (!shortSlugAvailable) return null;
 
   const { data: newBiz, error } = await supabase
     .from("businesses")
     .insert({
       owner_id: ownerId,
       name: data.name,
-      slug: safeSlug,
+      slug: officialSlug,
       category_id: getCategoryId(data.categoryId),
       description: data.description,
       hero_image: data.heroImage || null,
@@ -823,6 +908,10 @@ export async function createBusiness(
     .maybeSingle();
 
   if (error || !newBiz) return null;
+
+  const linkedShort = await setBusinessShortSlug((newBiz as Business).id, safeShortSlug);
+  if (!linkedShort) return null;
+
   return toFrontend(newBiz as Business);
 }
 
@@ -833,16 +922,19 @@ export async function updateBusiness(
   const normalizedUpdates = { ...updates };
   const slugValue = typeof normalizedUpdates.slug === "string" ? normalizedUpdates.slug : "";
   const nameValue = typeof normalizedUpdates.name === "string" ? normalizedUpdates.name : "";
+  const shortSlugCandidate = slugValue.trim() ? slugValue : "";
+  delete normalizedUpdates.slug;
 
-  if (!slugValue.trim() && nameValue.trim()) {
-    normalizedUpdates.slug = slugify(nameValue);
-  } else if (slugValue.trim()) {
-    normalizedUpdates.slug = slugify(slugValue);
+  if (nameValue.trim()) {
+    const officialSlug = slugify(nameValue);
+    const officialSlugAvailable = await isOfficialBusinessSlugAvailable(officialSlug, id);
+    if (!officialSlugAvailable) return false;
+    normalizedUpdates.slug = officialSlug;
   }
 
-  if (typeof normalizedUpdates.slug === "string" && normalizedUpdates.slug.trim()) {
-    const slugAvailable = await isBusinessSlugAvailable(normalizedUpdates.slug, id);
-    if (!slugAvailable) return false;
+  if (shortSlugCandidate) {
+    const shortAvailable = await isBusinessSlugAvailable(shortSlugCandidate, id);
+    if (!shortAvailable) return false;
   }
 
   // Mapear camelCase para snake_case (colunas do banco)
@@ -862,7 +954,14 @@ export async function updateBusiness(
   if (error) {
     console.error("[updateBusiness] Supabase error code:", error.code, "message:", error.message, "details:", error.details, "hint:", error.hint);
   }
-  return !error;
+  if (error) return false;
+
+  if (shortSlugCandidate) {
+    const shortUpdated = await setBusinessShortSlug(id, shortSlugCandidate);
+    if (!shortUpdated) return false;
+  }
+
+  return true;
 }
 
 export async function deleteBusiness(id: string): Promise<boolean> {

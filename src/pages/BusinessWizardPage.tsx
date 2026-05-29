@@ -19,6 +19,7 @@ import {
   getCountryName,
   getCategoryId,
   getBusinessesByOwner,
+  getBusinessShortSlug,
   isBusinessSlugAvailable,
   slugify,
   updateBusiness,
@@ -362,7 +363,7 @@ export default function BusinessWizardPage() {
     let active = true;
     setLoadingEditBusiness(true);
     getBusinessesByOwner(session.userId)
-      .then((items) => {
+      .then(async (items) => {
         if (!active) return;
         const biz = items.find((b) => b.id === editingBusinessId);
         if (!biz) {
@@ -371,9 +372,10 @@ export default function BusinessWizardPage() {
           return;
         }
         setEditingBusiness(biz);
+        const existingShortSlug = (await getBusinessShortSlug(biz.id)) || biz.slug || "";
         setForm({
           name: biz.name || "",
-          shortSlug: biz.slug || "",
+          shortSlug: existingShortSlug,
           category: getCategoryId(biz.category),
           description: biz.description || "",
           keywords: (biz.keywords || []).join(", "),
