@@ -21,7 +21,13 @@ export function useCommunityFinds() {
   }, []);
 
   useEffect(() => {
-    void reload();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) void reload();
+    });
+    return () => {
+      active = false;
+    };
   }, [reload]);
 
   const vote = useCallback(

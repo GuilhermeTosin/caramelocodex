@@ -111,7 +111,7 @@ export async function uploadImage(
     const uploadFile = await convertImageToWebp(file, preset);
     const normalizedPath =
       uploadFile.type === "image/webp"
-        ? path.replace(/\.[^.\/]+$/, ".webp")
+        ? path.replace(/\.[^./]+$/, ".webp")
         : path;
 
     const { data, error } = await supabase.storage

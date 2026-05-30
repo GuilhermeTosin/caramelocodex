@@ -1161,7 +1161,10 @@ function normalizeCityKey(value: string): string {
 }
 
 function hasDiacritics(value: string): boolean {
-  return /[^\u0000-\u007f]/.test(value || "");
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) > 127) return true;
+  }
+  return false;
 }
 
 export async function getAvailableLocations(): Promise<{ countryCode: string, countryName: string, states: { code: string, name: string, cities: string[] }[] }[]> {

@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
 import {
-  BadgeCheck,
   ShieldCheck,
   Clock,
   MapPin,
-  Navigation,
   Car,
   Star,
   Phone,
@@ -251,7 +249,13 @@ export default function BusinessPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-    void loadBusiness();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) void loadBusiness();
+    });
+    return () => {
+      active = false;
+    };
   }, [countryCode, stateCode, city, businessName]);
 
   useEffect(() => {

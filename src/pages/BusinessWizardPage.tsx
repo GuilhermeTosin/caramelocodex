@@ -13,7 +13,6 @@ import AddressAutocomplete, { type AddressResult } from "@/components/AddressAut
 import SiteFooter from "@/components/SiteFooter";
 import {
   BUSINESS_CATEGORY_OPTIONS,
-  COUNTRIES,
   createBusiness,
   getAvailableLocations,
   getCountryName,
@@ -183,51 +182,6 @@ export default function BusinessWizardPage() {
   const [galleryTouched, setGalleryTouched] = useState(false);
 
   const progress = useMemo(() => Math.round((step / TOTAL_STEPS) * 100), [step]);
-  const onlineCityLookup = useMemo(() => {
-    const map = new Map<string, { city: string; stateCode: string; countryCode: string }>();
-    const byCity = new Map<string, { city: string; stateCode: string; countryCode: string }[]>();
-
-    for (const country of locationCatalog) {
-      const cc = (country.countryCode || "").toLowerCase();
-      for (const state of country.states || []) {
-        const sc = (state.code || "").toLowerCase();
-        for (const cityRaw of state.cities || []) {
-          const city = (cityRaw || "").trim();
-          if (!city) continue;
-          const item = { city, stateCode: sc, countryCode: cc };
-          const fullLabel = `${city}, ${sc.toUpperCase()} - ${cc.toUpperCase()}`;
-          map.set(fullLabel.toLowerCase(), item);
-          const cityKey = city.toLowerCase();
-          byCity.set(cityKey, [...(byCity.get(cityKey) || []), item]);
-        }
-      }
-    }
-
-    // Quando a cidade for única na base, aceita também apenas o nome da cidade.
-    for (const [cityKey, items] of byCity.entries()) {
-      if (items.length === 1) {
-        map.set(cityKey, items[0]);
-      }
-    }
-
-    return map;
-  }, [locationCatalog]);
-
-  const onlineCitySuggestions = useMemo(() => {
-    const labels = new Set<string>();
-    for (const country of locationCatalog) {
-      const cc = (country.countryCode || "").toLowerCase();
-      for (const state of country.states || []) {
-        const sc = (state.code || "").toLowerCase();
-        for (const cityRaw of state.cities || []) {
-          const city = (cityRaw || "").trim();
-          if (!city) continue;
-          labels.add(`${city}, ${sc.toUpperCase()} - ${cc.toUpperCase()}`);
-        }
-      }
-    }
-    return Array.from(labels).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [locationCatalog]);
 
   const StepIcon =
     step === 1
@@ -321,21 +275,27 @@ export default function BusinessWizardPage() {
     if (step !== 1) return;
     const slug = normalizeShortSlugFinal(form.shortSlug);
     if (!slug) {
-      setSlugStatus("idle");
-      setSlugMessage("Digite um link curto único para seu negócio.");
-      setCheckingSlug(false);
+      Promise.resolve().then(() => {
+        setSlugStatus("idle");
+        setSlugMessage("Digite um link curto único para seu negócio.");
+        setCheckingSlug(false);
+      });
       return;
     }
     if (slug.length < 3) {
-      setSlugStatus("error");
-      setSlugMessage("Use pelo menos 3 caracteres.");
-      setCheckingSlug(false);
+      Promise.resolve().then(() => {
+        setSlugStatus("error");
+        setSlugMessage("Use pelo menos 3 caracteres.");
+        setCheckingSlug(false);
+      });
       return;
     }
     if (slug.includes("caramelinho")) {
-      setSlugStatus("error");
-      setSlugMessage('Nao use "caramelinho" no link curto.');
-      setCheckingSlug(false);
+      Promise.resolve().then(() => {
+        setSlugStatus("error");
+        setSlugMessage('Nao use "caramelinho" no link curto.');
+        setCheckingSlug(false);
+      });
       return;
     }
     let cancelled = false;
@@ -361,9 +321,12 @@ export default function BusinessWizardPage() {
   useEffect(() => {
     if (!session || !isEditMode) return;
     let active = true;
-    setLoadingEditBusiness(true);
-    getBusinessesByOwner(session.userId)
-      .then(async (items) => {
+    
+    Promise.resolve().then(async () => {
+      if (!active) return;
+      setLoadingEditBusiness(true);
+      try {
+        const items = await getBusinessesByOwner(session.userId);
         if (!active) return;
         const biz = items.find((b) => b.id === editingBusinessId);
         if (!biz) {
@@ -373,6 +336,7 @@ export default function BusinessWizardPage() {
         }
         setEditingBusiness(biz);
         const existingShortSlug = (await getBusinessShortSlug(biz.id)) || biz.slug || "";
+        if (!active) return;
         setForm({
           name: biz.name || "",
           shortSlug: existingShortSlug,
@@ -411,10 +375,11 @@ export default function BusinessWizardPage() {
         setExistingHeroUrl(biz.heroImage || "");
         setExistingPhotos(biz.photos || []);
         setGalleryTouched(false);
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingEditBusiness(false);
-      });
+      }
+    });
+
     return () => {
       active = false;
     };

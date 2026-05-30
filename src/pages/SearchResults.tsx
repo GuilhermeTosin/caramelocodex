@@ -470,7 +470,13 @@ export default function SearchResults() {
     if (communityFinds.length === 0) return;
     const target = communityFinds.find((find) => find.id === communityFindIdParam);
     if (!target) return;
-    void openCommunityFindDialog(target);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) void openCommunityFindDialog(target);
+    });
+    return () => {
+      active = false;
+    };
   }, [communityFindIdParam, communityFinds, openCommunityFindDialog]);
 
   const handleSendCommunityFindMessage = useCallback(async () => {
@@ -713,7 +719,9 @@ export default function SearchResults() {
   // Localização aproximada em segundo plano (sem pedir permissão de GPS na abertura).
   useEffect(() => {
     let cancelled = false;
-    setGeoLookupComplete(false);
+    Promise.resolve().then(() => {
+      if (!cancelled) setGeoLookupComplete(false);
+    });
     (async () => {
       const approxGeo = await getApproxGeoByIp();
       if (cancelled) return;
@@ -908,8 +916,16 @@ export default function SearchResults() {
   }, [originLatParam, originLngParam, originSourceParam, approxCoords]);
 
   useEffect(() => {
-    setLocationCoords(matchedLocationCoords);
-    setResolvingLocation(false);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        setLocationCoords(matchedLocationCoords);
+        setResolvingLocation(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [matchedLocationCoords]);
 
   // Regra de prioridade para distancia:

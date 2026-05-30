@@ -16,7 +16,9 @@ export default function EventPage() {
 
   useEffect(() => {
     if (!eventId) {
-      setLoading(false);
+      Promise.resolve().then(() => {
+        setLoading(false);
+      });
       return;
     }
     getCommunityEventById(eventId).then((data) => {

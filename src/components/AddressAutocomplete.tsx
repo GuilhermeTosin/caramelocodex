@@ -225,15 +225,19 @@ export default function AddressAutocomplete({
 
   useEffect(() => {
     if (!canAutocomplete) {
-      setSuggestions([]);
-      setOpen(false);
+      Promise.resolve().then(() => {
+        setSuggestions([]);
+        setOpen(false);
+      });
       return;
     }
 
     const query = (value || "").trim();
     if (query.length < 3) {
-      setSuggestions([]);
-      setOpen(false);
+      Promise.resolve().then(() => {
+        setSuggestions([]);
+        setOpen(false);
+      });
       return;
     }
 

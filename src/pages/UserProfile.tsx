@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   PawPrint,
@@ -391,7 +391,15 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (!searchSynonymsCategory) return;
-    setSearchSynonymsDraft((searchSynonymsConfig[searchSynonymsCategory] || []).join(", "));
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        setSearchSynonymsDraft((searchSynonymsConfig[searchSynonymsCategory] || []).join(", "));
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, [searchSynonymsCategory, searchSynonymsConfig]);
 
   // Reviews I made (on any business)
@@ -414,7 +422,9 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (tabParam) {
-      setActiveTab(tabParam);
+      Promise.resolve().then(() => {
+        setActiveTab(tabParam);
+      });
     }
   }, [tabParam]);
 
@@ -428,7 +438,9 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (!session || user || isLoading) {
-      setShowMissingProfileError(false);
+      Promise.resolve().then(() => {
+        setShowMissingProfileError(false);
+      });
       return;
     }
 

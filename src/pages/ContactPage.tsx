@@ -27,7 +27,11 @@ export default function ContactPage() {
   }, []);
 
   useEffect(() => {
-    if (session?.name) setName(session.name);
+    if (session?.name) {
+      Promise.resolve().then(() => {
+        setName(session.name);
+      });
+    }
   }, [session?.name]);
 
   const handleSubmit = async (e: React.FormEvent) => {
