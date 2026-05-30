@@ -1,6 +1,17 @@
 {
   "routes": [
     {
+      "src": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "caramelinho.com"
+        }
+      ],
+      "status": 301,
+      "dest": "https://www.caramelinho.com/$1"
+    },
+    {
       "src": "/ads.txt",
       "headers": {
         "Content-Type": "text/plain; charset=utf-8",
