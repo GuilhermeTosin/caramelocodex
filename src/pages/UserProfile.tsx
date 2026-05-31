@@ -117,10 +117,6 @@ import {
   saveGlobalCategorySynonymsConfig,
 } from "@/services/searchPreferences";
 import {
-  getGoogleAnalyticsMeasurementId,
-  saveGoogleAnalyticsMeasurementId,
-} from "@/services/siteSettings";
-import {
   getVerificationRequestsByOwner,
   getPendingVerificationRequestsForAdmin,
   requestBusinessVerification,
@@ -350,7 +346,6 @@ export default function UserProfile() {
   const [searchSynonymsConfig, setSearchSynonymsConfig] = useState<Record<string, string[]>>(getCategorySynonymsConfig());
   const [searchSynonymsCategory, setSearchSynonymsCategory] = useState<string>(Object.keys(getCategorySynonymsConfig())[0] || "");
   const [searchSynonymsDraft, setSearchSynonymsDraft] = useState("");
-  const [googleAnalyticsId, setGoogleAnalyticsId] = useState("");
   const [featuredForm, setFeaturedForm] = useState({
     businessId: "",
     scopeType: "city" as FeaturedScopeType,
@@ -376,18 +371,6 @@ export default function UserProfile() {
       alive = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    let alive = true;
-    getGoogleAnalyticsMeasurementId().then((id) => {
-      if (!alive) return;
-      setGoogleAnalyticsId(id);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [isAdmin]);
 
   useEffect(() => {
     if (!searchSynonymsCategory) return;
@@ -783,22 +766,6 @@ export default function UserProfile() {
     setSearchSynonymsDraft((DEFAULT_CATEGORY_SYNONYMS[first] || []).join(", "));
     toast.success("Sinônimos restaurados para o padrão.");
   };
-
-  const handleSaveGoogleAnalyticsId = async () => {
-    const normalized = googleAnalyticsId.trim().toUpperCase();
-    if (normalized && !/^G-[A-Z0-9]+$/.test(normalized)) {
-      toast.error("Formato inválido. Use algo como G-XXXXXXXXXX.");
-      return;
-    }
-    const ok = await saveGoogleAnalyticsMeasurementId(normalized);
-    if (!ok) {
-      toast.error("Não foi possível salvar o código do Google Analytics.");
-      return;
-    }
-    setGoogleAnalyticsId(normalized);
-    toast.success("Código do Google Analytics salvo.");
-  };
-
   const handleRefreshSitemap = async () => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -3758,20 +3725,11 @@ export default function UserProfile() {
                   </div>
                   <Card className="p-6 border-border space-y-4">
                     <div className="rounded-xl border border-border p-4 space-y-3 bg-secondary/20">
-                      <h3 className="font-semibold text-foreground">Google Analytics</h3>
+                      <h3 className="font-semibold text-foreground">Sitemap</h3>
                       <p className="text-xs text-muted-foreground">
-                        Insira o Measurement ID do GA4 (ex.: <code>G-XXXXXXXXXX</code>).
+                        Atualize manualmente o sitemap sempre que quiser forçar uma nova geração das URLs públicas.
                       </p>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                          value={googleAnalyticsId}
-                          onChange={(e) => setGoogleAnalyticsId(e.target.value)}
-                          placeholder="G-XXXXXXXXXX"
-                          className="sm:max-w-xs"
-                        />
-                        <Button type="button" onClick={handleSaveGoogleAnalyticsId}>
-                          Salvar Analytics
-                        </Button>
                         <Button type="button" variant="outline" onClick={handleRefreshSitemap}>
                           Atualizar sitemap
                         </Button>
@@ -4476,7 +4434,7 @@ export default function UserProfile() {
               {null}
 
               <div className="sm:col-span-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-4">
-                <h3 className="text-base font-semibold text-amber-900">⚠️ Palavras-chave para busca (muito importante)</h3>
+                <h3 className="text-base font-semibold text-amber-900">âš ï¸ Palavras-chave para busca (muito importante)</h3>
                 <p className="text-sm text-amber-900/80 mt-2 leading-relaxed">
                   Essas palavras ajudam seu negócio a aparecer quando alguém procura por produtos e serviços. Use termos reais
                   que seus clientes digitam, incluindo variações e sinônimos. Exemplo: para <strong>mecânico</strong>, também use
