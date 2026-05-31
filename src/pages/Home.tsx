@@ -281,6 +281,11 @@ export default function Home() {
     const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
     if (coords) {
       setUserCoords(coords);
+      if (approx?.city) {
+        params.set("cidade", approx.city);
+        params.set("local", approx.city);
+        setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
+      }
       params.set("raio", "50");
       params.set("auto_raio", "1");
       params.set("origem_lat", String(coords.lat));
@@ -307,6 +312,11 @@ export default function Home() {
     const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
     if (coords) {
       setUserCoords(coords);
+      if (approx?.city) {
+        params.set("cidade", approx.city);
+        params.set("local", approx.city);
+        setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
+      }
       params.set("raio", "50");
       params.set("auto_raio", "1");
       params.set("origem_lat", String(coords.lat));
