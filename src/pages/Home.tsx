@@ -140,6 +140,9 @@ export default function Home() {
         fallback: DEFAULT_GEO_FALLBACK,
       });
       const coords = approxGeo ? { lat: approxGeo.lat, lng: approxGeo.lng } : null;
+      if (approxGeo?.city) {
+        setLocationQuery((prev) => (prev.trim() ? prev : approxGeo.city!));
+      }
       let regionalBusinesses = [...businesses];
       let region: FeaturedRegion | null = null;
       
@@ -231,8 +234,8 @@ export default function Home() {
       const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
       if (coords) {
         setUserCoords(coords);
-        if (approxGeo?.city) {
-          setLocationQuery((prev) => (prev.trim() ? prev : approxGeo.city!));
+        if (approx?.city) {
+          setLocationQuery((prev) => (prev.trim() ? prev : approx.city!));
         }
         params.set("raio", "50");
         params.set("auto_raio", "1");
