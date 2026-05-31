@@ -16,7 +16,7 @@ import { getAllBusinesses, buildBusinessUrl, getAvailableLocations, getSearchSug
 import { getFeaturedBusinessesForRegion, type FeaturedRegion } from "@/services/featured";
 import type { BusinessFrontend } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
-import { calculateDistance, getApproxPositionByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
+import { calculateDistance, getApproxGeoByIp, getCurrentPositionRobust } from "@/lib/utils/geo";
 import SearchInputWithSuggestions from "@/components/SearchInputWithSuggestions";
 import SiteFooter from "@/components/SiteFooter";
 import { setSeoMeta } from "@/lib/seo";
@@ -40,6 +40,13 @@ const CATEGORIES = [
   { name: "Outros", icon: MoreHorizontal, aliases: ["Outros"] },
 ];
 const CURRENT_LOCATION_LABEL = "Minha localização";
+const DEFAULT_GEO_FALLBACK = {
+  lat: 45.5017,
+  lng: -73.5673,
+  city: "Montreal",
+  stateCode: "qc",
+  countryCode: "ca",
+} as const;
 
 const countryCodeToFlag = (countryCode: string) => {
   const normalized = (countryCode || "").trim().toUpperCase();
@@ -127,7 +134,12 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       const businesses = await getAllBusinesses();
-      const coords = await getApproxPositionByIp();
+      const approxGeo = await getApproxGeoByIp({
+        timeoutMs: 3000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+        fallback: DEFAULT_GEO_FALLBACK,
+      });
+      const coords = approxGeo ? { lat: approxGeo.lat, lng: approxGeo.lng } : null;
       let regionalBusinesses = [...businesses];
       let region: FeaturedRegion | null = null;
       
@@ -211,24 +223,24 @@ export default function Home() {
       params.set("local", locationText);
     }
     if (!hasExplicitCity) {
-      const robust = await getCurrentPositionRobust();
-      const coords = userCoords || robust.coords;
+      const approx = await getApproxGeoByIp({
+        timeoutMs: 3000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+        fallback: DEFAULT_GEO_FALLBACK,
+      });
+      const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
       if (coords) {
         setUserCoords(coords);
+        if (approxGeo?.city) {
+          setLocationQuery((prev) => (prev.trim() ? prev : approxGeo.city!));
+        }
         params.set("raio", "50");
         params.set("auto_raio", "1");
         params.set("origem_lat", String(coords.lat));
         params.set("origem_lng", String(coords.lng));
-        params.set("origem_source", "gps");
-      } else {
-        const approx = await getApproxPositionByIp();
-        if (approx) {
-          params.set("raio", "50");
-          params.set("auto_raio", "1");
-          params.set("origem_lat", String(approx.lat));
-          params.set("origem_lng", String(approx.lng));
-          params.set("origem_source", "ip");
-        }
+        params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
+        if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
+        else params.delete("origem_pais");
       }
     } else {
       params.set("raio", "50");
@@ -258,24 +270,21 @@ export default function Home() {
     const params = new URLSearchParams();
     params.set("q", tag.trim());
 
-    const robust = await getCurrentPositionRobust();
-    const coords = userCoords || robust.coords;
+    const approx = await getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    });
+    const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
     if (coords) {
       setUserCoords(coords);
       params.set("raio", "50");
       params.set("auto_raio", "1");
       params.set("origem_lat", String(coords.lat));
       params.set("origem_lng", String(coords.lng));
-      params.set("origem_source", "gps");
-    } else {
-      const approx = await getApproxPositionByIp();
-      if (approx) {
-        params.set("raio", "50");
-        params.set("auto_raio", "1");
-        params.set("origem_lat", String(approx.lat));
-        params.set("origem_lng", String(approx.lng));
-        params.set("origem_source", "ip");
-      }
+      params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
+      if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
+      else params.delete("origem_pais");
     }
 
     navigate(`/buscar?${params.toString()}`);
@@ -287,24 +296,21 @@ export default function Home() {
     const params = new URLSearchParams();
     params.set("categoria", category);
 
-    const robust = await getCurrentPositionRobust();
-    const coords = userCoords || robust.coords;
+    const approx = await getApproxGeoByIp({
+      timeoutMs: 3000,
+      maxAgeMs: 24 * 60 * 60 * 1000,
+      fallback: DEFAULT_GEO_FALLBACK,
+    });
+    const coords = userCoords || (approx ? { lat: approx.lat, lng: approx.lng } : null);
     if (coords) {
       setUserCoords(coords);
       params.set("raio", "50");
       params.set("auto_raio", "1");
       params.set("origem_lat", String(coords.lat));
       params.set("origem_lng", String(coords.lng));
-      params.set("origem_source", "gps");
-    } else {
-      const approx = await getApproxPositionByIp();
-      if (approx) {
-        params.set("raio", "50");
-        params.set("auto_raio", "1");
-        params.set("origem_lat", String(approx.lat));
-        params.set("origem_lng", String(approx.lng));
-        params.set("origem_source", "ip");
-      }
+      params.set("origem_source", approx?.source === "cache" ? "ip_cache" : "ip");
+      if (approx?.countryCode) params.set("origem_pais", approx.countryCode.toLowerCase());
+      else params.delete("origem_pais");
     }
 
     navigate(`/buscar?${params.toString()}`);

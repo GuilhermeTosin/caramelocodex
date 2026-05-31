@@ -1,5 +1,64 @@
 import { utf8Fetch } from "@/lib/http/utf8";
 
+const GEOIP_CACHE_KEY = "caramelinho_geoip_v1";
+const GEOIP_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type ApproxGeo = {
+  lat: number;
+  lng: number;
+  city?: string;
+  stateCode?: string;
+  countryCode?: string;
+  source?: "ip" | "cache" | "fallback";
+};
+
+type GeoipCachePayload = {
+  lat: number;
+  lng: number;
+  city?: string;
+  stateCode?: string;
+  countryCode?: string;
+  ts: number;
+};
+
+function readGeoipCache(maxAgeMs: number): ApproxGeo | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(GEOIP_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GeoipCachePayload;
+    if (!Number.isFinite(parsed?.lat) || !Number.isFinite(parsed?.lng) || !Number.isFinite(parsed?.ts)) return null;
+    if (Date.now() - parsed.ts > maxAgeMs) return null;
+    return {
+      lat: parsed.lat,
+      lng: parsed.lng,
+      city: parsed.city,
+      stateCode: parsed.stateCode,
+      countryCode: parsed.countryCode,
+      source: "cache",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeGeoipCache(value: ApproxGeo): void {
+  if (typeof window === "undefined") return;
+  try {
+    const payload: GeoipCachePayload = {
+      lat: value.lat,
+      lng: value.lng,
+      city: value.city,
+      stateCode: value.stateCode,
+      countryCode: value.countryCode,
+      ts: Date.now(),
+    };
+    window.localStorage.setItem(GEOIP_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // sem falhar a UX se o storage estiver indisponível
+  }
+}
+
 /**
  * Calcula a distância entre dois pontos (lat/lng) em quilômetros usando a fórmula de Haversine.
  */
@@ -99,24 +158,56 @@ export async function getApproxPositionByIp(): Promise<{ lat: number; lng: numbe
   return { lat: geo.lat, lng: geo.lng };
 }
 
-export async function getApproxGeoByIp(): Promise<{ lat: number; lng: number; countryCode?: string } | null> {
+export async function getApproxGeoByIp(options?: {
+  timeoutMs?: number;
+  maxAgeMs?: number;
+  fallback?: {
+    lat: number;
+    lng: number;
+    city?: string;
+    stateCode?: string;
+    countryCode?: string;
+  };
+  forceRefresh?: boolean;
+}): Promise<ApproxGeo | null> {
+  const timeoutMs = Math.max(500, options?.timeoutMs ?? 3000);
+  const maxAgeMs = Math.max(60_000, options?.maxAgeMs ?? GEOIP_DEFAULT_TTL_MS);
+
+  if (!options?.forceRefresh) {
+    const cached = readGeoipCache(maxAgeMs);
+    if (cached) return cached;
+  }
+
   const endpoint = (import.meta.env.VITE_GEOIP_ENDPOINT || "").trim();
-  if (!endpoint) return null;
+  if (!endpoint) {
+    if (options?.fallback) {
+      return { ...options.fallback, source: "fallback" };
+    }
+    return null;
+  }
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const res = await utf8Fetch(endpoint, { signal: controller.signal });
     clearTimeout(timeout);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (options?.fallback) return { ...options.fallback, source: "fallback" };
+      return null;
+    }
     const data = await res.json();
 
     const directLat = Number(data?.lat ?? data?.latitude);
     const directLng = Number(data?.lng ?? data?.longitude);
+    const city = String(data?.city || data?.city_name || "").trim() || undefined;
+    const stateCode =
+      String(data?.state_code || data?.region_code || data?.subdivision_code || "").trim().toLowerCase() || undefined;
     const countryCodeRaw = String(data?.country_code || data?.countryCode || "").trim().toLowerCase();
     const countryCode = countryCodeRaw || undefined;
     if (Number.isFinite(directLat) && Number.isFinite(directLng)) {
-      return { lat: directLat, lng: directLng, countryCode };
+      const out: ApproxGeo = { lat: directLat, lng: directLng, city, stateCode, countryCode, source: "ip" };
+      writeGeoipCache(out);
+      return out;
     }
 
     const loc = String(data?.loc || "");
@@ -125,12 +216,16 @@ export async function getApproxGeoByIp(): Promise<{ lat: number; lng: number; co
       const lat = Number(latRaw);
       const lng = Number(lngRaw);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return { lat, lng, countryCode };
+        const out: ApproxGeo = { lat, lng, city, stateCode, countryCode, source: "ip" };
+        writeGeoipCache(out);
+        return out;
       }
     }
 
+    if (options?.fallback) return { ...options.fallback, source: "fallback" };
     return null;
   } catch {
+    if (options?.fallback) return { ...options.fallback, source: "fallback" };
     return null;
   }
 }

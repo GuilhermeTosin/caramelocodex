@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 type GeoResponse = {
   lat: number;
   lng: number;
+  city?: string;
+  stateCode?: string;
+  countryCode?: string;
 };
 
 function getClientIp(req: VercelRequest): string | null {
@@ -32,7 +35,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lat = Number(d1?.latitude);
         const lng = Number(d1?.longitude);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = { lat, lng };
+          const payload: GeoResponse = {
+            lat,
+            lng,
+            city: String(d1?.city || "").trim() || undefined,
+            stateCode: String(d1?.region_code || "").trim().toLowerCase() || undefined,
+            countryCode: String(d1?.country_code || "").trim().toLowerCase() || undefined,
+          };
           return res.status(200).json(payload);
         }
       }
@@ -43,7 +52,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lat = Number(d2?.latitude);
         const lng = Number(d2?.longitude);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = { lat, lng };
+          const payload: GeoResponse = {
+            lat,
+            lng,
+            city: String(d2?.city || "").trim() || undefined,
+            stateCode: String(d2?.region_code || "").trim().toLowerCase() || undefined,
+            countryCode: String(d2?.country_code || "").trim().toLowerCase() || undefined,
+          };
           return res.status(200).json(payload);
         }
       }
@@ -56,7 +71,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lat = Number(latRaw);
         const lng = Number(lngRaw);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          const payload: GeoResponse = { lat, lng };
+          const payload: GeoResponse = {
+            lat,
+            lng,
+            city: String(d3?.city || "").trim() || undefined,
+            stateCode: String(d3?.region || "").trim().toLowerCase() || undefined,
+            countryCode: String(d3?.country || "").trim().toLowerCase() || undefined,
+          };
           return res.status(200).json(payload);
         }
       }
@@ -67,4 +88,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end();
   }
 }
-

@@ -358,6 +358,13 @@ const CITY_ALIAS_GROUPS: string[][] = [
 
 const CITY_ALIASES: Record<string, string[]> = buildCityAliases(CITY_ALIAS_GROUPS);
 const CURRENT_LOCATION_LABEL = "Minha localização";
+const DEFAULT_GEO_FALLBACK = {
+  lat: 45.5017,
+  lng: -73.5673,
+  city: "Montreal",
+  stateCode: "qc",
+  countryCode: "ca",
+} as const;
 const parseCoordParam = (raw: string): number | null => {
   const text = (raw || "").trim();
   if (!text) return null;
@@ -1206,25 +1213,19 @@ export default function SearchResults() {
     const hasCityContext = !!(params.get("cidade") || params.get("local"));
     const hasOriginCoords = !!(params.get("origem_lat") && params.get("origem_lng"));
     if (hasQuery && !hasCityContext && !hasOriginCoords) {
-      const robust = await getCurrentPositionRobust();
-      const gpsCoords = robust.coords;
-      if (gpsCoords) {
-        params.set("origem_lat", String(gpsCoords.lat));
-        params.set("origem_lng", String(gpsCoords.lng));
-        params.set("origem_source", "gps");
+      const approxGeo = await getApproxGeoByIp({
+        timeoutMs: 3000,
+        maxAgeMs: 24 * 60 * 60 * 1000,
+        fallback: DEFAULT_GEO_FALLBACK,
+      });
+      if (approxGeo) {
+        params.set("origem_lat", String(approxGeo.lat));
+        params.set("origem_lng", String(approxGeo.lng));
+        params.set("origem_source", approxGeo.source === "cache" ? "ip_cache" : "ip");
+        if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode.toLowerCase());
+        else params.delete("origem_pais");
         if (!params.get("raio")) params.set("raio", "50");
         params.set("auto_raio", "1");
-      } else {
-        const approxGeo = await getApproxGeoByIp();
-        if (approxGeo) {
-          params.set("origem_lat", String(approxGeo.lat));
-          params.set("origem_lng", String(approxGeo.lng));
-          params.set("origem_source", "ip");
-          if (approxGeo.countryCode) params.set("origem_pais", approxGeo.countryCode.toLowerCase());
-          else params.delete("origem_pais");
-          if (!params.get("raio")) params.set("raio", "50");
-          params.set("auto_raio", "1");
-        }
       }
     }
 
