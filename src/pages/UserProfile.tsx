@@ -224,6 +224,7 @@ export default function UserProfile() {
 
   // Businesses
   const [myBusinesses, setMyBusinesses] = useState<BusinessFrontend[]>([]);
+  const [loadingMyBusinesses, setLoadingMyBusinesses] = useState(true);
   const [creatingBusiness, setCreatingBusiness] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessFrontend | null>(null);
   const [couponBusiness, setCouponBusiness] = useState<BusinessFrontend | null>(null);
@@ -448,18 +449,23 @@ export default function UserProfile() {
     getVerificationRequestsByOwner(session.userId).then(setMyVerificationRequests);
 
     // Load businesses owned by user
-    getBusinessesByOwner(session.userId).then((bizs) => {
-      setMyBusinesses(bizs);
-      const reviews = bizs.flatMap((b) =>
-        b.reviews.map((r) => ({
-          ...r,
-          businessName: b.name,
-          businessSlug: buildBusinessUrl(b),
-          businessId: b.id,
-        }))
-      );
-      setMyReviews(reviews);
-    });
+    setLoadingMyBusinesses(true);
+    getBusinessesByOwner(session.userId)
+      .then((bizs) => {
+        setMyBusinesses(bizs);
+        const reviews = bizs.flatMap((b) =>
+          b.reviews.map((r) => ({
+            ...r,
+            businessName: b.name,
+            businessSlug: buildBusinessUrl(b),
+            businessId: b.id,
+          }))
+        );
+        setMyReviews(reviews);
+      })
+      .finally(() => {
+        setLoadingMyBusinesses(false);
+      });
     getCommunityEventsByOwner(session.userId).then(setMyCommunityEvents);
     getCommunityFindsByOwner(session.userId).then(setMyCommunityFinds);
 
@@ -2274,7 +2280,12 @@ export default function UserProfile() {
                 </Link>
               </div>
 
-              {myBusinesses.length === 0 ? (
+              {loadingMyBusinesses ? (
+                <Card className="p-8 text-center border-border">
+                  <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3 animate-pulse" />
+                  <p className="text-muted-foreground mb-1">Carregando seus negócios...</p>
+                </Card>
+              ) : myBusinesses.length === 0 ? (
                 <Card className="p-8 text-center border-border">
                   <Store className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum negócio.</p>
